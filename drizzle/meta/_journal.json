@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1784252217835,
+      "tag": "0000_plain_toad_men",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784256241322,
+      "tag": "0001_lively_captain_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784265822503,
+      "tag": "0002_lonely_master_chief",
+      "breakpoints": true
+    }
+  ]
+}
