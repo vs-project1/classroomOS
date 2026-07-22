@@ -19,6 +19,7 @@
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
+    "google-libphonenumber": "^3.2.44",
     "lucide-react": "^1.24.0",
     "next": "16.2.10",
     "react": "19.2.4",
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/google-libphonenumber": "^7.4.30",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

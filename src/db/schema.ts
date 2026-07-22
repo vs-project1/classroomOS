@@ -32,6 +32,8 @@ export const students = sqliteTable("students", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   rollNumber: text("roll_number").notNull().unique(),
+  email: text("email").unique(),
+  phone: text("phone"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

@@ -43,6 +43,20 @@ export function StudentForm() {
               <p className="text-sm font-medium text-destructive">{state.fieldErrors.rollNumber[0]}</p>
             )}
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email (Optional)</Label>
+            <Input id="email" name="email" type="email" placeholder="e.g. student@example.com" />
+            {state.fieldErrors?.email && (
+              <p className="text-sm font-medium text-destructive">{state.fieldErrors.email[0]}</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone / Student Number (Optional)</Label>
+            <Input id="phone" name="phone" type="tel" placeholder="e.g. +977-9800000000" />
+            {state.fieldErrors?.phone && (
+              <p className="text-sm font-medium text-destructive">{state.fieldErrors.phone[0]}</p>
+            )}
+          </div>
           
           {!state.success && state.message && (
             <p className="text-sm font-medium text-destructive">{state.message}</p>
