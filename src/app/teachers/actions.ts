@@ -18,10 +18,31 @@ export type TeacherActionState = {
   };
 };
 
+import { PhoneNumberUtil } from "google-libphonenumber";
+
+const phoneUtil = PhoneNumberUtil.getInstance();
+
 const TeacherSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
-  email: z.string().trim().email("Invalid email address").optional().or(z.literal("")),
-  phone: z.string().trim().optional(),
+  email: z.union([
+    z.string().trim().toLowerCase().email("Invalid email address"),
+    z.literal("").transform(() => null),
+    z.null(),
+    z.undefined()
+  ]),
+  phone: z.union([
+    z.string().trim().refine((val) => {
+      try {
+        const number = phoneUtil.parseAndKeepRawInput(val, 'NP'); // Default to Nepal if no country code provided
+        return phoneUtil.isValidNumber(number);
+      } catch (error) {
+        return false;
+      }
+    }, "Invalid phone number"),
+    z.literal("").transform(() => null),
+    z.null(),
+    z.undefined()
+  ]),
 });
 
 export async function saveTeacher(prevState: any, formData: FormData): Promise<TeacherActionState> {

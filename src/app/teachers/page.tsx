@@ -3,6 +3,7 @@ import { teachers } from "@/db/schema";
 import { asc } from "drizzle-orm";
 import { TeacherForm } from "./teacher-form";
 import { DeleteTeacherButton } from "./delete-button";
+import { EditTeacherDialog } from "./edit-teacher-dialog";
 import { Edit } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
@@ -54,13 +55,7 @@ export default async function TeachersPage() {
                   <TableCell>{teacher.phone || "-"}</TableCell>
                   <TableCell>{new Date(teacher.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right flex justify-end gap-1">
-                    <Link
-                      href={`/teachers/${teacher.id}/edit`}
-                      className={buttonVariants({ variant: "ghost", size: "icon" })}
-                      title="Edit Teacher"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Link>
+                    <EditTeacherDialog teacher={teacher} />
                     <DeleteTeacherButton id={teacher.id} />
                   </TableCell>
                 </TableRow>
