@@ -4,7 +4,7 @@ import { asc, eq, and, gte, lt } from "drizzle-orm";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { CheckCircle2, Circle, Clock, Play, ArrowLeft, ArrowRight, Calendar } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Play, ArrowLeft, ArrowRight, Calendar, FileText } from "lucide-react";
 import { formatTime12h } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -112,7 +112,8 @@ export default async function TodayPage({ searchParams }: Props) {
   });
 
   const routinesWithStatus = dayRoutines.map(routine => {
-    const hasSession = loggedSessions.some(s => s.routineId === routine.id);
+    const session = loggedSessions.find(s => s.routineId === routine.id);
+    const hasSession = !!session;
     let status: "upcoming" | "ongoing" | "completed" = "upcoming";
 
     if (hasSession) {
@@ -130,17 +131,19 @@ export default async function TodayPage({ searchParams }: Props) {
       }
     }
 
-    return { ...routine, status, hasSession };
+    return { ...routine, status, hasSession, sessionId: session?.id };
   });
 
   const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const { getPermissions } = await import("@/lib/auth");
+  const permissions = await getPermissions();
 
   return (
-    <div className="flex-1 space-y-6 p-8 pt-6">
+    <div className="flex-1 space-y-6">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Class Routine Calendar</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Today's Routine</h2>
           <p className="text-muted-foreground mt-1">
             {new Intl.DateTimeFormat('en-US', { dateStyle: 'full' }).format(selectedDate)}
             {selectedDateStr === todayNptStr && <span className="ml-2 bg-primary/10 text-primary text-xs px-2.5 py-0.5 rounded-full font-medium">Today</span>}
@@ -150,19 +153,19 @@ export default async function TodayPage({ searchParams }: Props) {
         {/* Previous/Next Day Buttons */}
         <div className="flex items-center gap-2">
           <Link href={`/today?date=${prevDateStr}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Prev Day
+            <ArrowLeft className="h-4 w-4 mr-1" /> Prev
           </Link>
           <Link href={`/today?date=${todayNptStr}`} className={buttonVariants({ variant: "ghost", size: "sm" })} title="Go to Today">
             <Calendar className="h-4 w-4" />
           </Link>
           <Link href={`/today?date=${nextDateStr}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-            Next Day <ArrowRight className="h-4 w-4 ml-1" />
+            Next <ArrowRight className="h-4 w-4 ml-1" />
           </Link>
         </div>
       </div>
 
       {/* Week Tabs Navigation */}
-      <div className="bg-slate-50 border rounded-lg p-2">
+      <div className="bg-card border rounded-xl p-2 shadow-sm">
         <div className="grid grid-cols-7 gap-1 text-center">
           {weekDays.map((d) => {
             const dStr = formatDateISO(d);
@@ -175,10 +178,10 @@ export default async function TodayPage({ searchParams }: Props) {
               <Link
                 key={dStr}
                 href={`/today?date=${dStr}`}
-                className={`py-2 px-1 rounded-md flex flex-col items-center transition-colors ${
+                className={`py-2 px-1 rounded-lg flex flex-col items-center transition-colors ${
                   isActive
                     ? "bg-primary text-primary-foreground shadow-sm"
-                    : "hover:bg-slate-100 text-muted-foreground"
+                    : "hover:bg-muted text-muted-foreground"
                 }`}
               >
                 <span className="text-xs uppercase font-semibold">{weekdayName}</span>
@@ -191,54 +194,68 @@ export default async function TodayPage({ searchParams }: Props) {
       </div>
 
       {/* Class Schedule Cards */}
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {routinesWithStatus.length === 0 ? (
-          <div className="col-span-full p-12 text-center text-muted-foreground border rounded-lg bg-muted/20">
+          <div className="col-span-full p-12 text-center text-muted-foreground border rounded-xl bg-card">
             No classes scheduled in the routine for {DAYS_OF_WEEK[dayOfWeek]}.
           </div>
         ) : (
           routinesWithStatus.map(r => (
-            <Card key={r.id} className={`flex flex-col ${r.status === 'ongoing' ? 'border-primary shadow-sm ring-1 ring-primary/20' : ''}`}>
-              <CardHeader className="pb-3">
+            <Card key={r.id} className={`flex flex-col rounded-xl overflow-hidden ${r.status === 'ongoing' ? 'border-primary shadow-sm ring-1 ring-primary/20' : ''}`}>
+              <CardHeader className="pb-3 bg-muted/20 border-b">
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle className="text-xl">{r.subject.name}</CardTitle>
-                    <div className="text-xs font-semibold text-primary mt-0.5">{r.subject.code}</div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <div className={`w-2 h-8 rounded-full ${r.status === 'ongoing' ? 'bg-primary animate-pulse' : r.status === 'completed' ? 'bg-emerald-500' : 'bg-muted-foreground/30'}`} />
+                      {r.subject.name}
+                    </CardTitle>
+                    <div className="text-xs font-semibold text-primary mt-1">{r.subject.code}</div>
                   </div>
-                  {r.status === 'completed' && <span title="Completed / Passed"><CheckCircle2 className="h-5 w-5 text-green-500" /></span>}
-                  {r.status === 'ongoing' && <span title="Ongoing"><Clock className="h-5 w-5 text-primary animate-pulse" /></span>}
-                  {r.status === 'upcoming' && <span title="Scheduled"><Circle className="h-5 w-5 text-muted-foreground" /></span>}
                 </div>
-                <div className="text-sm font-medium text-muted-foreground mt-2">
+                <div className="text-sm font-medium text-muted-foreground mt-2 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" />
                   {formatTime12h(r.startTime)} - {formatTime12h(r.endTime)} {r.room ? `| Room: ${r.room}` : ""}
                 </div>
               </CardHeader>
-              <CardContent className="flex-1">
-                <div className="text-sm space-y-2 text-muted-foreground">
+              <CardContent className="flex-1 pt-4">
+                <div className="text-sm space-y-3 text-muted-foreground">
                   {(r.subject.teacher?.name || r.teacherName) && (
-                    <div>
-                      <span className="font-semibold text-foreground">Teacher:</span> {r.subject.teacher?.name || r.teacherName}
+                    <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 rounded-md">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                        {(r.subject.teacher?.name || r.teacherName || "T").charAt(0)}
+                      </div>
+                      <span className="font-medium text-foreground">{r.subject.teacher?.name || r.teacherName}</span>
                     </div>
                   )}
                   {r.notes && (
-                    <div className="mt-2 bg-muted/50 p-2.5 rounded text-xs italic">
+                    <div className="mt-2 bg-muted/50 p-3 rounded-md text-sm italic">
                       "{r.notes}"
                     </div>
                   )}
                 </div>
               </CardContent>
-              <CardFooter className="pt-4 border-t">
-                {r.hasSession ? (
-                  <div className="w-full text-center text-sm text-green-600 font-semibold flex items-center justify-center gap-1">
-                    <CheckCircle2 className="h-4 w-4" /> Session Logged
-                  </div>
+              <CardFooter className="pt-0 pb-4 px-4 flex-col gap-2">
+                {!permissions.canTakeAttendance ? (
+                  r.hasSession ? (
+                    <Link href={`/sessions/${r.sessionId}`} className={buttonVariants({ variant: "default", className: "w-full rounded-lg" })}>
+                      <FileText className="mr-2 h-4 w-4" /> View Lecture Log
+                    </Link>
+                  ) : (
+                    <div className="w-full text-center text-xs text-muted-foreground font-medium bg-muted/30 py-2.5 rounded-lg border border-dashed">Session not logged yet</div>
+                  )
                 ) : (
-                  <Link 
-                    href={`/sessions/new?subjectId=${r.subjectId}&startTime=${r.startTime}&endTime=${r.endTime}&routineId=${r.id}&sessionDate=${selectedDateStr}`}
-                    className={buttonVariants({ variant: r.status === 'ongoing' ? 'default' : 'outline', className: "w-full" })}
-                  >
-                    <Play className="mr-2 h-4 w-4" /> Log Session
-                  </Link>
+                  r.hasSession ? (
+                    <div className="w-full text-center text-sm text-emerald-600 font-semibold flex items-center justify-center gap-1 bg-emerald-50 py-2 rounded-lg border border-emerald-100">
+                      <CheckCircle2 className="h-4 w-4" /> Session Logged
+                    </div>
+                  ) : (
+                    <Link 
+                      href={`/sessions/new?subjectId=${r.subjectId}&startTime=${r.startTime}&endTime=${r.endTime}&routineId=${r.id}&sessionDate=${selectedDateStr}`}
+                      className={buttonVariants({ variant: r.status === 'ongoing' ? 'default' : 'outline', className: "w-full rounded-lg" })}
+                    >
+                      <Play className="mr-2 h-4 w-4" /> Log Session
+                    </Link>
+                  )
                 )}
               </CardFooter>
             </Card>
@@ -248,3 +265,4 @@ export default async function TodayPage({ searchParams }: Props) {
     </div>
   );
 }
+
