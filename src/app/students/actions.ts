@@ -80,3 +80,41 @@ export async function createStudent(prevState: StudentActionState, formData: For
     return { success: false, message: "Something went wrong. Please try again." };
   }
 }
+
+export async function updateStudent(prevState: StudentActionState, formData: FormData): Promise<StudentActionState> {
+  const id = formData.get("id") as string;
+  const validatedFields = StudentSchema.safeParse({
+    name: formData.get("name"),
+    rollNumber: formData.get("rollNumber"),
+    email: formData.get("email"),
+    phone: formData.get("phone"),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      success: false,
+      fieldErrors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const { name, rollNumber, email, phone } = validatedFields.data;
+
+  try {
+    const { eq } = await import("drizzle-orm");
+    await db.update(students).set({
+      name,
+      rollNumber,
+      email: email ?? null,
+      phone: phone ?? null,
+    }).where(eq(students.id, id));
+
+    revalidatePath("/students");
+    return { success: true, message: "Student updated successfully!" };
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message?.includes("UNIQUE constraint failed")) {
+      return { success: false, message: "A student with this roll number or email already exists." };
+    }
+    console.error("Failed to update student:", error);
+    return { success: false, message: "Something went wrong. Please try again." };
+  }
+}

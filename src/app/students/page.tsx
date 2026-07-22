@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { students } from "@/db/schema";
 import { StudentForm } from "./student-form";
+import { EditStudentDialog } from "./edit-student-dialog";
 import { asc } from "drizzle-orm";
 import {
   Table,
@@ -28,13 +29,16 @@ export default async function StudentsPage() {
             <TableRow>
               <TableHead>Roll Number</TableHead>
               <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Phone</TableHead>
               <TableHead>Joined At</TableHead>
+              <TableHead className="w-[80px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {allStudents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   No students found.
                 </TableCell>
               </TableRow>
@@ -43,7 +47,12 @@ export default async function StudentsPage() {
                 <TableRow key={student.id}>
                   <TableCell className="font-medium">{student.rollNumber}</TableCell>
                   <TableCell>{student.name}</TableCell>
+                  <TableCell>{student.email || "-"}</TableCell>
+                  <TableCell>{student.phone || "-"}</TableCell>
                   <TableCell>{new Date(student.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <EditStudentDialog student={student} />
+                  </TableCell>
                 </TableRow>
               ))
             )}
