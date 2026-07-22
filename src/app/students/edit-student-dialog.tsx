@@ -53,7 +53,7 @@ export function EditStudentDialog({ student }: EditStudentDialogProps) {
             Update the student's details below.
           </DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="space-y-4">
+        <form action={formAction} className="space-y-4" key={JSON.stringify(student)}>
           <input type="hidden" name="id" value={student.id} />
           <div className="space-y-2">
             <Label htmlFor={`edit-name-${student.id}`}>Full Name</Label>

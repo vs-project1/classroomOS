@@ -51,7 +51,7 @@ export function EditTeacherDialog({ teacher }: EditTeacherDialogProps) {
             Update the teacher's details below.
           </DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="space-y-4">
+        <form action={formAction} className="space-y-4" key={JSON.stringify(teacher)}>
           <input type="hidden" name="id" value={teacher.id} />
           
           <div className="space-y-2">
