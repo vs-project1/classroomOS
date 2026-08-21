@@ -1,7 +1,7 @@
 ---
 description: Performance & dead-code optimizer for Classroom OS. Removes dead exports/modules, fixes N+1 and over-fetching query patterns, trims client bundles, and eliminates wasted renders. Use when the app feels heavy, bundles grow, or you want the ~1,100 lines of dead UI primitives gone safely.
 mode: subagent
-color: yellow
+color: primary
 permission:
   edit: allow
   bash: allow

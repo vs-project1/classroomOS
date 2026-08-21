@@ -1,7 +1,7 @@
 ---
 description: Frontend/UI engineer for Classroom OS. Owns pages, forms, client components, UI primitives, layout shell, and hooks across admin/student/cr/teacher areas. Use when building or fixing pages, dialogs/forms, hydration errors, Tailwind styling, navigation links, accessibility, or component refactors.
 mode: subagent
-color: blue
+color: primary
 permission:
   edit: allow
   bash: allow

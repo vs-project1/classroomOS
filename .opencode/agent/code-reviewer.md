@@ -1,7 +1,7 @@
 ---
 description: Strict read-only code reviewer for Classroom OS diffs. Reviews changes along correctness, security (authorization on every action/page), project conventions, and spec-fit. Use after completing a task, feature, or bugfix - dispatch with base and head refs plus what the change was supposed to do. Does NOT write code.
 mode: subagent
-color: violet
+color: primary
 temperature: 0.1
 permission:
   edit: deny

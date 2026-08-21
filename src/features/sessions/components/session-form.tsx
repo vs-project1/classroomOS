@@ -1,12 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { createSession, type SessionActionState } from "@/features/sessions/actions/session-actions";
+import { useActionState, useState, useEffect, useCallback } from "react";
+import { createSession, getStudentsBySubject, type SessionActionState } from "@/features/sessions/actions/session-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type StudentInfo = {
   id: string;
@@ -21,7 +20,6 @@ type SubjectInfo = {
 };
 
 type Props = {
-  students: StudentInfo[];
   subjects: SubjectInfo[];
   defaultValues?: {
     subjectId?: string;
@@ -41,13 +39,37 @@ const initialState: SessionActionState = {
   success: false,
 };
 
-export function SessionForm({ students, subjects, defaultValues }: Props) {
+export function SessionForm({ subjects, defaultValues }: Props) {
   const [state, formAction, isPending] = useActionState(createSession, initialState);
   
-  // Initialize default attendance state ("present" for everyone)
-  const [attendance, setAttendance] = useState<AttendanceState[]>(
-    students.map(s => ({ studentId: s.id, status: "present" }))
-  );
+  const [selectedSubjectId, setSelectedSubjectId] = useState(defaultValues?.subjectId || "");
+  const [enrolledStudents, setEnrolledStudents] = useState<StudentInfo[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+
+  const [attendance, setAttendance] = useState<AttendanceState[]>([]);
+
+  const fetchEnrolledStudents = useCallback(async (subjectId: string) => {
+    if (!subjectId) {
+      setEnrolledStudents([]);
+      setAttendance([]);
+      return;
+    }
+    setLoadingStudents(true);
+    try {
+      const students = await getStudentsBySubject(subjectId);
+      setEnrolledStudents(students);
+      setAttendance(students.map(s => ({ studentId: s.id, status: "present" as const })));
+    } catch {
+      setEnrolledStudents([]);
+      setAttendance([]);
+    } finally {
+      setLoadingStudents(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEnrolledStudents(selectedSubjectId);
+  }, [selectedSubjectId, fetchEnrolledStudents]);
 
   const handleStatusChange = (studentId: string, status: AttendanceState["status"]) => {
     setAttendance(prev => 
@@ -93,7 +115,8 @@ export function SessionForm({ students, subjects, defaultValues }: Props) {
               id="subjectId" 
               name="subjectId" 
               required 
-              defaultValue={defaultValues?.subjectId || ""}
+              value={selectedSubjectId}
+              onChange={(e) => setSelectedSubjectId(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="">Select a subject...</option>
@@ -141,16 +164,16 @@ export function SessionForm({ students, subjects, defaultValues }: Props) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="homework" className="text-sm font-medium">Assign Homework for Submission *</Label>
-            <Textarea id="homework" name="homework" required placeholder="Detailed homework description for student submission..." className="min-h-[100px] resize-y" />
+            <Label htmlFor="homework" className="text-sm font-medium">Assign Homework for Submission</Label>
+            <Textarea id="homework" name="homework" placeholder="Detailed homework description for student submission... (optional)" className="min-h-[100px] resize-y" />
             {state.fieldErrors?.homework && (
               <p className="text-sm font-medium text-destructive">{state.fieldErrors.homework[0]}</p>
             )}
           </div>
 
           <div className="space-y-2 md:w-1/2">
-            <Label htmlFor="homeworkDueDate" className="text-sm font-medium">Homework Submission Date *</Label>
-            <Input type="date" id="homeworkDueDate" name="homeworkDueDate" required className="h-10" />
+            <Label htmlFor="homeworkDueDate" className="text-sm font-medium">Homework Submission Date</Label>
+            <Input type="date" id="homeworkDueDate" name="homeworkDueDate" className="h-10" />
             {state.fieldErrors?.homeworkDueDate && (
               <p className="text-sm font-medium text-destructive">{state.fieldErrors.homeworkDueDate[0]}</p>
             )}
@@ -171,27 +194,35 @@ export function SessionForm({ students, subjects, defaultValues }: Props) {
             <p className="text-sm text-muted-foreground mt-1">Mark student attendance for this session.</p>
           </div>
           <div className="space-y-2">
-            {students.map((student) => {
-              const currentStatus = attendance.find(a => a.studentId === student.id)?.status || "present";
-              return (
-                <div key={student.id} className="flex items-center justify-between p-3 rounded-md border bg-card hover:bg-muted/30 transition-colors">
-                  <div>
-                    <p className="font-medium">{student.name}</p>
-                    <p className="text-xs text-muted-foreground">{student.rollNumber}</p>
+            {!selectedSubjectId ? (
+              <p className="text-sm text-muted-foreground py-4">Select a subject to see enrolled students.</p>
+            ) : loadingStudents ? (
+              <p className="text-sm text-muted-foreground py-4">Loading enrolled students...</p>
+            ) : enrolledStudents.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">No students enrolled in this subject.</p>
+            ) : (
+              enrolledStudents.map((student) => {
+                const currentStatus = attendance.find(a => a.studentId === student.id)?.status || "present";
+                return (
+                  <div key={student.id} className="flex items-center justify-between p-3 rounded-md border bg-card hover:bg-muted/30 transition-colors">
+                    <div>
+                      <p className="font-medium">{student.name}</p>
+                      <p className="text-xs text-muted-foreground">{student.rollNumber}</p>
+                    </div>
+                    <select
+                      value={currentStatus}
+                      onChange={(e) => handleStatusChange(student.id, e.target.value as AttendanceState["status"])}
+                      className="flex h-9 w-32 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="present">Present</option>
+                      <option value="absent">Absent</option>
+                      <option value="late">Late</option>
+                      <option value="excused">Excused</option>
+                    </select>
                   </div>
-                  <select
-                    value={currentStatus}
-                    onChange={(e) => handleStatusChange(student.id, e.target.value as AttendanceState["status"])}
-                    className="flex h-9 w-32 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <option value="present">Present</option>
-                    <option value="absent">Absent</option>
-                    <option value="late">Late</option>
-                    <option value="excused">Excused</option>
-                  </select>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
         

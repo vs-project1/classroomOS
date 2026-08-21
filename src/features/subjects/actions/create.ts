@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import crypto from "crypto";
 import { requireAuth } from "@/lib/auth";
+import { slugify, uniqueSlugify } from "@/utils/slug";
 
 export type SubjectActionState = {
   success: boolean;
@@ -40,10 +41,15 @@ export async function createSubject(prevState: SubjectActionState, formData: For
 
   const { name, code, teacherId } = validatedFields.data;
 
+  const baseSlug = slugify(name);
+  const existingSubjects = await db.select({ slug: subjects.slug }).from(subjects);
+  const slug = uniqueSlugify(baseSlug, existingSubjects.map((s) => s.slug));
+
   try {
     await db.insert(subjects).values({
       id: crypto.randomUUID(),
       name,
+      slug,
       code,
       teacherId: teacherId || null,
     });

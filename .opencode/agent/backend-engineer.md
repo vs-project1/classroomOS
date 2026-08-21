@@ -1,7 +1,7 @@
 ---
 description: Backend business-logic engineer for Classroom OS. Owns server actions, validation schemas, attendance calculations, and time/timezone logic across all features (assignments, attendance, events, notices, resources, routine, sessions, subjects, users). Use when implementing or fixing server actions, Zod validation, transactions, business rules, or date/NPT-time math.
 mode: subagent
-color: green
+color: primary
 permission:
   edit: allow
   bash: allow

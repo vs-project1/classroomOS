@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import crypto from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
+import { slugify } from "../src/utils/slug";
 
 export function getE2EClient(): Client {
   const targetUrl = process.env.DATABASE_URL || "file:local.db";
@@ -102,10 +103,10 @@ export async function seedE2E(customClient?: Client) {
 
   for (const s of subjectsData) {
     await client.execute({
-      sql: `INSERT INTO subjects (id, name, code, teacher_id, created_at)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET name = excluded.name, code = excluded.code;`,
-      args: [s.id, s.name, s.code, s.teacherId, now],
+      sql: `INSERT INTO subjects (id, name, slug, code, teacher_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET name = excluded.name, slug = excluded.slug, code = excluded.code;`,
+      args: [s.id, s.name, slugify(s.name), s.code, s.teacherId, now],
     });
   }
 

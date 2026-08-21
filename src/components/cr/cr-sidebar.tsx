@@ -1,16 +1,115 @@
 "use client";
 
-import { Home, Clock, CalendarRange, CheckCircle, Book, Bell, CalendarDays, FileText, Menu, GraduationCap, LogOut } from "lucide-react";
+import { createContext, useContext, useId, useState, Fragment } from "react";
+import { Home, Clock, CalendarRange, CheckCircle, Book, BookOpen, ChevronDown, Bell, CalendarDays, FileText, Menu, GraduationCap, LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetTrigger, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { logoutAction } from "@/features/auth/actions/auth";
+import type { SidebarSubject } from "@/features/subjects/queries";
 
 import { crNavigation } from "@/lib/navigation";
 
-function SidebarNav() {
+const SidebarSubjectsContext = createContext<SidebarSubject[]>([]);
+
+export function SidebarSubjectsProvider({
+  subjects,
+  children,
+}: {
+  subjects: SidebarSubject[];
+  children: React.ReactNode;
+}) {
+  return (
+    <SidebarSubjectsContext.Provider value={subjects}>
+      {children}
+    </SidebarSubjectsContext.Provider>
+  );
+}
+
+function SubjectChildLink({ href, label, isActive }: { href: string; label: string; isActive: boolean }) {
+  return (
+    <Link
+      href={href}
+      title={label}
+      className={cn(
+        "block px-3 py-1.5 rounded-lg truncate transition-all font-medium text-sm",
+        isActive
+          ? "bg-primary/10 text-primary font-semibold"
+          : "text-sidebar-foreground/65 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+      )}
+    >
+      {label}
+    </Link>
+  );
+}
+
+function SubjectsDropdown({ subjects }: { subjects: SidebarSubject[] }) {
   const pathname = usePathname();
+  const sectionId = useId();
+  const [open, setOpen] = useState(() => !!pathname?.startsWith("/subjects"));
+
+  const isIndexActive = pathname === "/subjects";
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-controls={sectionId}
+        className={cn(
+          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-medium text-sm cursor-pointer",
+          isIndexActive
+            ? "bg-primary text-white font-semibold shadow-sm shadow-primary/30"
+            : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+        )}
+      >
+        <BookOpen className={cn("w-4 h-4 shrink-0", isIndexActive ? "text-white" : "opacity-70")} />
+        <span className="flex-1 text-left">Subjects</span>
+        <span
+          className={cn(
+            "px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none",
+            isIndexActive ? "bg-white/20 text-white" : "bg-sidebar-accent text-sidebar-foreground/60"
+          )}
+        >
+          {subjects.length}
+        </span>
+        <ChevronDown
+          className={cn(
+            "w-4 h-4 shrink-0 transition-transform duration-200",
+            open && "rotate-180",
+            !isIndexActive && "opacity-70"
+          )}
+        />
+      </button>
+      {open && (
+        <div id={sectionId} className="ml-4 mt-1 pl-3 border-l border-sidebar-border/60 space-y-0.5">
+          {subjects.length > 0 ? (
+            <>
+              <SubjectChildLink href="/subjects" label="All Subjects" isActive={isIndexActive} />
+              {subjects.map((subject) => (
+                <SubjectChildLink
+                  key={subject.id}
+                  href={`/subjects/${subject.slug}`}
+                  label={subject.name}
+                  isActive={pathname === `/subjects/${subject.slug}`}
+                />
+              ))}
+            </>
+          ) : (
+            <p className="px-3 py-2 text-xs font-medium text-sidebar-foreground/50">No subjects yet</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SidebarNav({ subjects: subjectsProp }: { subjects?: SidebarSubject[] } = {}) {
+  const pathname = usePathname();
+  const contextSubjects = useContext(SidebarSubjectsContext);
+  const subjects = subjectsProp ?? contextSubjects;
 
   return (
     <>
@@ -33,22 +132,24 @@ function SidebarNav() {
       </div>
 
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-        {crNavigation.map((item) => {
+        {crNavigation.map((item, index) => {
           const isActive = pathname === item.url || (item.url !== "/" && pathname?.startsWith(item.url));
           return (
-            <Link
-              key={item.title}
-              href={item.url}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-medium text-sm cursor-pointer",
-                isActive
-                  ? "bg-primary text-white font-semibold shadow-sm shadow-primary/30"
-                  : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-              )}
-            >
-              <item.icon className={cn("w-4 h-4 shrink-0", isActive ? "text-white" : "opacity-70")} />
-              <span>{item.title}</span>
-            </Link>
+            <Fragment key={item.title}>
+              <Link
+                href={item.url}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-medium text-sm cursor-pointer",
+                  isActive
+                    ? "bg-primary text-white font-semibold shadow-sm shadow-primary/30"
+                    : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                )}
+              >
+                <item.icon className={cn("w-4 h-4 shrink-0", isActive ? "text-white" : "opacity-70")} />
+                <span>{item.title}</span>
+              </Link>
+              {index === 0 && <SubjectsDropdown subjects={subjects} />}
+            </Fragment>
           );
         })}
       </nav>
@@ -76,10 +177,10 @@ function SidebarNav() {
   );
 }
 
-export function CRSidebar() {
+export function CRSidebar({ subjects }: { subjects: SidebarSubject[] }) {
   return (
     <aside className="max-md:hidden flex flex-col w-64 bg-sidebar border-r border-sidebar-border h-screen sticky top-0 shrink-0 text-sidebar-foreground z-20">
-      <SidebarNav />
+      <SidebarNav subjects={subjects} />
     </aside>
   );
 }

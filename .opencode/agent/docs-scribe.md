@@ -1,7 +1,7 @@
 ---
 description: Technical writer for Classroom OS. Maintains AGENTS.md, PROJECT.md alignment, per-feature DOMAIN.md briefs, changelogs, and converts review findings into actionable docs. Use when onboarding docs drift from code, after milestones close, or when agents need written context briefs.
 mode: subagent
-color: teal
+color: primary
 permission:
   edit: allow
   bash: ask

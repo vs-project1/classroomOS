@@ -1,7 +1,7 @@
 ---
 description: Mechanical refactor & migration mover for Classroom OS. Executes structural moves - relocating modules into new folder layouts (e.g. src/lib into src/shared), rewriting all imports, keeping builds green. Use ONLY for pre-planned restructures with an explicit path map. Zero behavior changes permitted.
 mode: subagent
-color: indigo
+color: secondary
 permission:
   edit: allow
   bash: allow

@@ -1,7 +1,7 @@
 ---
 description: Config & environment hygiene guardian for Classroom OS. Owns .env handling, gitignore correctness, tsconfig/eslint/next.config sanity, pnpm workspace files, and CI wiring. Use when builds behave differently across machines, secrets are at risk, or repo hygiene findings need closing.
 mode: subagent
-color: slate
+color: primary
 permission:
   edit: allow
   bash: allow

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { classSessions, lectureLogs, attendance, subjects, students, homework } from "@/db/schema";
+import { classSessions, lectureLogs, attendance, subjects, students, homework, enrollments } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -41,10 +41,8 @@ const SessionSchema = z.object({
   startTime: z.string().trim().min(1, "Start time is required"),
   endTime: z.string().trim().min(1, "End time is required"),
   topicsCovered: z.string().trim().min(1, "Topics covered is required"),
-  homework: z.string().trim().min(1, "Homework description is required"),
-  homeworkDueDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid homework submission date",
-  }),
+  homework: z.string().optional(),
+  homeworkDueDate: z.string().optional(),
   notes: z.string().trim().min(1, "Notes are required"),
   routineId: z.string().optional(),
   attendanceJson: z.string().refine(
@@ -61,10 +59,44 @@ const SessionSchema = z.object({
 }).refine(data => data.endTime > data.startTime, {
   message: "End time must be after start time",
   path: ["endTime"],
-}).refine(data => new Date(data.homeworkDueDate) >= new Date(data.sessionDate), {
-  message: "Homework submission date cannot be before the session date",
-  path: ["homeworkDueDate"],
-});
+}).refine(
+  (data) => {
+    const hasHomework = data.homework && data.homework.trim().length > 0;
+    const hasDueDate = data.homeworkDueDate && data.homeworkDueDate.trim().length > 0;
+    if (hasHomework && !hasDueDate) return false;
+    if (!hasHomework && hasDueDate) return false;
+    return true;
+  },
+  {
+    message: "Homework description and due date must both be provided, or both be empty",
+    path: ["homework"],
+  }
+).refine(
+  (data) => {
+    if (data.homeworkDueDate && data.sessionDate) {
+      return new Date(data.homeworkDueDate) >= new Date(data.sessionDate);
+    }
+    return true;
+  },
+  {
+    message: "Homework submission date cannot be before the session date",
+    path: ["homeworkDueDate"],
+  }
+);
+
+export async function getStudentsBySubject(subjectId: string) {
+  const enrolledStudents = await db
+    .select({
+      id: students.id,
+      name: students.name,
+      rollNumber: students.rollNumber,
+    })
+    .from(enrollments)
+    .innerJoin(students, eq(enrollments.studentId, students.id))
+    .where(eq(enrollments.subjectId, subjectId));
+
+  return enrolledStudents;
+}
 
 export async function createSession(prevState: SessionActionState, formData: FormData): Promise<SessionActionState> {
   await requireAuth(["CR", "TEACHER", "ADMIN"]);
@@ -122,9 +154,12 @@ export async function createSession(prevState: SessionActionState, formData: For
       return { success: false, message: "The selected subject does not exist." };
     }
 
-    // 2. Fetch all current students
-    const allStudents = await db.select().from(students);
-    const dbStudentIds = new Set(allStudents.map(s => s.id));
+    // 2. Fetch enrolled students for this subject
+    const enrolledStudents = await db
+      .select({ studentId: enrollments.studentId })
+      .from(enrollments)
+      .where(eq(enrollments.subjectId, subjectId));
+    const enrolledStudentIds = new Set(enrolledStudents.map(s => s.studentId));
     
     // 3. Confirm submitted students match exactly
     const submittedStudentIds = new Set(submittedAttendance.map(a => a.studentId));
@@ -134,14 +169,17 @@ export async function createSession(prevState: SessionActionState, formData: For
     }
 
     for (const submittedId of submittedStudentIds) {
-      if (!dbStudentIds.has(submittedId)) {
-        return { success: false, message: `Student ID ${submittedId} does not exist.` };
+      if (!enrolledStudentIds.has(submittedId)) {
+        return { success: false, message: `Student ID ${submittedId} is not enrolled in this subject.` };
       }
     }
 
-    if (submittedStudentIds.size !== dbStudentIds.size) {
+    if (submittedStudentIds.size !== enrolledStudentIds.size) {
       return { success: false, message: "Missing or extra students in attendance submission." };
     }
+
+    // Determine if homework is provided
+    const hasHomework = homeworkDesc && homeworkDesc.trim().length > 0;
 
     // Execution: Database Transaction
     await db.transaction(async (tx) => {
@@ -160,23 +198,25 @@ export async function createSession(prevState: SessionActionState, formData: For
         id: logId,
         classSessionId: sessionId,
         topicsCovered,
-        homework: homeworkDesc,
+        homework: homeworkDesc || "",
         notes,
       });
 
-      // Insert Homework Assignment
-      await tx.insert(homework).values({
-        id: crypto.randomUUID(),
-        subjectId,
-        title: `Homework: ${topicsCovered.slice(0, 30)}${topicsCovered.length > 30 ? "..." : ""}`,
-        description: homeworkDesc,
-        assignedDate: new Date(sessionDate),
-        dueDate: new Date(homeworkDueDate),
-        sessionId: sessionId,
-        status: "active",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      // Insert Homework Assignment (only if homework is provided)
+      if (hasHomework && homeworkDueDate) {
+        await tx.insert(homework).values({
+          id: crypto.randomUUID(),
+          subjectId,
+          title: `Homework: ${topicsCovered.slice(0, 30)}${topicsCovered.length > 30 ? "..." : ""}`,
+          description: homeworkDesc,
+          assignedDate: new Date(sessionDate),
+          dueDate: new Date(homeworkDueDate),
+          sessionId: sessionId,
+          status: "active",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
 
       // Insert Attendance Records
       const attendanceValues = submittedAttendance.map(a => ({

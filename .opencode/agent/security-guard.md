@@ -1,7 +1,7 @@
 ---
 description: Security & auth specialist for Classroom OS. Owns authentication, sessions, RBAC, route protection, env validation, and upload authorization. Use when fixing or reviewing login/session/password/permission issues, closing IDOR holes, adding requireAuth checks, hardening cookies/tokens, or auditing anything security-critical.
 mode: subagent
-color: red
+color: accent
 permission:
   edit: allow
   bash: allow

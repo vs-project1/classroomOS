@@ -1,7 +1,7 @@
 ---
 description: Adversarial security tester (red team) for Classroom OS. Attacks the running app like a hostile student - forged action POSTs, cookie spoofing, IDOR probes, cross-role escalation. Use when you need proof that an authorization fix actually holds, or penetration evidence before signing off a release. READ-ONLY on source: finds and proves holes, never patches them.
 mode: subagent
-color: magenta
+color: primary
 permission:
   edit: deny
   bash: allow

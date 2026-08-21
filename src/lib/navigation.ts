@@ -32,11 +32,11 @@ export const adminNavigation: NavItem[] = [
 
 export const teacherNavigation: NavItem[] = [
   { title: "Dashboard", url: "/teacher", icon: Home },
-  { title: "Today's Schedule", url: "/today", icon: Clock }, // Still using shared route for now
+  { title: "Today's Schedule", url: "/teacher/today", icon: Clock },
   { title: "Grade Submissions", url: "/teacher/grading", icon: CheckCircle },
   { title: "Resources", url: "/teacher/resources", icon: FileText },
-  { title: "Attendance", url: "/attendance", icon: CheckCircle },
-  { title: "Session Logs", url: "/lecture-logs", icon: FileText },
+  { title: "Attendance", url: "/teacher/attendance", icon: CheckCircle },
+  { title: "Session Logs", url: "/teacher/lecture-logs", icon: FileText },
 ];
 
 export const crNavigation: NavItem[] = [

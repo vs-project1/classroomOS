@@ -3,6 +3,7 @@ config({ path: ".env.local" });
 config(); // Fallback to .env if present
 
 import { db } from "../src/db/client";
+import { slugify } from "../src/utils/slug";
 import {
   teachers,
   subjects,
@@ -218,6 +219,7 @@ async function verify() {
       await db.insert(subjects).values({
         id: subjectId,
         name: "Database Management Systems",
+        slug: slugify("Database Management Systems"),
         code: `DBMS-${runId}`,
         teacherId: teacherId,
       });
@@ -806,6 +808,7 @@ async function verify() {
       await db.insert(subjects).values({
         id: sCascId,
         name: "Cascade Test Subject",
+        slug: slugify("Cascade Test Subject"),
         code: `CASC-${runId}`,
       });
       cleanupBag.subjectIds.add(sCascId);
@@ -1011,6 +1014,7 @@ async function verify() {
       await db.insert(subjects).values({
         id: sSetNullId,
         name: "Set Null Subject",
+        slug: slugify("Set Null Subject"),
         code: `SN-${runId}`,
         teacherId: tSetNullId,
       });

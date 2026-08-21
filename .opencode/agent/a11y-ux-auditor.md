@@ -1,7 +1,7 @@
 ---
 description: Accessibility & UX polish auditor for Classroom OS. Audits and fixes keyboard navigation, ARIA labels, focus management in dialogs, form label associations, color contrast, and removes decorative no-op controls. Use when polishing interfaces before release or after frontend work lands.
 mode: subagent
-color: rose
+color: primary
 permission:
   edit: allow
   bash: allow

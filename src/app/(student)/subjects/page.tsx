@@ -14,6 +14,7 @@ export default async function SubjectsPage() {
   let enrolledSubjects: Array<{
     id: string;
     name: string;
+    slug: string;
     code: string;
     teacherName: string;
     unitCount: number;
@@ -43,6 +44,7 @@ export default async function SubjectsPage() {
         .map((e) => ({
           id: e.subject.id,
           name: e.subject.name,
+          slug: e.subject.slug,
           code: e.subject.code,
           teacherName: e.subject.teacher?.name || "Faculty Member",
           unitCount: e.subject.courseUnits?.length || 0,
@@ -67,6 +69,7 @@ export default async function SubjectsPage() {
     enrolledSubjects = allSubjects.map((s) => ({
       id: s.id,
       name: s.name,
+      slug: s.slug,
       code: s.code,
       teacherName: s.teacher?.name || "Faculty Member",
       unitCount: s.courseUnits?.length || 0,
@@ -95,7 +98,7 @@ export default async function SubjectsPage() {
         {enrolledSubjects.map((subj) => (
           <Link
             key={subj.id}
-            href={`/subjects/${subj.id}`}
+            href={`/subjects/${subj.slug}`}
             data-testid="subject-card"
             className="group relative flex flex-col justify-between rounded-xl border bg-card p-6 shadow-sm hover:shadow-md hover:border-primary/50 transition-all text-card-foreground cursor-pointer"
           >

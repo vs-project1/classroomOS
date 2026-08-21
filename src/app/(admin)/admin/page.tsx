@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { weeklyRoutine, classSessions, homework, notices, events } from "@/db/schema";
 import { desc, eq, gte, asc } from "drizzle-orm";
 import Link from "next/link";
-import { Clock, Book, Bell, CalendarDays, Calendar, ArrowRight, PenTool, Megaphone, ClipboardList, Lock } from "lucide-react";
+import { Clock, Book, Bell, CalendarDays, Calendar, ArrowRight, PenTool, Megaphone, ClipboardList, Lock, CheckCircle } from "lucide-react";
 import { formatTime12h } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -93,7 +93,7 @@ export default async function Dashboard() {
       </div>
 
       {/* 2. Quick Actions Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Link href="/sessions/new" className="flex items-center gap-4 bg-card hover:bg-accent hover:text-accent-foreground rounded-xl p-4 transition-all border border-border/40 group cursor-pointer shadow-sm hover:shadow-md">
           <PenTool className="h-5 w-5 text-primary" />
           <span className="font-semibold text-sm">Log Session</span>
@@ -109,6 +109,10 @@ export default async function Dashboard() {
         <Link href="/routine" className="flex items-center gap-4 bg-card hover:bg-accent hover:text-accent-foreground rounded-xl p-4 transition-all border border-border/40 group cursor-pointer shadow-sm hover:shadow-md">
           <CalendarDays className="h-5 w-5 text-primary" />
           <span className="font-semibold text-sm">View Routine</span>
+        </Link>
+        <Link href="/admin/attendance" className="flex items-center gap-4 bg-card hover:bg-accent hover:text-accent-foreground rounded-xl p-4 transition-all border border-border/40 group cursor-pointer shadow-sm hover:shadow-md">
+          <CheckCircle className="h-5 w-5 text-primary" />
+          <span className="font-semibold text-sm">Disputes</span>
         </Link>
       </div>
 

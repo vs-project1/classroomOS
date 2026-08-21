@@ -3,6 +3,7 @@ import { createClient } from "@libsql/client";
 import { classSessions, lectureLogs, attendance, subjects, students } from "../src/db/schema";
 import { sql } from "drizzle-orm";
 import crypto from "crypto";
+import { slugify } from "../src/utils/slug";
 
 const client = createClient({
   url: process.env.DATABASE_URL!,
@@ -29,7 +30,7 @@ async function run() {
 
   if (!testSubjectId) {
     testSubjectId = crypto.randomUUID();
-    await db.insert(subjects).values({ id: testSubjectId, name: "Rollback Test Subject", code: "RB101" });
+    await db.insert(subjects).values({ id: testSubjectId, name: "Rollback Test Subject", slug: slugify("Rollback Test Subject"), code: "RB101" });
   }
 
   // 3. Attempt a transaction that intentionally fails at the last step

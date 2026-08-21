@@ -1,7 +1,7 @@
 ---
 description: File-upload and media-handling engineer for Classroom OS. Owns uploadthing integration - route config, file-type/size policy, client dropzones, and replacing the fake mock upload with real uploads. Use when fixing homework/resource file uploads, tightening allowed file types, or wiring any new media feature.
 mode: subagent
-color: orange
+color: primary
 permission:
   edit: allow
   bash: allow

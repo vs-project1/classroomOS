@@ -5,6 +5,7 @@ config(); // Fallback to .env
 
 import crypto from "node:crypto";
 import { db } from "./client";
+import { slugify } from "@/utils/slug";
 import {
   users,
   teachers,
@@ -323,11 +324,11 @@ async function seedAll() {
   // 5. Seed Subjects
   console.log("📚 Seeding Subjects...");
   const subjectsData = [
-    { id: "subj_dbms", name: "Database Management System", code: "CACS251", teacherId: "tch_rajesh_01" },
-    { id: "subj_os", name: "Operating Systems", code: "CACS252", teacherId: "tch_sunita_02" },
-    { id: "subj_web2", name: "Web Technology II", code: "CACS253", teacherId: "tch_bishal_03" },
-    { id: "subj_nm", name: "Numerical Methods", code: "CACS254", teacherId: "tch_anjali_04" },
-    { id: "subj_se", name: "Software Engineering", code: "CACS255", teacherId: "tch_rajesh_01" },
+    { id: "subj_dbms", name: "Database Management System", slug: slugify("Database Management System"), code: "CACS251", teacherId: "tch_rajesh_01" },
+    { id: "subj_os", name: "Operating Systems", slug: slugify("Operating Systems"), code: "CACS252", teacherId: "tch_sunita_02" },
+    { id: "subj_web2", name: "Web Technology II", slug: slugify("Web Technology II"), code: "CACS253", teacherId: "tch_bishal_03" },
+    { id: "subj_nm", name: "Numerical Methods", slug: slugify("Numerical Methods"), code: "CACS254", teacherId: "tch_anjali_04" },
+    { id: "subj_se", name: "Software Engineering", slug: slugify("Software Engineering"), code: "CACS255", teacherId: "tch_rajesh_01" },
   ];
 
   for (const subj of subjectsData) {

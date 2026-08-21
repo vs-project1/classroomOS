@@ -1,7 +1,7 @@
 ---
 description: Database engineer for Classroom OS. Owns the Drizzle schema, migrations, seeds, and DB client. Use when changing tables/columns/constraints/indexes, writing or repairing drizzle migrations, fixing seed scripts, investigating FK/cascade/constraint errors, or anything involving local.db schema integrity.
 mode: subagent
-color: amber
+color: primary
 permission:
   edit: allow
   bash: allow

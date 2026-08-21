@@ -1,7 +1,7 @@
 ---
 description: QA/test engineer for Classroom OS. Owns Playwright e2e specs, fixtures/POMs, test config, and ops scripts. Use when writing or fixing e2e tests, eliminating flaky/vacuous tests, isolating the test database, running the suite, or auditing scripts and config hygiene.
 mode: subagent
-color: cyan
+color: primary
 permission:
   edit: allow
   bash: allow

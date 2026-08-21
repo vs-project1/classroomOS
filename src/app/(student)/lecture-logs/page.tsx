@@ -1,6 +1,7 @@
 import { db } from "@/db";
-import { classSessions } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { classSessions, enrollments } from "@/db/schema";
+import { desc, eq, inArray } from "drizzle-orm";
+import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { formatTime12h } from "@/lib/time";
@@ -10,7 +11,22 @@ import { FileText, Calendar, Clock } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function LectureLogsPage() {
+  const user = await requireAuth(["STUDENT", "CR", "ADMIN", "TEACHER"]);
+  const student = await resolveCurrentStudent();
+
+  let enrolledSubjectIds: string[] = [];
+
+  if (student) {
+    const userEnrollments = await db.query.enrollments.findMany({
+      where: eq(enrollments.studentId, student.id),
+    });
+    enrolledSubjectIds = userEnrollments.map((e) => e.subjectId);
+  }
+
   const allSessions = await db.query.classSessions.findMany({
+    where: enrolledSubjectIds.length > 0
+      ? inArray(classSessions.subjectId, enrolledSubjectIds)
+      : undefined,
     with: {
       subject: true,
       lectureLog: true,

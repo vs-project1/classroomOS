@@ -22,6 +22,7 @@ export const teachers = sqliteTable("teachers", {
 export const subjects = sqliteTable("subjects", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
   code: text("code").notNull().unique(),
   teacherId: text("teacher_id")
     .references(() => teachers.id, { onDelete: "set null" }),
@@ -205,6 +206,7 @@ export const courseChapters = sqliteTable("course_chapters", {
     .references(() => courseUnits.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   order: integer("order").notNull().default(0),
+  coveredAt: integer("covered_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
