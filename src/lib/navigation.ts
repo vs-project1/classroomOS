@@ -13,7 +13,7 @@ export const studentNavigation: NavItem[] = [
   { title: "Today's Schedule", mobileTitle: "Today", url: "/today", icon: Clock },
   { title: "Weekly Routine", mobileTitle: "Routine", url: "/routine", icon: CalendarRange },
   { title: "Attendance", url: "/attendance", icon: CheckCircle },
-  { title: "Lecture Logs", mobileTitle: "Logs", url: "/lecture-logs", icon: FileText },
+  { title: "Session Logs", mobileTitle: "Logs", url: "/lecture-logs", icon: FileText },
   { title: "Assignments", url: "/homework", icon: Book },
   { title: "Notice Board", mobileTitle: "Notices", url: "/notices", icon: Bell },
   { title: "Events & Calendar", mobileTitle: "Events", url: "/events", icon: CalendarDays },
@@ -36,7 +36,7 @@ export const teacherNavigation: NavItem[] = [
   { title: "Grade Submissions", url: "/teacher/grading", icon: CheckCircle },
   { title: "Resources", url: "/teacher/resources", icon: FileText },
   { title: "Attendance", url: "/attendance", icon: CheckCircle },
-  { title: "Lecture Logs", url: "/lecture-logs", icon: FileText },
+  { title: "Session Logs", url: "/lecture-logs", icon: FileText },
 ];
 
 export const crNavigation: NavItem[] = [

@@ -76,7 +76,7 @@ export function SessionForm({ students, subjects, defaultValues }: Props) {
   return (
     <div className="mb-8 max-w-2xl">
       <div className="mb-6">
-        <h3 className="text-lg font-medium">Record lecture details and attendance in one go.</h3>
+        <h3 className="text-lg font-medium">Record session details and attendance in one go.</h3>
       </div>
       <form action={formAction} className="space-y-8">
         {/* Hidden JSON field for attendance array */}
@@ -201,7 +201,7 @@ export function SessionForm({ students, subjects, defaultValues }: Props) {
 
         <div className="pt-4">
           <Button type="submit" disabled={isPending} className="w-full md:w-auto px-8">
-            {isPending ? "Logging Session..." : "Log Class Session"}
+            {isPending ? "Logging Session..." : "Log Session"}
           </Button>
         </div>
       </form>

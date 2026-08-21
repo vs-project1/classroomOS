@@ -19,7 +19,7 @@ export default async function CRDashboard() {
           </div>
           
           <Link href="/cr/log-session" className={buttonVariants({ variant: "default", className: "w-full" })}>
-            Log a Session
+            Log Session
           </Link>
         </div>
       </div>

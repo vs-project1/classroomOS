@@ -50,7 +50,7 @@ export default async function SessionDetailsPage({ params }: { params: Promise<{
   return (
     <div className="flex-1 space-y-8 max-w-6xl">
       <div className="flex items-center gap-4">
-        <Link href="/sessions" className={buttonVariants({ variant: "ghost", size: "icon" })}>
+        <Link href="/lecture-logs" className={buttonVariants({ variant: "ghost", size: "icon" })}>
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
@@ -66,7 +66,7 @@ export default async function SessionDetailsPage({ params }: { params: Promise<{
         <div className="rounded-xl border bg-card p-6">
           <div className="flex items-center gap-2 mb-6">
             <BookOpen className="h-5 w-5 text-muted-foreground" />
-            <h3 className="font-medium text-lg">Lecture Log</h3>
+            <h3 className="font-medium text-lg">Session Log</h3>
           </div>
           <div className="space-y-6">
             <div>

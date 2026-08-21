@@ -29,7 +29,7 @@ export default async function NewSessionPage({ searchParams }: { searchParams: P
               </Link>
             )}
             {allStudents.length === 0 && (
-              <Link href="/students" className={buttonVariants({ variant: "outline" })}>
+              <Link href="/admin/students" className={buttonVariants({ variant: "outline" })}>
                 Register Student
               </Link>
             )}
@@ -42,7 +42,7 @@ export default async function NewSessionPage({ searchParams }: { searchParams: P
   return (
     <div className="flex-1 space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
-        <Link href="/sessions" className={buttonVariants({ variant: "ghost", size: "icon" })}>
+        <Link href="/lecture-logs" className={buttonVariants({ variant: "ghost", size: "icon" })}>
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <h2 className="text-2xl font-bold font-fira-sans tracking-tight text-foreground">New Session</h2>

@@ -165,7 +165,7 @@ export default async function SubjectDetailPage({ params }: Props) {
 
           <div className="flex items-center gap-3">
             <Link
-              href={`/today`}
+              href={`/routine`}
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               <Calendar className="w-4 h-4 mr-2 text-primary" /> View Routine
@@ -257,7 +257,7 @@ export default async function SubjectDetailPage({ params }: Props) {
           <div className="rounded-2xl border bg-card p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg text-foreground font-fira-sans">
-                Class Sessions & Lecture Logs
+                Session Logs
               </h3>
               <span className="text-sm text-foreground/80 font-bold">
                 {subject.classSessions.length} Recorded Session{subject.classSessions.length === 1 ? "" : "s"}

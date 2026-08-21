@@ -21,7 +21,7 @@ export default async function LectureLogsPage() {
   return (
     <div className="flex-1 space-y-8 max-w-5xl">
       <div className="flex flex-col gap-1.5 pb-6 border-b border-border/40">
-        <h2 className="text-2xl md:text-3xl font-bold font-fira-sans tracking-tight text-foreground">Lecture Logs</h2>
+        <h2 className="text-2xl md:text-3xl font-bold font-fira-sans tracking-tight text-foreground">Session Logs</h2>
         <p className="text-muted-foreground text-sm max-w-2xl">Review syllabus coverage and topics covered in previous lectures.</p>
       </div>
 
@@ -61,7 +61,7 @@ export default async function LectureLogsPage() {
                 
                 <div className="shrink-0 pt-2 md:pt-0">
                   <div className={buttonVariants({ variant: "ghost", size: "sm", className: "w-full md:w-auto text-muted-foreground group-hover:text-foreground" })}>
-                    <FileText className="w-4 h-4 mr-2" /> Read Log
+                    <FileText className="w-4 h-4 mr-2" /> View Session
                   </div>
                 </div>
               </div>
