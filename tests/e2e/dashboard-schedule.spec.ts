@@ -84,4 +84,48 @@ test.describe("F11, F12: Student Dashboard & Today Schedule Timeline", () => {
       await expect(todayPage.sessionCards.first()).toBeVisible({ timeout: 10000 });
     });
   });
+
+  test.describe("Today Command Center (role-aware sections)", () => {
+    test("TC-SPEC-DASH-10: /today greets the signed-in student by first name", async ({ studentPage }) => {
+      await studentPage.goto("/today");
+
+      const greeting = studentPage.getByTestId("today-greeting");
+      await expect(greeting).toBeVisible({ timeout: 10000 });
+      await expect(greeting).toContainText(/Good (morning|afternoon|evening), Bikash/i);
+    });
+
+    test("TC-SPEC-DASH-11: current-or-next class card renders subject, time range and status chip", async ({ studentPage }) => {
+      await studentPage.goto("/today");
+
+      const card = studentPage.getByTestId("current-next-class");
+      await expect(card).toBeVisible({ timeout: 10000 });
+      await expect(card).toContainText(/Web Technology|Database Management Systems/);
+      await expect(card).toContainText(/\d{1,2}:\d{2}\s*(AM|PM)/);
+      await expect(card.getByTestId("class-status-chip")).toBeVisible();
+    });
+
+    test("TC-SPEC-DASH-12: Deadlines card lists unsubmitted due-soon homework with link into /homework", async ({ studentPage }) => {
+      await studentPage.goto("/today");
+
+      const deadlines = studentPage.getByTestId("deadlines-card");
+      await expect(deadlines).toBeVisible({ timeout: 10000 });
+      // hw_dbms_norm is seeded unsubmitted for this student and due within 7 days;
+      // hw_dsa_trees is submitted and must NOT be advertised as a deadline.
+      await expect(deadlines).toContainText(/DBMS Lab Report/i);
+      await expect(deadlines).not.toContainText(/Red-Black Trees/i);
+      await expect(deadlines.locator("a[href='/homework']").first()).toBeVisible();
+    });
+
+    test("TC-SPEC-DASH-13: teacher on shared /today sees grading attention link instead of student deadline card", async ({ teacherPage }) => {
+      await teacherPage.goto("/today");
+
+      const attention = teacherPage.getByTestId("attention-card");
+      await expect(attention).toBeVisible({ timeout: 10000 });
+      const gradingLink = attention.locator("a[href='/teacher/grading']");
+      await expect(gradingLink).toBeVisible();
+      await expect(gradingLink).toContainText(/\d+/);
+
+      await expect(teacherPage.getByTestId("deadlines-card")).toHaveCount(0);
+    });
+  });
 });

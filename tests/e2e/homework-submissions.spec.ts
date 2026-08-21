@@ -98,5 +98,16 @@ test.describe("F16, F17: Homework & Assignment Submission Workspace", () => {
         await expect(gradedCards.first()).toBeVisible({ timeout: 10000 });
       }
     });
+
+    test("TC-SPEC-HW-07: Submission detail shows Assignments / Submission breadcrumbs", async ({ studentPage }) => {
+      // sub_wt_graded_01 is seeded as this student's own graded submission
+      await studentPage.goto("/homework/submissions/sub_wt_graded_01");
+
+      const breadcrumbs = studentPage.getByTestId("breadcrumbs");
+      await expect(breadcrumbs).toBeVisible({ timeout: 10000 });
+      const assignmentsCrumb = breadcrumbs.locator("a[href='/homework']");
+      await expect(assignmentsCrumb).toContainText(/Assignments/i);
+      await expect(breadcrumbs).toContainText(/Submission/i);
+    });
   });
 });

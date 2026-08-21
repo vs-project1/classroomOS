@@ -5,6 +5,7 @@ import { getCurrentUser, requireAuth } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { Breadcrumbs } from "@/components/shell/breadcrumbs";
 import { ShieldAlert, FileText, ArrowLeft, CheckCircle2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -75,6 +76,12 @@ export default async function SubmissionDetailPage({ params }: Props) {
 
   return (
     <div className="flex-1 space-y-6 max-w-4xl mx-auto w-full">
+      <Breadcrumbs
+        items={[
+          { label: "Assignments", href: "/homework" },
+          { label: "Submission" },
+        ]}
+      />
       <Link
         href="/homework"
         className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-2 font-medium"
