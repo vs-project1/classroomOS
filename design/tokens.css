@@ -1,0 +1,41 @@
+:root {
+  /* Brand Colors */
+  --brand-primary: #4F46E5;
+  --brand-secondary: #0284C7;
+  --brand-accent: #818CF8;
+
+  /* Warm Accents */
+  --accent-amber: #F59E0B;
+  --accent-teal: #14B8A6;
+  --accent-coral: #F97316;
+
+  /* Tinted Card Surfaces */
+  --card-primary-tint: #EEF2FF;
+  --card-amber-tint: #FFFBEB;
+  --card-teal-tint: #F0FDF4;
+  --card-coral-tint: #FFF1F2;
+
+  /* Hero Gradient */
+  --gradient-hero: linear-gradient(135deg, #1E1B4B 0%, #4F46E5 60%, #0284C7 100%);
+
+  /* Typography */
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Spacing Scale (4-8-12-16) */
+  --spacing-1: 0.25rem;  /* 4px */
+  --spacing-2: 0.5rem;   /* 8px */
+  --spacing-3: 0.75rem;  /* 12px */
+  --spacing-4: 1rem;     /* 16px */
+  --spacing-5: 1.25rem;  /* 20px */
+  --spacing-6: 1.5rem;   /* 24px */
+  --spacing-8: 2rem;     /* 32px */
+}
+
+.dark {
+  --card-primary-tint: #1E1B4B;
+  --card-amber-tint: #451A03;
+  --card-teal-tint: #064E3B;
+  --card-coral-tint: #881337;
+  --gradient-hero: linear-gradient(135deg, #070B14 0%, #312E81 60%, #1E40AF 100%);
+}

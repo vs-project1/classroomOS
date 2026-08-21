@@ -29,6 +29,20 @@
       "when": 1784738159376,
       "tag": "0003_eager_iron_man",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784740218797,
+      "tag": "0004_illegal_imperial_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786798217422,
+      "tag": "0005_dapper_senator_kelly",
+      "breakpoints": true
     }
   ]
 }

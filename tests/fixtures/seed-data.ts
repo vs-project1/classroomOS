@@ -1,0 +1,145 @@
+/**
+ * Deterministic Test Personas, Subjects, and Academic Constants
+ * Used across Playwright E2E Test Suites & Seeding Scripts
+ */
+
+export const TEST_PERSONAS = {
+  admin: {
+    id: "usr_admin_001",
+    email: "admin@classroom.edu.np",
+    password: "AdminPassword123!",
+    name: "System Administrator",
+    role: "ADMIN" as const,
+    mustChangePassword: false,
+    isActive: true,
+  },
+  teacher: {
+    id: "usr_teacher_001",
+    teacherId: "tch_ram_001",
+    email: "teacher@classroom.edu.np",
+    password: "TeacherPassword123!",
+    name: "Prof. Ram Sharma",
+    role: "TEACHER" as const,
+    mustChangePassword: false,
+    isActive: true,
+  },
+  cr: {
+    id: "usr_cr_001",
+    studentProfileId: "sp_cr_001",
+    email: "cr@classroom.edu.np",
+    password: "CrPassword123!",
+    name: "Aashish CR",
+    rollNumber: "BCA-2024-001",
+    role: "CR" as const,
+    faculty: "BCA",
+    semester: "4th",
+    mustChangePassword: false,
+    isActive: true,
+  },
+  activeStudent: {
+    id: "usr_student_001",
+    studentProfileId: "sp_student_001",
+    email: "student@classroom.edu.np",
+    password: "StudentPassword123!",
+    name: "Bikash Thapa",
+    rollNumber: "BCA-2024-002",
+    role: "STUDENT" as const,
+    faculty: "BCA",
+    semester: "4th",
+    mustChangePassword: false,
+    isActive: true,
+  },
+  atRiskStudent: {
+    id: "usr_atrisk_001",
+    studentProfileId: "sp_atrisk_001",
+    email: "atrisk@classroom.edu.np",
+    password: "AtriskPassword123!",
+    name: "Sunil Shrestha",
+    rollNumber: "BCA-2024-005",
+    role: "STUDENT" as const,
+    faculty: "BCA",
+    semester: "4th",
+    mustChangePassword: false,
+    isActive: true,
+  },
+  newStudentQuarantined: {
+    id: "usr_newstudent_001",
+    studentProfileId: "sp_newstudent_001",
+    email: "newstudent@classroom.edu.np",
+    password: "TempPassword123!",
+    name: "Roshani Shrestha",
+    rollNumber: "BCA-2024-015",
+    role: "STUDENT" as const,
+    faculty: "BCA",
+    semester: "4th",
+    mustChangePassword: true, // Forces quarantine
+    isActive: true,
+  },
+  unauthorizedStudent: {
+    id: "usr_unauthorized_001",
+    studentProfileId: "sp_unauthorized_001",
+    email: "unauthorized@classroom.edu.np",
+    password: "StudentPassword123!",
+    name: "Kiran Adhikari",
+    rollNumber: "CSIT-2024-099",
+    role: "STUDENT" as const,
+    faculty: "CSIT",
+    semester: "2nd",
+    mustChangePassword: false,
+    isActive: true,
+  },
+};
+
+export const TEST_SUBJECTS = {
+  dsa: {
+    id: "subj_dsa_001",
+    code: "CACS201",
+    name: "Data Structures and Algorithms",
+    teacherId: "tch_ram_001",
+  },
+  dbms: {
+    id: "subj_dbms_001",
+    code: "CACS202",
+    name: "Database Management Systems",
+    teacherId: "tch_ram_001",
+  },
+  webTech: {
+    id: "subj_wt_001",
+    code: "CACS203",
+    name: "Web Technology",
+    teacherId: "tch_ram_001",
+  },
+  isolatedSubject: {
+    id: "subj_restricted_001",
+    code: "CSIT201",
+    name: "Discrete Mathematics (CSIT Only)",
+    teacherId: "tch_ram_001",
+  },
+};
+
+export const TEST_HOMEWORK = {
+  activeAssignment: {
+    id: "hw_dsa_trees",
+    subjectId: "subj_dsa_001",
+    title: "Assignment 3: Red-Black Trees & Balancing",
+    description: "Implement insertion and left-rotation operations for Red-Black Tree in C/C++ or TypeScript.",
+    status: "active",
+  },
+  dueSoonAssignment: {
+    id: "hw_dbms_normalization",
+    subjectId: "subj_dbms_001",
+    title: "DBMS Lab Report: 3NF & BCNF Normalization",
+    description: "Submit complete decomposition schema diagrams and relational proofs.",
+    status: "active",
+  },
+  gradedAssignment: {
+    id: "hw_wt_javascript",
+    subjectId: "subj_wt_001",
+    title: "Web Tech Lab 1: DOM Manipulation & Event Bubbling",
+    description: "Interactive calculator and form validation.",
+    status: "completed",
+    score: 18,
+    maxScore: 20,
+    feedback: "Excellent implementation of event delegation. Clean DOM structure.",
+  },
+};

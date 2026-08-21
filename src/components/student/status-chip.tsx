@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 export type StatusType = 
   | "present" | "absent" | "late"
   | "completed" | "ongoing" | "upcoming"
-  | "due_soon" | "not_started"
+  | "due_soon" | "not_started" | "overdue"
   | "important" | "high_priority";
 
 interface StatusChipProps {
@@ -14,16 +14,17 @@ interface StatusChipProps {
 
 export function StatusChip({ status, label, className }: StatusChipProps) {
   const styles: Record<StatusType, string> = {
-    present: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    absent: "bg-red-100 text-red-700 border-red-200",
-    late: "bg-amber-100 text-amber-700 border-amber-200",
-    completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    ongoing: "bg-indigo-100 text-indigo-700 border-indigo-200",
-    upcoming: "bg-slate-100 text-slate-700 border-slate-200",
-    due_soon: "bg-amber-100 text-amber-700 border-amber-200",
-    not_started: "bg-slate-100 text-slate-700 border-slate-200",
-    important: "bg-blue-100 text-blue-700 border-blue-200",
-    high_priority: "bg-amber-100 text-amber-700 border-amber-200",
+    present: "text-emerald-800 bg-emerald-100 border-emerald-300 dark:text-emerald-300 dark:bg-emerald-950/70 dark:border-emerald-800",
+    absent: "text-red-800 bg-red-100 border-red-300 dark:text-red-300 dark:bg-red-950/70 dark:border-red-800",
+    late: "text-amber-800 bg-amber-100 border-amber-300 dark:text-amber-300 dark:bg-amber-950/70 dark:border-amber-800",
+    completed: "text-emerald-800 bg-emerald-100 border-emerald-300 dark:text-emerald-300 dark:bg-emerald-950/70 dark:border-emerald-800",
+    ongoing: "text-indigo-800 bg-indigo-100 border-indigo-300 dark:text-indigo-300 dark:bg-indigo-950/70 dark:border-indigo-800",
+    upcoming: "text-slate-800 bg-slate-100 border-slate-300 dark:text-slate-300 dark:bg-slate-800/80 dark:border-slate-700",
+    due_soon: "text-amber-800 bg-amber-100 border-amber-300 dark:text-amber-300 dark:bg-amber-950/70 dark:border-amber-800",
+    not_started: "text-slate-800 bg-slate-100 border-slate-300 dark:text-slate-300 dark:bg-slate-800/80 dark:border-slate-700",
+    overdue: "text-red-800 bg-red-100 border-red-300 dark:text-red-300 dark:bg-red-950/70 dark:border-red-800",
+    important: "text-blue-800 bg-blue-100 border-blue-300 dark:text-blue-300 dark:bg-blue-950/70 dark:border-blue-800",
+    high_priority: "text-amber-800 bg-amber-100 border-amber-300 dark:text-amber-300 dark:bg-amber-950/70 dark:border-amber-800",
   };
 
   const defaultLabels: Record<StatusType, string> = {
@@ -35,6 +36,7 @@ export function StatusChip({ status, label, className }: StatusChipProps) {
     upcoming: "Upcoming",
     due_soon: "Due Soon",
     not_started: "Not Started",
+    overdue: "Overdue",
     important: "Important",
     high_priority: "High Priority",
   };
@@ -42,7 +44,7 @@ export function StatusChip({ status, label, className }: StatusChipProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
+        "inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold tracking-wide uppercase border",
         styles[status],
         className
       )}

@@ -1,0 +1,66 @@
+export * from "./password";
+export * from "./token";
+export * from "./session";
+export * from "./rbac";
+
+import { getCurrentUser } from "./session";
+import { getRolePermissions, RolePermissions, UserRole } from "./rbac";
+import { db } from "@/db";
+import { students } from "@/db/schema";
+import { asc, eq } from "drizzle-orm";
+import { cookies } from "next/headers";
+
+/**
+ * Backward-compatible helper to get the current role string.
+ */
+export async function getCurrentRole(): Promise<UserRole> {
+  const user = await getCurrentUser();
+  if (user) return user.role;
+
+  const cookieStore = await cookies();
+  const legacyRole = cookieStore.get("APP_ROLE")?.value;
+  if (legacyRole === "ADMIN" || legacyRole === "TEACHER" || legacyRole === "CR" || legacyRole === "STUDENT") {
+    return legacyRole;
+  }
+
+  const envRole = process.env.APP_ROLE;
+  return envRole === "STUDENT" ? "STUDENT" : "ADMIN";
+}
+
+/**
+ * Backward-compatible helper to get permission flags for the current user.
+ */
+export async function getPermissions(): Promise<RolePermissions> {
+  const role = await getCurrentRole();
+  return getRolePermissions(role);
+}
+
+/**
+ * Backward-compatible resolver for finding the contextual student in the dashboard.
+ */
+export async function resolveCurrentStudent() {
+  const user = await getCurrentUser();
+  if (user && user.studentProfileId) {
+    const student = await db.query.students.findFirst({
+      where: (s, { eq }) => eq(s.email, user.email),
+    });
+    if (student) return student;
+  }
+
+  const cookieStore = await cookies();
+  const envStudentId = cookieStore.get("DEMO_STUDENT_ID")?.value || process.env.DEMO_STUDENT_ID || null;
+
+  if (envStudentId) {
+    const student = await db.query.students.findFirst({
+      where: (s, { eq }) => eq(s.id, envStudentId),
+    });
+    if (student) return student;
+  }
+
+  // Fallback: Pick the first student alphabetically
+  const fallbackStudent = await db.query.students.findFirst({
+    orderBy: [asc(students.name)],
+  });
+
+  return fallbackStudent ?? null;
+}

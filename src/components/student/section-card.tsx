@@ -1,4 +1,3 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface SectionCardProps {
@@ -21,22 +20,22 @@ export function SectionCard({
   contentClassName,
 }: SectionCardProps) {
   return (
-    <Card className={cn("overflow-hidden flex flex-col", className)}>
+    <div className={cn("rounded-2xl border border-border/40 bg-card flex flex-col overflow-hidden shadow-sm", className)}>
       {(title || description || action) && (
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b bg-muted/20">
-          <div className="space-y-1">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
+        <div className="flex flex-row items-center justify-between p-5 pb-4 border-b border-border/20">
+          <div className="space-y-0.5">
+            <h3 className="text-sm font-medium tracking-tight flex items-center gap-2 text-foreground">
               {icon && <span className="text-muted-foreground">{icon}</span>}
               {title}
-            </CardTitle>
-            {description && <CardDescription>{description}</CardDescription>}
+            </h3>
+            {description && <p className="text-xs text-muted-foreground">{description}</p>}
           </div>
           {action && <div>{action}</div>}
-        </CardHeader>
+        </div>
       )}
-      <CardContent className={cn("p-4 flex-1", contentClassName)}>
+      <div className={cn("p-5 flex-1", contentClassName)}>
         {children}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

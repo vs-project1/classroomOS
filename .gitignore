@@ -42,6 +42,15 @@ next-env.d.ts
 
 # SQLite local databases
 local.db
+local*.db
 local.db-journal
 local.db-shm
 local.db-wal
+
+# generated artifacts / tool state
+graphify-out/
+playwright-report/
+test-results/
+scratch/
+
+# agent workspace archives are tracked intentionally; see .agents/README.md

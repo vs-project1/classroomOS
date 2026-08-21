@@ -1,4 +1,3 @@
-import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface StatCardProps {
@@ -19,17 +18,15 @@ export function StatCard({
   valueClassName,
 }: StatCardProps) {
   return (
-    <Card className={cn("overflow-hidden", className)}>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between space-y-0 pb-2">
-          <h3 className="tracking-tight text-sm font-medium text-muted-foreground">{title}</h3>
-          {icon && <div className="text-muted-foreground">{icon}</div>}
-        </div>
-        <div className={cn("text-2xl font-bold", valueClassName)}>{value}</div>
-        {description && (
-          <p className="text-xs text-muted-foreground mt-1">{description}</p>
-        )}
-      </CardContent>
-    </Card>
+    <div className={cn("rounded-2xl border border-border/40 bg-card flex flex-col p-6 shadow-sm", className)}>
+      <div className="flex items-center justify-between pb-4">
+        <h3 className="tracking-tight text-sm font-medium text-muted-foreground">{title}</h3>
+        {icon && <div className="text-muted-foreground">{icon}</div>}
+      </div>
+      <div className={cn("text-3xl font-semibold tracking-tight text-foreground", valueClassName)}>{value}</div>
+      {description && (
+        <p className="text-xs text-muted-foreground mt-2 font-medium">{description}</p>
+      )}
+    </div>
   );
 }
