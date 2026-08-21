@@ -37,7 +37,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canCreateSessions: true,
     canTakeAttendance: true,
     canCreateHomework: true,
-    canCreateNotices: true,
+    canCreateNotices: false,
     canCreateEvents: true,
     canGradeAssignments: true,
   },
