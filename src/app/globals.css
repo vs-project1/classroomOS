@@ -1,8 +1,12 @@
+/* Vendor utility sheet ships a compiled (unlayered) Tailwind v3 build.
+   Layer it BEFORE tailwindcss so the app's `utilities` layer wins cascade
+   ties — otherwise its `.flex`/`.hidden` etc. override every responsive
+   variant (`max-md:hidden`, `md:flex`, ...) in the app. */
+@import "@uploadthing/react/styles.css" layer(uploadthing);
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "../../design/tokens.css";
-@import "@uploadthing/react/styles.css";
 
 @custom-variant dark (&:is(.dark *));
 

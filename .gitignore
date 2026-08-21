@@ -55,3 +55,6 @@ test-results/
 scratch/
 
 # agent workspace archives are tracked intentionally; see .agents/README.md
+
+# agent runtime state (heartbeat, loop state, QA screenshots)
+/.runtime/
