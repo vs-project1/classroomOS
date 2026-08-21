@@ -32,7 +32,7 @@ export function ChangePasswordForm() {
           htmlFor="currentPassword"
           className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
         >
-          Current Temporary Password
+          Current Password
         </Label>
         <div className="relative">
           <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -42,6 +42,7 @@ export function ChangePasswordForm() {
             type="password"
             placeholder="••••••••"
             autoComplete="current-password"
+            required
             className="pl-9 h-11 rounded-xl"
           />
         </div>
