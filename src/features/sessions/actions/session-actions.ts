@@ -8,6 +8,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { parseAndNormalizeTime } from "@/lib/time";
+import { requireAuth } from "@/lib/auth/session";
 
 export type SessionActionState = {
   success: boolean;
@@ -66,6 +67,8 @@ const SessionSchema = z.object({
 });
 
 export async function createSession(prevState: SessionActionState, formData: FormData): Promise<SessionActionState> {
+  await requireAuth(["CR", "TEACHER", "ADMIN"]);
+
   const rawStartTime = formData.get("startTime")?.toString() || "";
   const rawEndTime = formData.get("endTime")?.toString() || "";
   const normalizedStartTime = parseAndNormalizeTime(rawStartTime) || rawStartTime;
@@ -187,6 +190,9 @@ export async function createSession(prevState: SessionActionState, formData: For
     });
 
   } catch (error: unknown) {
+    if ((error as { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) {
+      throw error;
+    }
     console.error("Transaction failed:", error);
     if (error instanceof Error && error.message.includes("UNIQUE constraint failed")) {
       return { success: false, message: "A session for this subject has already been logged for this date." };

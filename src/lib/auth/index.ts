@@ -6,8 +6,6 @@ export * from "./rbac";
 import { getCurrentUser } from "./session";
 import { getRolePermissions, RolePermissions, UserRole } from "./rbac";
 import { db } from "@/db";
-import { students } from "@/db/schema";
-import { asc, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 
 /**
@@ -17,14 +15,17 @@ export async function getCurrentRole(): Promise<UserRole> {
   const user = await getCurrentUser();
   if (user) return user.role;
 
-  const cookieStore = await cookies();
-  const legacyRole = cookieStore.get("APP_ROLE")?.value;
-  if (legacyRole === "ADMIN" || legacyRole === "TEACHER" || legacyRole === "CR" || legacyRole === "STUDENT") {
-    return legacyRole;
+  // Test fixture persona override (non-production only).
+  if (process.env.NODE_ENV !== "production") {
+    const cookieStore = await cookies();
+    const legacyRole = cookieStore.get("APP_ROLE")?.value;
+    if (legacyRole === "ADMIN" || legacyRole === "TEACHER" || legacyRole === "CR" || legacyRole === "STUDENT") {
+      return legacyRole;
+    }
   }
 
-  const envRole = process.env.APP_ROLE;
-  return envRole === "STUDENT" ? "STUDENT" : "ADMIN";
+  // Default deny: unverified callers get least privilege.
+  return "STUDENT";
 }
 
 /**
@@ -47,20 +48,18 @@ export async function resolveCurrentStudent() {
     if (student) return student;
   }
 
-  const cookieStore = await cookies();
-  const envStudentId = cookieStore.get("DEMO_STUDENT_ID")?.value || process.env.DEMO_STUDENT_ID || null;
+  // Test fixture student override (non-production only).
+  if (process.env.NODE_ENV !== "production") {
+    const cookieStore = await cookies();
+    const envStudentId = cookieStore.get("DEMO_STUDENT_ID")?.value || process.env.DEMO_STUDENT_ID || null;
 
-  if (envStudentId) {
-    const student = await db.query.students.findFirst({
-      where: (s, { eq }) => eq(s.id, envStudentId),
-    });
-    if (student) return student;
+    if (envStudentId) {
+      const student = await db.query.students.findFirst({
+        where: (s, { eq }) => eq(s.id, envStudentId),
+      });
+      if (student) return student;
+    }
   }
 
-  // Fallback: Pick the first student alphabetically
-  const fallbackStudent = await db.query.students.findFirst({
-    orderBy: [asc(students.name)],
-  });
-
-  return fallbackStudent ?? null;
+  return null;
 }

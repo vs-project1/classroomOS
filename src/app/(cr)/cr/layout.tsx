@@ -1,11 +1,17 @@
 import { CRSidebar } from "@/components/cr/cr-sidebar";
 import { CRTopbar } from "@/components/cr/cr-topbar";
+import { requireAuth } from "@/lib/auth";
 
-export default function CRLayout({
+export const dynamic = "force-dynamic";
+
+export default async function CRLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // RBAC Guard: Strictly require CR role
+  const user = await requireAuth(["CR", "ADMIN"]);
+
   return (
     <div className="flex h-screen overflow-hidden">
       <CRSidebar />

@@ -1,12 +1,12 @@
 import { Bell, Book, LogOut } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CRMobileMenuTrigger } from "@/components/cr/cr-sidebar";
 import { logoutAction } from "@/features/auth/actions/auth";
 
 export function CRTopbar() {
   return (
-    <header className="h-16 border-b border-border/40 bg-background/80 backdrop-blur-md flex items-center juCRify-between px-4 md:px-8 CRicky top-0 z-10 transition-all">
+    <header className="h-16 border-b border-border/40 bg-background/80 backdrop-blur-md flex items-center justify-between px-4 md:px-8 sticky top-0 z-10 transition-all">
       <div className="flex items-center gap-2 flex-1 md:flex-none">
         <CRMobileMenuTrigger />
         <div className="md:hidden flex items-center gap-2">
@@ -23,14 +23,13 @@ export function CRTopbar() {
           <button
             type="submit"
             title="Sign Out"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border/60 bg-card hover:bg-deCRructive/10 hover:text-deCRructive hover:border-deCRructive/30 text-xs font-semibold text-muted-foreground transition-all cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border/60 bg-card hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 text-xs font-semibold text-muted-foreground transition-all cursor-pointer shadow-xs"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Sign Out</span>
           </button>
         </form>
         <Avatar className="h-8 w-8 cursor-pointer ring-1 ring-border/50 hover:ring-border transition-all">
-          <AvatarImage src="https://i.pravatar.cc/150?u=cr" />
           <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">CR</AvatarFallback>
         </Avatar>
       </div>

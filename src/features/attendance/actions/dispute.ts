@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { attendance, attendanceCorrectionRequests, students, studentProfiles } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth/session";
+import { requireAuth } from "@/lib/auth/session";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -26,10 +26,7 @@ export async function submitAttendanceCorrectionAction(
   prevState: AttendanceActionState,
   formData: FormData
 ): Promise<AttendanceActionState> {
-  const user = await getCurrentUser();
-  if (!user) {
-    return { success: false, message: "Unauthorized. Please log in." };
-  }
+  const user = await requireAuth(["STUDENT", "CR"]);
 
   // Resolve student record
   let studentId: string | null = null;
@@ -57,12 +54,6 @@ export async function submitAttendanceCorrectionAction(
       where: eq(students.id, user.id),
     });
     if (direct) studentId = direct.id;
-  }
-
-  // Fallback to demo / first student if running tests
-  if (!studentId) {
-    const firstStudent = await db.query.students.findFirst();
-    if (firstStudent) studentId = firstStudent.id;
   }
 
   if (!studentId) {
@@ -94,19 +85,16 @@ export async function submitAttendanceCorrectionAction(
     ),
   });
 
-  // If specific attendance id not found for student, verify if attendanceId exists at all or match by id
-  const validAttendanceId = targetAttendance?.id || (await db.query.attendance.findFirst({ where: eq(attendance.id, attendanceId) }))?.id;
-
-  if (!validAttendanceId) {
-    return { success: false, message: "Selected attendance session record not found." };
+  if (!targetAttendance || targetAttendance.studentId !== studentId) {
+    return { success: false, message: "Attendance record not found" };
   }
 
   try {
     const correctionId = `att_corr_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
     await db.insert(attendanceCorrectionRequests).values({
       id: correctionId,
-      attendanceId: validAttendanceId,
-      studentId: targetAttendance ? targetAttendance.studentId : studentId,
+      attendanceId: targetAttendance.id,
+      studentId: targetAttendance.studentId,
       requestedStatus,
       reason,
       status: "pending",
@@ -123,7 +111,7 @@ export async function submitAttendanceCorrectionAction(
     console.error("Failed to submit attendance correction:", err);
     return {
       success: false,
-      message: err instanceof Error ? err.message : "Failed to record dispute request.",
+      message: "Failed to record dispute request.",
     };
   }
 }

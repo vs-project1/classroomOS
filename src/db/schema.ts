@@ -492,6 +492,20 @@ export const attendanceCorrectionRequests = sqliteTable("attendance_correction_r
   check("chk_attendance_correction_status", sql`${table.status} IN ('pending', 'approved', 'rejected')`),
 ]);
 
+// 11. Sessions (Server-side session registry enabling revocation)
+export const sessions = sqliteTable("sessions", {
+  id: text("id").primaryKey(), // SHA-256 digest of the signed session token
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+}, (table) => [
+  index("idx_sessions_user_id").on(table.userId),
+]);
+
 // --- Drizzle Relations ---
 
 export const teachersRelations = relations(teachers, ({ many }) => ({
@@ -611,6 +625,14 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     references: [studentProfiles.userId],
   }),
   notifications: many(notifications),
+  sessions: many(sessions),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id],
+  }),
 }));
 
 export const studentProfilesRelations = relations(studentProfiles, ({ one }) => ({
@@ -759,6 +781,9 @@ export type NewCourseMaterial = typeof courseMaterials.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type UserRole = "ADMIN" | "TEACHER" | "CR" | "STUDENT";
+
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
 
 export type StudentProfile = typeof studentProfiles.$inferSelect;
 export type NewStudentProfile = typeof studentProfiles.$inferInsert;

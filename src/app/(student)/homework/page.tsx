@@ -36,31 +36,30 @@ export default async function HomeworkPage() {
     }
   }
 
-  // Fallback to first student if running demo or test without explicit student profile
-  if (!studentId && (!user || user.role === "STUDENT" || user.role === "CR")) {
-    const firstStudent = await db.query.students.findFirst();
-    if (firstStudent) studentId = firstStudent.id;
-  }
+  // Default-deny (post-T1.1): an authenticated STUDENT/CR whose identity cannot be
+  // resolved sees nothing — never another student's data, never the whole table.
+  const canViewSubmissions = studentId !== null;
 
-  // Fetch all homework items with subject info and student submissions
+  // Fetch all homework items with subject info; submissions ONLY ever scoped to the
+  // resolved student. Unresolved/teacher views get no submission rows at all.
   const allHomework = await db.query.homework.findMany({
     orderBy: [desc(homework.dueDate)],
     with: {
       subject: true,
-      submissions: studentId
+      ...(canViewSubmissions
         ? {
-            where: eq(assignmentSubmissions.studentId, studentId),
-            with: { gradedByTeacher: true },
+            submissions: {
+              where: eq(assignmentSubmissions.studentId, studentId),
+              with: { gradedByTeacher: true },
+            },
           }
-        : {
-            with: { gradedByTeacher: true },
-          },
+        : {}),
     },
   });
 
   return (
     <HomeworkClientWorkspace
-      allHomework={allHomework}
+      allHomework={allHomework.map((h) => ({ ...h, submissions: h.submissions ?? [] }))}
       currentStudentId={studentId}
       currentUserRole={user?.role || "STUDENT"}
     />

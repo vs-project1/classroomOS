@@ -1,11 +1,17 @@
 import { AppSidebar, AdminMobileMenuTrigger } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { requireAuth } from "@/lib/auth";
 
-export default function AdminLayout({
+export const dynamic = "force-dynamic";
+
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // RBAC Guard: Strictly require ADMIN role
+  const user = await requireAuth(["ADMIN"]);
+
   return (
     <div className="flex h-screen overflow-hidden">
       <AppSidebar />

@@ -67,10 +67,6 @@ async function resolveCurrentStudentId(): Promise<string> {
   });
   if (directStudent) return directStudent.id;
 
-  // 4. Default test student fallback
-  const firstStudent = await db.query.students.findFirst();
-  if (firstStudent) return firstStudent.id;
-
   throw new Error("Student academic profile not found for this account.");
 }
 
@@ -232,6 +228,8 @@ export async function submitAssignmentAction(
  * Creates homework assignment (for teacher / CR admin forms).
  */
 export async function createHomework(prevState: any, formData: FormData) {
+  await requireAuth(["TEACHER", "CR", "ADMIN"]);
+
   const validatedFields = createHomeworkSchema.safeParse({
     subjectId: formData.get("subjectId"),
     title: formData.get("title"),
@@ -281,6 +279,8 @@ export async function updateHomeworkStatus(
   id: string,
   status: "active" | "completed" | "archived"
 ) {
+  await requireAuth(["TEACHER", "CR", "ADMIN"]);
+
   try {
     await db
       .update(homework)

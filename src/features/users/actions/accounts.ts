@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { users, students, studentProfiles, teachers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword, generateMemorablePassword } from "@/lib/auth/password";
-import { requireAuth } from "@/lib/auth/session";
+import { requireAuth, revokeUserSessions } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import crypto from "node:crypto";
 
@@ -294,6 +294,11 @@ export async function toggleAccountStatusAction(
       })
       .where(eq(users.id, userId));
 
+    // Deactivation must immediately kill the target user's live sessions.
+    if (!newStatus) {
+      await revokeUserSessions(userId);
+    }
+
     revalidatePath("/admin/accounts");
     return {
       success: true,
@@ -332,6 +337,9 @@ export async function resetPasswordAction(
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));
+
+    // Evict all existing sessions: old credentials must not keep working.
+    await revokeUserSessions(userId);
 
     revalidatePath("/admin/accounts");
     return {

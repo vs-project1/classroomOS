@@ -16,8 +16,9 @@ const createResourceSchema = z.object({
 });
 
 export async function createResourceAction(prevState: any, formData: FormData) {
+  const user = await requireAuth(["TEACHER", "ADMIN"]);
+
   try {
-    const user = await requireAuth(["TEACHER", "ADMIN"]);
     if (!user.teacherId) {
       return { success: false, message: "Only teachers can upload resources." };
     }
@@ -62,7 +63,10 @@ export async function createResourceAction(prevState: any, formData: FormData) {
     revalidatePath("/teacher/resources");
     return { success: true, message: "Resource uploaded successfully" };
   } catch (error: any) {
+    if (error?.digest?.startsWith("NEXT_REDIRECT")) {
+      throw error;
+    }
     console.error("Failed to create resource:", error);
-    return { success: false, message: error.message || "An error occurred while uploading resource." };
+    return { success: false, message: "Unable to save resource" };
   }
 }

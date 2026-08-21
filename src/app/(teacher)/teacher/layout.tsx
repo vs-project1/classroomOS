@@ -1,11 +1,17 @@
 import { TeacherSidebar } from "@/components/teacher/teacher-sidebar";
 import { TeacherTopbar } from "@/components/teacher/teacher-topbar";
+import { requireAuth } from "@/lib/auth";
 
-export default function TeacherLayout({
+export const dynamic = "force-dynamic";
+
+export default async function TeacherLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // RBAC Guard: Strictly require TEACHER role
+  const user = await requireAuth(["TEACHER", "ADMIN"]);
+
   return (
     <div className="flex h-screen overflow-hidden">
       <TeacherSidebar />

@@ -2,6 +2,7 @@
 
 import { db } from "@/db";
 import { students } from "@/db/schema";
+import { requireAuth } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import crypto from "crypto";
@@ -49,6 +50,12 @@ const StudentSchema = z.object({
 });
 
 export async function createStudent(prevState: StudentActionState, formData: FormData): Promise<StudentActionState> {
+  try {
+    await requireAuth(["ADMIN"]);
+  } catch {
+    return { success: false, message: "Unauthorized. Admin role required." };
+  }
+
   const validatedFields = StudentSchema.safeParse({
     name: formData.get("name"),
     rollNumber: formData.get("rollNumber"),
@@ -90,6 +97,12 @@ export async function createStudent(prevState: StudentActionState, formData: For
 }
 
 export async function updateStudent(prevState: StudentActionState, formData: FormData): Promise<StudentActionState> {
+  try {
+    await requireAuth(["ADMIN"]);
+  } catch {
+    return { success: false, message: "Unauthorized. Admin role required." };
+  }
+
   const id = formData.get("id") as string;
   const validatedFields = StudentSchema.safeParse({
     name: formData.get("name"),

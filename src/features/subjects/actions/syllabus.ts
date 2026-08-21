@@ -3,6 +3,7 @@
 import { db } from "@/db";
 import { courseUnits, courseChapters, courseMaterials } from "@/db/schema";
 import { revalidatePath } from "next/cache";
+import { requireAuth } from "@/lib/auth/session";
 import { z } from "zod";
 
 export type ActionState = {
@@ -19,6 +20,12 @@ export async function addCourseUnit(
   prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
+  try {
+    await requireAuth(["TEACHER", "ADMIN"]);
+  } catch {
+    return { success: false, message: "Unauthorized. Teacher or admin role required." };
+  }
+
   const subjectId = formData.get("subjectId") as string;
   const validatedFields = UnitSchema.safeParse({
     title: formData.get("title"),
@@ -47,6 +54,7 @@ export async function addCourseUnit(
     });
 
     revalidatePath("/subjects", "layout");
+    revalidatePath("/admin/subjects/[id]", "page");
     return { success: true, message: "Course unit added successfully!" };
   } catch (error) {
     console.error("Failed to add course unit:", error);
@@ -62,6 +70,12 @@ export async function addCourseChapter(
   prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
+  try {
+    await requireAuth(["TEACHER", "ADMIN"]);
+  } catch {
+    return { success: false, message: "Unauthorized. Teacher or admin role required." };
+  }
+
   const unitId = formData.get("unitId") as string;
   const validatedFields = ChapterSchema.safeParse({
     title: formData.get("title"),
@@ -90,6 +104,7 @@ export async function addCourseChapter(
     });
 
     revalidatePath("/subjects", "layout");
+    revalidatePath("/admin/subjects/[id]", "page");
     return { success: true, message: "Chapter added successfully!" };
   } catch (error) {
     console.error("Failed to add course chapter:", error);
@@ -107,6 +122,12 @@ export async function addCourseMaterial(
   prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
+  try {
+    await requireAuth(["TEACHER", "ADMIN"]);
+  } catch {
+    return { success: false, message: "Unauthorized. Teacher or admin role required." };
+  }
+
   const chapterId = formData.get("chapterId") as string;
   const validatedFields = MaterialSchema.safeParse({
     title: formData.get("title"),
@@ -131,6 +152,7 @@ export async function addCourseMaterial(
     });
 
     revalidatePath("/subjects", "layout");
+    revalidatePath("/admin/subjects/[id]", "page");
     return { success: true, message: "Material added successfully!" };
   } catch (error) {
     console.error("Failed to add course material:", error);

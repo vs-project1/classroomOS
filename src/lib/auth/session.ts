@@ -2,8 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { users, studentProfiles, students, teachers } from "@/db/schema";
-import { createSessionToken, verifySessionToken } from "./token";
+import { users, studentProfiles, students, teachers, sessions } from "@/db/schema";
+import { createSessionToken, verifySessionToken, getSessionTokenId } from "./token";
 
 export interface SessionUser {
   id: string;
@@ -50,6 +50,13 @@ export async function createSession(
     role: resolvedRole,
     mustChangePassword: resolvedMustChange,
     expiresAt,
+  });
+
+  // Persist the hashed token id so the session can be revoked server-side.
+  await db.insert(sessions).values({
+    id: getSessionTokenId(token),
+    userId,
+    expiresAt: new Date(expiresAt),
   });
 
   const cookieStore = await cookies();
@@ -231,6 +238,16 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     return await resolveTestFixturePersona(cookieStore);
   }
 
+  // Revocation check: the token must map to a live, unexpired session row.
+  // Hard-deny (no fixture fallback) so evicted sessions stay evicted.
+  const sessionRow = await db.query.sessions.findFirst({
+    where: eq(sessions.id, getSessionTokenId(rawToken)),
+  });
+
+  if (!sessionRow || sessionRow.expiresAt.getTime() <= Date.now()) {
+    return null;
+  }
+
   const user = await db.query.users.findFirst({
     where: eq(users.id, payload.userId),
   });
@@ -317,10 +334,27 @@ export async function requireAuth(allowedRoles?: string[]): Promise<SessionUser>
 }
 
 /**
- * Invalidates the current session by clearing the auth cookie.
+ * Revokes every active session for a user by deleting their session rows.
+ * Called on password reset/change and account deactivation.
+ */
+export async function revokeUserSessions(userId: string): Promise<void> {
+  await db.delete(sessions).where(eq(sessions.userId, userId));
+}
+
+/**
+ * Invalidates the current session by deleting its server-side row (if any)
+ * and clearing the auth cookie.
  */
 export async function invalidateSession(): Promise<void> {
   const cookieStore = await cookies();
+  const rawToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+
+  if (rawToken && verifySessionToken(rawToken)) {
+    await db
+      .delete(sessions)
+      .where(eq(sessions.id, getSessionTokenId(rawToken)));
+  }
+
   cookieStore.delete(SESSION_COOKIE_NAME);
   cookieStore.delete("APP_ROLE");
   cookieStore.delete("DEMO_STUDENT_ID");

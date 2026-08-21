@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import crypto from "crypto";
 import { eq } from "drizzle-orm";
+import { requireAuth } from "@/lib/auth/session";
 
 const noticeSchema = z.object({
   title: z.string().trim().min(1, "Title is required"),
@@ -16,6 +17,8 @@ const noticeSchema = z.object({
 });
 
 export async function createNotice(prevState: any, formData: FormData) {
+  await requireAuth(["ADMIN"]);
+
   const validatedFields = noticeSchema.safeParse({
     title: formData.get("title"),
     content: formData.get("content"),
@@ -56,6 +59,8 @@ export async function createNotice(prevState: any, formData: FormData) {
 }
 
 export async function deleteNotice(id: string) {
+  await requireAuth(["ADMIN"]);
+
   try {
     await db.delete(notices).where(eq(notices.id, id));
     revalidatePath("/notices");
@@ -66,6 +71,8 @@ export async function deleteNotice(id: string) {
 }
 
 export async function togglePinNotice(id: string, isPinned: boolean) {
+  await requireAuth(["ADMIN"]);
+
   try {
     await db.update(notices).set({ isPinned, updatedAt: new Date() }).where(eq(notices.id, id));
     revalidatePath("/notices");

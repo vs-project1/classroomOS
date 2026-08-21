@@ -20,6 +20,14 @@ export const DEFAULT_SESSION_SECRET =
     ? ""
     : "classroom-os-secret-key-32-chars-long-demo");
 
+/**
+ * Derives the stable server-side identifier for a session token.
+ * Stores only this SHA-256 digest — the raw bearer token is never persisted.
+ */
+export function getSessionTokenId(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
 export interface SessionTokenPayload {
   userId: string;
   role: "ADMIN" | "TEACHER" | "CR" | "STUDENT";

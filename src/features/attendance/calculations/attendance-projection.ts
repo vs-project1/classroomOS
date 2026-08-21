@@ -64,25 +64,27 @@ export function calculateAttendanceMetrics(
   }
 
   const percentage = Math.round((safeAttended / safeTotal) * 100);
+  const exactRatio = safeAttended / safeTotal;
+  const k = threshold / 100;
 
-  // Category classification
+  // Category classification on the EXACT ratio — rounding before classifying
+  // let 79.6% (e.g. 199/250) pass as SAFE against the TU 80% mandate.
   let category: AttendanceCategory = "SAFE";
-  if (percentage < threshold - 5) {
-    category = "DANGER"; // e.g. < 75%
-  } else if (percentage < threshold) {
-    category = "CAUTION"; // e.g. 75% to 79%
+  if (exactRatio < k - 0.05) {
+    category = "DANGER"; // < threshold - 5pp
+  } else if (exactRatio < k) {
+    category = "CAUTION"; // [threshold - 5pp, threshold)
   } else {
-    category = "SAFE"; // e.g. >= 80%
+    category = "SAFE"; // >= threshold
   }
 
   // Missable buffer: floor(A / k - T) where k = threshold / 100
-  const k = threshold / 100;
   const rawMissable = Math.floor(safeAttended / k - safeTotal);
-  const missableSessions = percentage >= threshold ? Math.max(0, rawMissable) : 0;
+  const missableSessions = exactRatio >= k ? Math.max(0, rawMissable) : 0;
 
   // Recovery target: ceil((k * T - A) / (1 - k)) -> 4T - 5A for k = 0.8
   const rawRecovery = Math.ceil((k * safeTotal - safeAttended) / (1 - k));
-  const classesNeededToRecover = percentage < threshold ? Math.max(0, rawRecovery) : 0;
+  const classesNeededToRecover = exactRatio < k ? Math.max(0, rawRecovery) : 0;
 
   return {
     totalSessions: safeTotal,

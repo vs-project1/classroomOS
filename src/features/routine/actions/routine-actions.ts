@@ -8,6 +8,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { and, eq, ne } from "drizzle-orm";
 import { parseAndNormalizeTime } from "@/lib/time";
+import { requireAuth } from "@/lib/auth/session";
 
 const routineSchema = z.object({
   subjectId: z.string().min(1, "Subject is required"),
@@ -38,6 +39,12 @@ async function checkOverlap(dayOfWeek: number, startTime: string, endTime: strin
 }
 
 export async function saveRoutine(prevState: any, formData: FormData) {
+  try {
+    await requireAuth(["TEACHER", "ADMIN"]);
+  } catch {
+    return { success: false, message: "Unauthorized. Teacher or Admin role required." };
+  }
+
   const id = formData.get("id")?.toString();
   const rawStartTime = formData.get("startTime")?.toString() || "";
   const rawEndTime = formData.get("endTime")?.toString() || "";
@@ -105,6 +112,8 @@ export async function saveRoutine(prevState: any, formData: FormData) {
 }
 
 export async function deleteRoutine(id: string) {
+  await requireAuth(["TEACHER", "ADMIN"]);
+
   try {
     await db.delete(weeklyRoutine).where(eq(weeklyRoutine.id, id));
     revalidatePath("/routine");

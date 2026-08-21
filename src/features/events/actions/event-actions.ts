@@ -8,6 +8,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { parseAndNormalizeTime } from "@/lib/time";
+import { requireAuth } from "@/lib/auth/session";
 
 const eventSchema = z.object({
   title: z.string().trim().min(1, "Title is required"),
@@ -27,6 +28,15 @@ const eventSchema = z.object({
 });
 
 export async function createEvent(prevState: any, formData: FormData) {
+  try {
+    await requireAuth(["ADMIN", "TEACHER"]);
+  } catch {
+    return {
+      success: false,
+      message: "Unauthorized. Admin or Teacher role required.",
+    };
+  }
+
   const rawStartTime = formData.get("startTime")?.toString() || "";
   const rawEndTime = formData.get("endTime")?.toString() || "";
   const normalizedStartTime = parseAndNormalizeTime(rawStartTime) || undefined;
@@ -78,6 +88,8 @@ export async function createEvent(prevState: any, formData: FormData) {
 }
 
 export async function deleteEvent(id: string) {
+  await requireAuth(["ADMIN"]);
+
   try {
     await db.delete(events).where(eq(events.id, id));
     revalidatePath("/events");

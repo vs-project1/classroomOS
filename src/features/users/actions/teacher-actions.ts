@@ -2,6 +2,7 @@
 
 import { db } from "@/db";
 import { teachers } from "@/db/schema";
+import { requireAuth } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -50,6 +51,12 @@ const TeacherSchema = z.object({
 });
 
 export async function saveTeacher(prevState: any, formData: FormData): Promise<TeacherActionState> {
+  try {
+    await requireAuth(["ADMIN"]);
+  } catch {
+    return { success: false, message: "Unauthorized. Admin role required." };
+  }
+
   const id = formData.get("id")?.toString();
   const rawData = {
     name: formData.get("name"),
@@ -100,19 +107,27 @@ export async function saveTeacher(prevState: any, formData: FormData): Promise<T
     return { success: false, message: "Something went wrong. Please try again." };
   }
 
-  revalidatePath("/teachers");
+  revalidatePath("/admin/teachers");
   revalidatePath("/subjects");
   revalidatePath("/routine");
-  redirect("/teachers");
+  redirect("/admin/teachers");
 }
 
-export async function deleteTeacher(id: string) {
+export async function deleteTeacher(id: string): Promise<TeacherActionState> {
+  try {
+    await requireAuth(["ADMIN"]);
+  } catch {
+    return { success: false, message: "Unauthorized. Admin role required." };
+  }
+
   try {
     await db.delete(teachers).where(eq(teachers.id, id));
-    revalidatePath("/teachers");
+    revalidatePath("/admin/teachers");
     revalidatePath("/subjects");
     revalidatePath("/routine");
+    return { success: true, message: "Teacher deleted successfully." };
   } catch (error) {
     console.error("Failed to delete teacher:", error);
+    return { success: false, message: "Something went wrong. Please try again." };
   }
 }
