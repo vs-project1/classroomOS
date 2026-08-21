@@ -13,27 +13,18 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { getSubjectProgress } from "@/features/subjects/queries";
 import { ChapterCoverageToggle } from "@/features/subjects/components/chapter-coverage-toggle";
 import { resolveCurrentStudent, requireAuth } from "@/lib/auth";
+import { ContextHeader } from "@/components/shell/context-header";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/ui/tabs";
 import { buttonVariants } from "@/components/ui/button";
 import {
-  BookOpen,
   User,
   Calendar,
-  Layers,
   FileText,
   CheckCircle2,
   Circle,
   Clock,
   ShieldAlert,
-  ArrowLeft,
-  Book,
   FileCheck,
   ExternalLink,
   Presentation,
@@ -89,12 +80,20 @@ function formatFileSize(bytes: number | null): string {
   return `${Math.round(bytes / 1024)} KB`;
 }
 
+const SUBJECT_TABS = ["overview", "syllabus", "classes", "assignments", "resources"] as const;
+type SubjectTabKey = (typeof SUBJECT_TABS)[number];
+
 type Props = {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ tab?: string }>;
 };
 
-export default async function SubjectDetailPage({ params }: Props) {
+export default async function SubjectDetailPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const { tab } = await searchParams;
+  const activeTab: SubjectTabKey = SUBJECT_TABS.includes(tab as SubjectTabKey)
+    ? (tab as SubjectTabKey)
+    : "overview";
   const user = await requireAuth(["STUDENT", "CR", "ADMIN", "TEACHER"]);
 
   // 1. Resolve subject by human-readable slug first
@@ -209,103 +208,91 @@ export default async function SubjectDetailPage({ params }: Props) {
 
   return (
     <div className="flex-1 space-y-6 max-w-6xl mx-auto w-full">
-      {/* Back Link */}
-      <div>
-        <Link
-          href="/subjects"
-          className="inline-flex items-center gap-1.5 text-sm text-foreground/80 hover:text-primary mb-3 font-semibold transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Subjects
-        </Link>
+      {/* Level-2 Context Header: breadcrumbs + back link + identity + URL tabs */}
+      <ContextHeader
+        crumbs={[
+          { label: "My Subjects", href: "/subjects" },
+          { label: subject.name },
+        ]}
+        backHref="/subjects"
+        backLabel="My Subjects"
+        title={subject.name}
+        meta={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="px-3 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold font-mono">
+              {subject.code}
+            </span>
+            {subject.teacher && (
+              <span className="text-sm text-foreground/80 flex items-center gap-1.5 font-semibold">
+                <User className="w-4 h-4 text-primary" />
+                {subject.teacher.name}
+              </span>
+            )}
+          </div>
+        }
+        actions={
+          <Link href={`/routine`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+            <Calendar className="w-4 h-4 mr-2 text-primary" /> View Routine
+          </Link>
+        }
+        activeTab={activeTab}
+        tabTestIdPrefix="subject-tab"
+        tabs={(
+          [
+            { key: "overview", label: "Overview" },
+            { key: "syllabus", label: "Syllabus" },
+            { key: "classes", label: "Classes" },
+            { key: "assignments", label: "Assignments" },
+            { key: "resources", label: "Resources" },
+          ] as const
+        ).map((t) => ({
+          ...t,
+          href: `/subjects/${slug}?tab=${t.key}`,
+        }))}
+      />
 
-        {/* Header Card */}
-        <div className="p-6 rounded-2xl border bg-card shadow-sm space-y-5">
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className="px-3 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold font-mono">
-                  {subject.code}
+      {/* Overview */}
+      {activeTab === "overview" && (
+        <div className="p-6 rounded-2xl border bg-card shadow-sm space-y-2.5" data-testid="subject-overview-body">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {progress.currentChapter ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20 max-w-full">
+                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">
+                  Currently on: {progress.currentChapter.unitTitle} — {progress.currentChapter.chapterTitle}
                 </span>
-                {subject.teacher && (
-                  <span className="text-sm text-foreground/80 flex items-center gap-1.5 font-semibold">
-                    <User className="w-4 h-4 text-primary" />
-                    {subject.teacher.name}
-                  </span>
-                )}
-              </div>
-              <h1 className="text-2xl md:text-3xl font-bold font-fira-sans tracking-tight text-foreground">
-                {subject.name}
-              </h1>
-            </div>
-
-            <div className="flex items-center gap-3 shrink-0">
-              <Link
-                href={`/routine`}
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                <Calendar className="w-4 h-4 mr-2 text-primary" /> View Routine
-              </Link>
-            </div>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs font-bold border border-border">
+                Not started
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground font-semibold">
+              {coveredChapters}/{totalChapters} chapters covered
+            </span>
           </div>
 
-          {/* Progress Section */}
-          <div className="pt-4 border-t border-border/40 space-y-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {progress.currentChapter ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20 max-w-full">
-                  <MapPin className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">
-                    Currently on: {progress.currentChapter.unitTitle} — {progress.currentChapter.chapterTitle}
-                  </span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs font-bold border border-border">
-                  Not started
-                </span>
-              )}
-              <span className="text-xs text-muted-foreground font-semibold">
-                {coveredChapters}/{totalChapters} chapters covered
-              </span>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-2.5 rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100} aria-label={`${progressPercent}% of chapters covered`}>
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${progressPercent}%` }}
+              />
             </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-2.5 rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100} aria-label={`${progressPercent}% of chapters covered`}>
-                <div
-                  className="h-full rounded-full bg-primary transition-all"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-              <span className="text-sm font-bold text-foreground tabular-nums shrink-0">
-                {progressPercent}%
-              </span>
-            </div>
+            <span className="text-sm font-bold text-foreground tabular-nums shrink-0">
+              {progressPercent}%
+            </span>
           </div>
+
+          <p className="pt-2 text-sm text-muted-foreground">
+            Track this subject&apos;s syllabus progress, class history, assignments, and study materials from the tabs above.
+          </p>
         </div>
-      </div>
+      )}
 
-      {/* 4 Tabs Workspace */}
-      <Tabs defaultValue="syllabus" className="w-full space-y-6">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full h-auto p-1.5 bg-slate-200/80 dark:bg-slate-800/80 rounded-2xl">
-          <TabsTrigger value="syllabus" className="py-3 font-bold text-sm cursor-pointer">
-            <Layers className="w-4 h-4 mr-2" />
-            Syllabus
-          </TabsTrigger>
-          <TabsTrigger value="sessions" className="py-3 font-bold text-sm cursor-pointer">
-            <Clock className="w-4 h-4 mr-2" />
-            Sessions
-          </TabsTrigger>
-          <TabsTrigger value="assignments" className="py-3 font-bold text-sm cursor-pointer">
-            <Book className="w-4 h-4 mr-2" />
-            Assignments
-          </TabsTrigger>
-          <TabsTrigger value="resources" className="py-3 font-bold text-sm cursor-pointer">
-            <FileText className="w-4 h-4 mr-2" />
-            Resources
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Tab 1: Syllabus Progress */}
-        <TabsContent value="syllabus" className="space-y-4">
+      {/* Syllabus Progress */}
+      {activeTab === "syllabus" && (
+        <div className="space-y-4">
           <div className="rounded-2xl border bg-card p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg text-foreground font-fira-sans">
@@ -385,10 +372,12 @@ export default async function SubjectDetailPage({ params }: Props) {
               </div>
             )}
           </div>
-        </TabsContent>
+        </div>
+      )}
 
-        {/* Tab 2: Sessions & Lecture Logs */}
-        <TabsContent value="sessions" className="space-y-4">
+      {/* Classes: Session & Lecture Logs */}
+      {activeTab === "classes" && (
+        <div className="space-y-4">
           <div className="rounded-2xl border bg-card p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg text-foreground font-fira-sans">
@@ -468,10 +457,12 @@ export default async function SubjectDetailPage({ params }: Props) {
               </div>
             )}
           </div>
-        </TabsContent>
+        </div>
+      )}
 
-        {/* Tab 3: Assignments */}
-        <TabsContent value="assignments" className="space-y-4">
+      {/* Assignments */}
+      {activeTab === "assignments" && (
+        <div className="space-y-4">
           <div className="rounded-xl border bg-card p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-base text-foreground font-fira-sans">
@@ -545,10 +536,12 @@ export default async function SubjectDetailPage({ params }: Props) {
               </div>
             )}
           </div>
-        </TabsContent>
+        </div>
+      )}
 
-        {/* Tab 4: Resources */}
-        <TabsContent value="resources" className="space-y-4">
+      {/* Resources */}
+      {activeTab === "resources" && (
+        <div className="space-y-4">
           <div className="rounded-xl border bg-card p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -621,8 +614,8 @@ export default async function SubjectDetailPage({ params }: Props) {
               </div>
             )}
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 }

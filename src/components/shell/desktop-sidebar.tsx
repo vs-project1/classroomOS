@@ -78,9 +78,16 @@ export function SidebarNavContent({ role, badges, subjects }: SidebarNavContentP
                     <item.icon className={cn("w-4 h-4 shrink-0", isActive ? "text-white" : "opacity-70")} />
                     <span>{item.label}</span>
                     {item.badgeKey && (
-                      <span className="ml-auto">
-                        <NavBadge count={badges[item.badgeKey]} />
-                      </span>
+                      <>
+                        <span className="sr-only">
+                          {badges[item.badgeKey]
+                            ? ` (${badges[item.badgeKey]} ${item.badgeKey === "assignmentsDue" ? "due" : "to grade"})`
+                            : ""}
+                        </span>
+                        <span className="ml-auto">
+                          <NavBadge count={badges[item.badgeKey]} />
+                        </span>
+                      </>
                     )}
                   </Link>
                 );

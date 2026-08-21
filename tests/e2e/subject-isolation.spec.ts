@@ -13,12 +13,14 @@ test.describe("F13, F14: Student Subjects Workspace & Strict Data Isolation", ()
       expect(cardCount).toBeGreaterThanOrEqual(1);
     });
 
-    test("TC-SPEC-SUBJ-02: Subject detail view loads with Syllabus, Sessions, Assignments, and Resources tabs", async ({ studentPage }) => {
+    test("TC-SPEC-SUBJ-02: Subject detail view loads with Syllabus, Classes, Assignments, and Resources tabs", async ({ studentPage }) => {
       const subjectsPage = new SubjectsPage(studentPage);
       await subjectsPage.gotoDetail(TEST_SUBJECTS.dsa.id);
 
-      // Verify tabs presence
-      await expect(subjectsPage.tabSyllabus.or(subjectsPage.tabSessions).first()).toBeVisible({ timeout: 10000 });
+      await expect(subjectsPage.tabSyllabus).toBeVisible({ timeout: 10000 });
+      await expect(subjectsPage.tabSessions).toBeVisible();
+      await expect(subjectsPage.tabAssignments).toBeVisible();
+      await expect(subjectsPage.tabResources).toBeVisible();
     });
 
     test("TC-SPEC-SUBJ-03: Switching tabs renders respective academic sections cleanly", async ({ studentPage }) => {
@@ -27,12 +29,61 @@ test.describe("F13, F14: Student Subjects Workspace & Strict Data Isolation", ()
 
       if (await subjectsPage.tabSessions.isVisible()) {
         await subjectsPage.tabSessions.click();
+        await expect(studentPage).toHaveURL(/tab=classes/);
         await expect(studentPage.locator("div:has-text('Topics Covered'), div:has-text('Session')").first()).toBeVisible({ timeout: 5000 });
       }
 
       if (await subjectsPage.tabResources.isVisible()) {
         await subjectsPage.tabResources.click();
+        await expect(studentPage).toHaveURL(/tab=resources/);
         await expect(studentPage.locator("div:has-text('Materials'), div:has-text('Download'), div:has-text('Slides')").first()).toBeVisible({ timeout: 5000 });
+      }
+    });
+  });
+
+  test.describe("Subject Workspace URL Tabs & Context Header (Level 2 IA)", () => {
+    const DSA_SLUG = "data-structures-and-algorithms";
+
+    test("TC-SPEC-SUBJ-07: ?tab=assignments deep-link renders assignments server-side and highlights the tab link", async ({ studentPage }) => {
+      const subjectsPage = new SubjectsPage(studentPage);
+      await subjectsPage.gotoDetailTab(DSA_SLUG, "assignments");
+
+      // Active tab styled like the sidebar active item
+      await expect(subjectsPage.tabAssignments).toHaveClass(/bg-primary/, { timeout: 10000 });
+      // Assignment body rendered without any client-side tab click
+      await expect(studentPage.getByText(/Subject Assignments/i)).toBeVisible();
+      // Other tab bodies stay hidden
+      await expect(studentPage.getByText(/Curriculum & Unit Breakdown/i)).toHaveCount(0);
+    });
+
+    test("TC-SPEC-SUBJ-08: context header carries breadcrumbs and a My Subjects back link", async ({ studentPage }) => {
+      const subjectsPage = new SubjectsPage(studentPage);
+      await subjectsPage.gotoDetailTab(DSA_SLUG, "overview");
+
+      await expect(subjectsPage.breadcrumbs).toBeVisible({ timeout: 10000 });
+      await expect(subjectsPage.breadcrumbs).toContainText(/My Subjects/i);
+      await expect(subjectsPage.breadcrumbs).toContainText(/Data Structures and Algorithms/i);
+
+      const backLink = studentPage.locator("a[data-testid='context-back-link']");
+      await expect(backLink).toBeVisible();
+      await expect(backLink).toHaveAttribute("href", "/subjects");
+    });
+
+    test("TC-SPEC-SUBJ-09: default tab is overview and every tab link preserves the subject slug", async ({ studentPage }) => {
+      const subjectsPage = new SubjectsPage(studentPage);
+      await subjectsPage.gotoDetail(DSA_SLUG);
+
+      await expect(studentPage).not.toHaveURL(/tab=/);
+      const overviewLink = studentPage.locator("a[data-testid='subject-tab-overview']");
+      await expect(overviewLink).toHaveClass(/bg-primary/, { timeout: 10000 });
+
+      for (const locator of [
+        subjectsPage.tabSyllabus,
+        subjectsPage.tabSessions,
+        subjectsPage.tabAssignments,
+        subjectsPage.tabResources,
+      ]) {
+        await expect(locator).toHaveAttribute("href", new RegExp(`^/subjects/${DSA_SLUG}\\?tab=`));
       }
     });
   });
