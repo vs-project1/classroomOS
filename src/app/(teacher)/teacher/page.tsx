@@ -91,7 +91,7 @@ export default async function TeacherDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CalendarRange className="w-5 h-5 text-primary" />
-              Today's Classes
+              Today's Schedule
             </CardTitle>
             <CardDescription>Your schedule for today ({todayString}).</CardDescription>
           </CardHeader>
