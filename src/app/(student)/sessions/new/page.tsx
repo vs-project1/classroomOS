@@ -55,6 +55,7 @@ export default async function NewSessionPage({ searchParams }: { searchParams: P
           startTime: typeof params.startTime === 'string' ? params.startTime : undefined,
           endTime: typeof params.endTime === 'string' ? params.endTime : undefined,
           routineId: typeof params.routineId === 'string' ? params.routineId : undefined,
+          sessionDate: typeof params.sessionDate === 'string' ? params.sessionDate : undefined,
         }}
       />
     </div>

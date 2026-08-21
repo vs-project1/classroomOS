@@ -28,6 +28,7 @@ type Props = {
     startTime?: string;
     endTime?: string;
     routineId?: string;
+    sessionDate?: string;
   };
 };
 
@@ -107,7 +108,7 @@ export function SessionForm({ students, subjects, defaultValues }: Props) {
 
           <div className="space-y-2">
             <Label htmlFor="sessionDate" className="text-sm font-medium">Session Date</Label>
-            <Input type="date" id="sessionDate" name="sessionDate" required defaultValue={getNepalDateString()} className="h-10" />
+            <Input type="date" id="sessionDate" name="sessionDate" required defaultValue={defaultValues?.sessionDate || getNepalDateString()} className="h-10" />
             {state.fieldErrors?.sessionDate && (
               <p className="text-sm font-medium text-destructive">{state.fieldErrors.sessionDate[0]}</p>
             )}
