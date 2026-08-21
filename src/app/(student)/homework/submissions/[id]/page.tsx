@@ -66,7 +66,7 @@ export default async function SubmissionDetailPage({ params }: Props) {
             Access Denied: You do not have permission to view another student's assignment submission.
           </p>
           <Link href="/homework" className={buttonVariants({ variant: "outline" })}>
-            ← Return to My Homework
+            ← Return to My Assignments
           </Link>
         </div>
       );

@@ -140,7 +140,7 @@ export default async function AttendancePage() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-6 border-b border-border/40">
         <div>
           <h2 className="text-2xl md:text-3xl font-bold font-fira-sans tracking-tight text-foreground">
-            Attendance Records
+            Attendance
           </h2>
           <p className="text-muted-foreground text-sm mt-1 max-w-2xl">
             Track lecture presence across your subjects and monitor your 80% TU mandatory exam threshold.

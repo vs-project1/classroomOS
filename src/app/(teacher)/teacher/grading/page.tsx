@@ -15,7 +15,7 @@ export default async function GradingPage() {
   if (!user.teacherId) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">Grading Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Grade Submissions</h1>
         <div className="p-4 bg-yellow-50 text-yellow-800 rounded-xl border border-yellow-200">
           Your account is not linked to a teacher profile.
         </div>
@@ -41,7 +41,7 @@ export default async function GradingPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Grading Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Grade Submissions</h1>
           <p className="text-muted-foreground">Review and grade student submissions.</p>
         </div>
       </div>

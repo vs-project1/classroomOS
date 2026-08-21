@@ -82,7 +82,7 @@ export default async function SubjectsPage() {
         <div className="flex items-center gap-2 mb-1">
           <BookOpen className="w-6 h-6 text-primary" />
           <h2 className="text-2xl md:text-3xl font-bold font-fira-sans tracking-tight text-foreground">
-            Enrolled Subjects
+            Subjects
           </h2>
         </div>
         <p className="text-muted-foreground text-sm max-w-2xl">
