@@ -299,6 +299,13 @@ export async function seedE2E(customClient?: Client) {
   }
 
   // 10. Seed Graded Assignment Submission
+  // Deterministic reset: UI-driven specs create submissions during a run;
+  // they must never leak into the next run's baseline (badge counts etc).
+  await client.execute({
+    sql: `DELETE FROM assignment_submissions WHERE id NOT IN ('sub_wt_graded_01', 'sub_dsa_submitted_01');`,
+    args: [],
+  });
+
   await client.execute({
     sql: `INSERT INTO assignment_submissions (id, homework_id, student_id, content, file_url, file_name, file_size, status, submitted_at, grade, score, feedback, graded_by, graded_at, created_at, updated_at)
           VALUES ('sub_wt_graded_01', 'hw_wt_js', 'sp_student_001', 'Implemented DOM event listeners and interactive calculator with event delegation.', 'https://utfs.io/f/mock-wt-lab1.pdf', 'wt_lab1_dom_calculator.pdf', 204800, 'graded', ?, 'A+', 95, 'Outstanding event delegation and clean modular JS structure.', 'tch_ram_001', ?, ?, ?)
@@ -306,6 +313,13 @@ export async function seedE2E(customClient?: Client) {
     args: [now - (6 * oneDay), now - (3 * oneDay), now - (7 * oneDay), now - (3 * oneDay)],
   });
 
+  // 10b. Seed Ungraded Submitted Submission (Grading badge / teacher surfaces)
+  await client.execute({
+    sql: `INSERT INTO assignment_submissions (id, homework_id, student_id, content, status, submitted_at, created_at, updated_at)
+          VALUES ('sub_dsa_submitted_01', 'hw_dsa_trees', 'sp_student_001', 'Red-Black tree insertions with recoloring walkthrough and rotation case analysis.', 'submitted', ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET status = excluded.status, submitted_at = excluded.submitted_at;`,
+    args: [now - (2 * oneDay), now - (2 * oneDay), now - (2 * oneDay)],
+  });
   // 11. Seed Downloadable Resources / Lecture Materials
   const resourcesData = [
     { id: "res_dsa_01", subjectId: "subj_dsa_001", title: "DSA Lecture Slides & Lab Materials", url: "https://utfs.io/f/mock-dsa-slides-01.pdf", type: "pdf", size: 1048576 },

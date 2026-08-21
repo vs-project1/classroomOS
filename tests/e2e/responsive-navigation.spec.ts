@@ -1,5 +1,10 @@
 ﻿import { test, expect } from "../fixtures/auth.fixture";
 
+/**
+ * F1–F4: Responsive Navigation & Layout Architecture — rewritten for the
+ * role-aware AppShell IA (bottom tab bar + Sheet drawer on mobile instead of
+ * the legacy horizontally scrolling pill bar).
+ */
 test.describe("F1, F2, F3, F4: Responsive Navigation & Layout Architecture", () => {
   const desktopViewports = [
     { name: "Desktop Wide 1440px", width: 1440, height: 900 },
@@ -15,7 +20,7 @@ test.describe("F1, F2, F3, F4: Responsive Navigation & Layout Architecture", () 
   // 1. Desktop Viewports (>= 768px)
   test.describe("Desktop Viewports (>= 768px)", () => {
     for (const vp of desktopViewports) {
-      test(`TC-RESP-NAV-01 [${vp.name}]: Sticky sidebar is visible and sticky, mobile topbar/navbar is hidden, and no horizontal overflow occurs`, async ({
+      test(`TC-RESP-NAV-01 [${vp.name}]: Sticky sidebar is visible and sticky, mobile chrome is hidden, and no horizontal overflow occurs`, async ({
         studentPage,
       }) => {
         await studentPage.setViewportSize({ width: vp.width, height: vp.height });
@@ -26,7 +31,6 @@ test.describe("F1, F2, F3, F4: Responsive Navigation & Layout Architecture", () 
         const sidebar = studentPage.locator("aside").filter({ hasText: /Classroom OS/i }).first();
         await expect(sidebar).toBeVisible({ timeout: 10000 });
 
-        // Check sidebar CSS properties (width 256px / w-64, sticky position)
         const isSticky = await sidebar.evaluate((el) => {
           const style = window.getComputedStyle(el);
           return style.position === "sticky" || el.classList.contains("sticky");
@@ -36,14 +40,12 @@ test.describe("F1, F2, F3, F4: Responsive Navigation & Layout Architecture", () 
         const sidebarWidth = await sidebar.evaluate((el) => el.getBoundingClientRect().width);
         expect(sidebarWidth).toBeCloseTo(256, 1);
 
-        // 2. Verify mobile topbar hamburger and mobile navbar pill bar are hidden
-        const mobileMenuTrigger = studentPage.locator("button[aria-label='Open menu']");
-        await expect(mobileMenuTrigger).toBeHidden();
+        // 2. Mobile-only chrome must be hidden on desktop:
+        //    the topbar hamburger trigger AND the fixed bottom tab bar.
+        await expect(studentPage.locator("button[aria-label='Open menu']")).toBeHidden();
+        await expect(studentPage.locator("[data-testid='mobile-bottom-nav']")).toBeHidden();
 
-        const mobileNavbar = studentPage.locator("div.md\\:hidden").filter({ has: studentPage.locator("a") });
-        await expect(mobileNavbar.first()).toBeHidden();
-
-        // 3. Verify main content flows without horizontal overflow
+        // 3. Main content flows without horizontal overflow
         const hasHorizontalOverflow = await studentPage.evaluate(() => {
           const doc = document.documentElement;
           return doc.scrollWidth > doc.clientWidth;
@@ -56,7 +58,7 @@ test.describe("F1, F2, F3, F4: Responsive Navigation & Layout Architecture", () 
   // 2. Mobile Viewports (< 768px)
   test.describe("Mobile Viewports (< 768px)", () => {
     for (const vp of mobileViewports) {
-      test(`TC-RESP-NAV-02 [${vp.name}]: Desktop sidebar is hidden, sticky topbar and mobile navbar pill bar are visible with all navigation pills`, async ({
+      test(`TC-RESP-NAV-02 [${vp.name}]: Desktop sidebar hidden, sticky topbar visible, fixed bottom tab bar shows Home/Today/Subjects/More`, async ({
         studentPage,
       }) => {
         await studentPage.setViewportSize({ width: vp.width, height: vp.height });
@@ -64,43 +66,45 @@ test.describe("F1, F2, F3, F4: Responsive Navigation & Layout Architecture", () 
         await studentPage.waitForLoadState("domcontentloaded");
 
         // 1. Desktop sidebar should be hidden
-        const desktopSidebar = studentPage.locator("aside.hidden.md\\:flex, aside.md\\:flex");
-        await expect(desktopSidebar.first()).toBeHidden();
+        const desktopSidebar = studentPage.locator("aside").filter({ hasText: /Student Portal/i }).first();
+        await expect(desktopSidebar).toBeHidden();
 
-        // 2. Mobile Topbar is visible and sticky
-        const mobileTopbar = studentPage.locator("header").first();
-        await expect(mobileTopbar).toBeVisible();
+        // 2. Topbar is visible and sticky
+        const topbar = studentPage.locator("header").first();
+        await expect(topbar).toBeVisible();
 
-        const isTopbarSticky = await mobileTopbar.evaluate((el) => {
+        const isTopbarSticky = await topbar.evaluate((el) => {
           const style = window.getComputedStyle(el);
           return style.position === "sticky" || el.classList.contains("sticky");
         });
         expect(isTopbarSticky).toBe(true);
 
-        // 3. Mobile Navbar pill bar is visible
-        const mobilePillBar = studentPage.locator("div.md\\:hidden.overflow-x-auto, div.md\\:hidden").filter({ has: studentPage.locator("a") }).first();
-        await expect(mobilePillBar).toBeVisible();
+        // 3. Fixed bottom tab bar replaces the legacy pill strip; the four
+        //    primary destinations are directly reachable without scrolling.
+        const bottomNav = studentPage.locator("[data-testid='mobile-bottom-nav']");
+        await expect(bottomNav).toBeVisible({ timeout: 10000 });
 
-        // 4. Verify link pills exist in the mobile navbar
-        const expectedPills = [
+        const expectedTabs = [
           { text: /Home/i, href: "/" },
-          { text: /Subjects/i, href: "/subjects" },
           { text: /Today/i, href: "/today" },
-          { text: /Routine/i, href: "/routine" },
-          { text: /Attendance/i, href: "/attendance" },
-          { text: /Assignments|Homework/i, href: "/homework" },
-          { text: /Notices/i, href: "/notices" },
-          { text: /Events/i, href: "/events" },
+          { text: /Subjects/i, href: "/subjects" },
         ];
-
-        for (const pill of expectedPills) {
-          const pillLink = mobilePillBar.locator(`a[href='${pill.href}']`);
-          await expect(pillLink.first()).toBeVisible();
-          await expect(pillLink.first()).toHaveText(pill.text);
+        for (const tab of expectedTabs) {
+          const tabLink = bottomNav.locator(`a[href='${tab.href}']`).first();
+          await expect(tabLink).toBeVisible();
+          await expect(tabLink).toContainText(tab.text);
         }
+        await expect(bottomNav.locator("button[aria-label='More navigation']")).toBeVisible();
+
+        // 4. No horizontal overflow (the old pill bar scrolled sideways)
+        const hasHorizontalOverflow = await studentPage.evaluate(() => {
+          const doc = document.documentElement;
+          return doc.scrollWidth > doc.clientWidth;
+        });
+        expect(hasHorizontalOverflow).toBe(false);
       });
 
-      test(`TC-RESP-NAV-03 [${vp.name}]: Mobile hamburger button opens Sheet drawer with full navigation links and navigates correctly`, async ({
+      test(`TC-RESP-NAV-03 [${vp.name}]: Mobile hamburger opens Sheet drawer with full navigation links and navigates correctly`, async ({
         studentPage,
       }) => {
         await studentPage.setViewportSize({ width: vp.width, height: vp.height });
@@ -112,19 +116,19 @@ test.describe("F1, F2, F3, F4: Responsive Navigation & Layout Architecture", () 
         await expect(hamburgerBtn).toBeVisible();
         await hamburgerBtn.click();
 
-        // 2. Sheet drawer dialog should appear
+        // 2. Sheet drawer dialog should appear with the Student Portal brand
         const sheetDrawer = studentPage.locator("[role='dialog']").filter({ hasText: /Student Portal|Classroom OS/i });
         await expect(sheetDrawer).toBeVisible({ timeout: 5000 });
 
         // 3. Verify main navigation items in the drawer
         const drawerNav = sheetDrawer.locator("nav");
         await expect(drawerNav).toBeVisible();
-        await expect(drawerNav.locator("a[href='/routine']")).toBeVisible();
-        await expect(drawerNav.locator("a[href='/attendance']")).toBeVisible();
-        await expect(drawerNav.locator("a[href='/homework']")).toBeVisible();
+        await expect(drawerNav.locator("a[href='/routine']").first()).toBeVisible();
+        await expect(drawerNav.locator("a[href='/attendance']").first()).toBeVisible();
+        await expect(drawerNav.locator("a[href='/homework']").first()).toBeVisible();
 
         // 4. Click a link in the drawer (e.g. Routine) and verify navigation
-        await drawerNav.locator("a[href='/routine']").click();
+        await drawerNav.locator("a[href='/routine']").first().click();
         await studentPage.waitForURL(/\/routine/);
         await expect(studentPage).toHaveURL(/\/routine/);
       });
@@ -140,7 +144,7 @@ test.describe("F1, F2, F3, F4: Responsive Navigation & Layout Architecture", () 
       await adminPage.goto("/admin");
       await adminPage.waitForLoadState("domcontentloaded");
 
-      const adminSidebar = adminPage.locator("aside").filter({ hasText: /Admin Console|Classroom OS/i }).first();
+      const adminSidebar = adminPage.locator("aside").filter({ hasText: /Administration|Classroom OS/i }).first();
       await expect(adminSidebar).toBeVisible();
 
       // Navigate to Accounts & Auth
@@ -197,11 +201,11 @@ test.describe("F1, F2, F3, F4: Responsive Navigation & Layout Architecture", () 
       await adminPage.waitForLoadState("domcontentloaded");
 
       // Desktop sidebar should be hidden on mobile
-      const desktopSidebar = adminPage.locator("aside.hidden.md\\:flex, aside.md\\:flex");
-      await expect(desktopSidebar.first()).toBeHidden();
+      const desktopSidebar = adminPage.locator("aside").filter({ hasText: /Administration/i }).first();
+      await expect(desktopSidebar).toBeHidden();
 
       // Mobile header should be visible
-      const mobileHeader = adminPage.locator("header.md\\:hidden").first();
+      const mobileHeader = adminPage.locator("header").first();
       await expect(mobileHeader).toBeVisible();
 
       // Open mobile hamburger menu
@@ -210,11 +214,11 @@ test.describe("F1, F2, F3, F4: Responsive Navigation & Layout Architecture", () 
       await adminMenuTrigger.click();
 
       // Verify Sheet dialog appears
-      const sheetDrawer = adminPage.locator("[role='dialog']").filter({ hasText: /Admin Console|Classroom OS/i });
+      const sheetDrawer = adminPage.locator("[role='dialog']").filter({ hasText: /Administration|Classroom OS/i });
       await expect(sheetDrawer).toBeVisible({ timeout: 5000 });
 
       // Click Accounts link in mobile drawer
-      await sheetDrawer.locator("a[href='/admin/accounts']").click();
+      await sheetDrawer.locator("a[href='/admin/accounts']").first().click();
       await adminPage.waitForURL(/\/admin\/accounts/);
       await expect(adminPage).toHaveURL(/\/admin\/accounts/);
     });

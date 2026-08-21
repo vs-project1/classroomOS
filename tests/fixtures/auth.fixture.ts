@@ -30,6 +30,8 @@ async function persistSessionRow(token: string, userId: string, expiresAtMs: num
 
 export type AuthPersonas = {
   adminPage: Page;
+  teacherPage: Page;
+  crPage: Page;
   studentPage: Page;
   newStudentPage: Page;
   unauthorizedPage: Page;
@@ -95,6 +97,22 @@ export const test = base.extend<AuthPersonas>({
   adminPage: async ({ browser, baseURL }, use) => {
     const context = await browser.newContext();
     await injectAuthSession(context, TEST_PERSONAS.admin, baseURL);
+    const page = await context.newPage();
+    await use(page);
+    await context.close();
+  },
+
+  teacherPage: async ({ browser, baseURL }, use) => {
+    const context = await browser.newContext();
+    await injectAuthSession(context, TEST_PERSONAS.teacher, baseURL);
+    const page = await context.newPage();
+    await use(page);
+    await context.close();
+  },
+
+  crPage: async ({ browser, baseURL }, use) => {
+    const context = await browser.newContext();
+    await injectAuthSession(context, TEST_PERSONAS.cr, baseURL);
     const page = await context.newPage();
     await use(page);
     await context.close();

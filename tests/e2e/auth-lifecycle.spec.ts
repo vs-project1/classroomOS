@@ -115,7 +115,9 @@ test.describe("F4, F5, F6, F7, F8: Authentication & Lifecycle Management", () =>
       const adminAccounts = new AdminAccountsPage(adminPage);
       await adminAccounts.goto();
 
-      await expect(adminAccounts.accountsTable.or(adminPage.locator("main, div.container"))).toBeVisible();
+      // The AppShell gives every role a <main> landmark; assert the roster
+      // table itself rather than an either/or container fallback.
+      await expect(adminAccounts.accountsTable).toBeVisible();
     });
 
     test("TC-SPEC-AUTH-11: Admin creates new student account and receives temporary password", async ({ adminPage }) => {
