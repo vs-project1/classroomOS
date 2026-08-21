@@ -85,7 +85,7 @@ export async function createStudent(prevState: StudentActionState, formData: For
       semester,
     });
 
-    revalidatePath("/students");
+    revalidatePath("/admin/students");
     return { success: true, message: "Student registered successfully!" };
   } catch (error: unknown) {
     if (error instanceof Error && error.message?.includes("UNIQUE constraint failed")) {
@@ -133,7 +133,7 @@ export async function updateStudent(prevState: StudentActionState, formData: For
       semester,
     }).where(eq(students.id, id));
 
-    revalidatePath("/students");
+    revalidatePath("/admin/students");
     return { success: true, message: "Student updated successfully!" };
   } catch (error: unknown) {
     if (error instanceof Error && error.message?.includes("UNIQUE constraint failed")) {

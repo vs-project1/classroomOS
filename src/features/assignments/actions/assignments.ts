@@ -268,8 +268,9 @@ export async function createHomework(prevState: any, formData: FormData) {
   }
 
   revalidatePath("/homework");
+  revalidatePath("/admin/homework");
   revalidatePath("/");
-  redirect("/homework");
+  redirect("/admin/homework");
 }
 
 /**

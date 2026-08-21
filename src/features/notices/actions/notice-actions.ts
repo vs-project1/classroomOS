@@ -53,9 +53,10 @@ export async function createNotice(prevState: any, formData: FormData) {
     };
   }
 
+  revalidatePath("/admin/notices");
   revalidatePath("/notices");
   revalidatePath("/");
-  redirect("/notices");
+  redirect("/admin/notices");
 }
 
 export async function deleteNotice(id: string) {

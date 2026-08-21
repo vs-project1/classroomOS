@@ -107,10 +107,11 @@ export async function saveTeacher(prevState: any, formData: FormData): Promise<T
     return { success: false, message: "Something went wrong. Please try again." };
   }
 
-  revalidatePath("/admin/teachers");
-  revalidatePath("/subjects");
-  revalidatePath("/routine");
-  redirect("/admin/teachers");
+    revalidatePath("/admin/teachers");
+    revalidatePath("/admin/subjects");
+    revalidatePath("/subjects");
+    revalidatePath("/routine");
+    redirect("/admin/teachers");
 }
 
 export async function deleteTeacher(id: string): Promise<TeacherActionState> {
@@ -123,6 +124,7 @@ export async function deleteTeacher(id: string): Promise<TeacherActionState> {
   try {
     await db.delete(teachers).where(eq(teachers.id, id));
     revalidatePath("/admin/teachers");
+    revalidatePath("/admin/subjects");
     revalidatePath("/subjects");
     revalidatePath("/routine");
     return { success: true, message: "Teacher deleted successfully." };

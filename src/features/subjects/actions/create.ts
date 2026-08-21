@@ -48,6 +48,7 @@ export async function createSubject(prevState: SubjectActionState, formData: For
       teacherId: teacherId || null,
     });
 
+    revalidatePath("/admin/subjects");
     revalidatePath("/subjects");
     return { success: true, message: "Subject created successfully!" };
   } catch (error: unknown) {

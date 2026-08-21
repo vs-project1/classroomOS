@@ -82,9 +82,10 @@ export async function createEvent(prevState: any, formData: FormData) {
     };
   }
 
+  revalidatePath("/admin/events");
   revalidatePath("/events");
   revalidatePath("/");
-  redirect("/events");
+  redirect("/admin/events");
 }
 
 export async function deleteEvent(id: string) {
