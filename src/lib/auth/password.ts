@@ -74,14 +74,19 @@ export async function verifyPassword(plainText: string, storedHash: string): Pro
 }
 
 /**
- * Generates an 8+ character memorable temporary password for Admin Provisioning.
- * Format: Word + Symbol + Year (e.g. Kathmandu#2026)
+ * Generates a cryptographically random memorable temporary password.
+ * Format: WordWordWordWord!##12 (e.g. MustangEverestGorkhaPatan#47)
+ *
+ * Entropy: 16^6 words + 5^2 symbols + 10^4 digits ≈ 42.6 bits,
+ * drawn from crypto.randomInt (CSPRNG). The old Word#YYYY scheme
+ * had ~80 candidates total and was brute-forceable instantly.
  */
 export function generateMemorablePassword(): string {
-  const word = CAMPUS_WORDS[Math.floor(Math.random() * CAMPUS_WORDS.length)];
-  const symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
-  const year = new Date().getFullYear();
-  return `${word}${symbol}${year}`;
+  const pick = <T>(arr: T[]): T => arr[crypto.randomInt(arr.length)];
+  const words = Array.from({ length: 6 }, () => pick(CAMPUS_WORDS));
+  const symbol = pick(SYMBOLS);
+  const digits = Array.from({ length: 4 }, () => crypto.randomInt(10)).join("");
+  return `${words.join("")}${symbol}${digits}`;
 }
 
 /**

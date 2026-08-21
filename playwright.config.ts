@@ -70,8 +70,9 @@ export default defineConfig({
     reuseExistingServer: true,
     env: {
       NODE_ENV: "test",
-      DATABASE_URL: process.env.DATABASE_URL || "file:local.db",
-      APP_ROLE: "ADMIN",
+      // Isolated test DB (audit C8) — never the developer's live local.db.
+      // Fail-fast guard lives in global-setup.
+      DATABASE_URL: process.env.DATABASE_URL || "file:local.test.db",
     },
   },
 });

@@ -1,6 +1,32 @@
 import { test as base, type Page, type BrowserContext } from "@playwright/test";
+import { createClient } from "@libsql/client";
 import { TEST_PERSONAS } from "./seed-data";
-import { createSessionToken } from "../../src/lib/auth/token";
+import { createSessionToken, getSessionTokenId } from "../../src/lib/auth/token";
+import { sessions } from "../../src/db/schema";
+
+/**
+ * Persists the session row required by server-side session validation.
+ * Since S10 revocation (sessions table), a valid HMAC cookie alone is not
+ * enough — getCurrentUser() hard-denies without a matching unexpired row.
+ */
+async function persistSessionRow(token: string, userId: string, expiresAtMs: number): Promise<void> {
+  const url = process.env.DATABASE_URL || "file:local.test.db";
+  if (!url.startsWith("file:")) {
+    throw new Error(
+      `auth.fixture refusing to write session rows against non-local DATABASE_URL: ${url}`
+    );
+  }
+  const client = createClient({ url });
+  try {
+    // drizzle `{ mode: "timestamp" }` stores epoch SECONDS; created_at has a DB default.
+    await client.execute({
+      sql: "INSERT OR IGNORE INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
+      args: [getSessionTokenId(token), userId, Math.floor(expiresAtMs / 1000)],
+    });
+  } finally {
+    client.close();
+  }
+}
 
 export type AuthPersonas = {
   adminPage: Page;
@@ -25,6 +51,7 @@ export async function injectAuthSession(
     mustChangePassword: Boolean(persona.mustChangePassword),
     expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
   });
+  await persistSessionRow(token, persona.id, Date.now() + 30 * 24 * 60 * 60 * 1000);
   const url = new URL(baseURL);
 
   const cookies = [

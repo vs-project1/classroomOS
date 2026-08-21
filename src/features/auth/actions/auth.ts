@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { createSession, getCurrentUser, invalidateSession } from "@/lib/auth/session";
+import { createSession, getCurrentUser, invalidateSession, revokeUserSessions } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -14,6 +14,33 @@ export type AuthActionResult = {
   message?: string;
   fieldErrors?: Record<string, string[]>;
 };
+
+// In-memory login throttle: per-email, 5 failures per rolling 15-minute window.
+// Per-instance only (resets on deploy, not shared across replicas) — acceptable
+// for single-node deployments; a shared store is needed for horizontal scaling.
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_FAILURES = 5;
+const loginFailures = new Map<string, { count: number; windowStart: number }>();
+
+function isLoginThrottled(emailKey: string): boolean {
+  const entry = loginFailures.get(emailKey);
+  if (!entry) return false;
+  if (Date.now() - entry.windowStart > LOGIN_WINDOW_MS) {
+    loginFailures.delete(emailKey);
+    return false;
+  }
+  return entry.count >= LOGIN_MAX_FAILURES;
+}
+
+function recordLoginFailure(emailKey: string): void {
+  const now = Date.now();
+  const entry = loginFailures.get(emailKey);
+  if (!entry || now - entry.windowStart > LOGIN_WINDOW_MS) {
+    loginFailures.set(emailKey, { count: 1, windowStart: now });
+  } else {
+    entry.count += 1;
+  }
+}
 
 const loginSchema = z.object({
   email: z
@@ -45,14 +72,23 @@ export async function loginAction(
   }
 
   const { email, password, callbackUrl } = validated.data;
+  const emailKey = email.toLowerCase();
   let destination = "/";
 
   try {
+    if (isLoginThrottled(emailKey)) {
+      return {
+        success: false,
+        message: "Too many failed attempts. Please try again in a few minutes.",
+      };
+    }
+
     const user = await db.query.users.findFirst({
-      where: eq(users.email, email.toLowerCase()),
+      where: eq(users.email, emailKey),
     });
 
     if (!user) {
+      recordLoginFailure(emailKey);
       return {
         success: false,
         message: "Invalid email or password.",
@@ -68,11 +104,14 @@ export async function loginAction(
 
     const isPasswordValid = await verifyPassword(password, user.passwordHash);
     if (!isPasswordValid) {
+      recordLoginFailure(emailKey);
       return {
         success: false,
         message: "Invalid email or password.",
       };
     }
+
+    loginFailures.delete(emailKey);
 
     await createSession(
       user.id,
@@ -107,7 +146,10 @@ export async function loginAction(
 
 const changePasswordSchema = z
   .object({
-    currentPassword: z.string().optional(),
+    // Required for EVERY caller: without proving the current (or temporary)
+    // password, any session holder could rotate credentials — permanent
+    // takeover after a stolen cookie.
+    currentPassword: z.string().min(1, "Current password is required"),
     newPassword: z
       .string()
       .min(8, "Password must be at least 8 characters long"),
@@ -137,7 +179,7 @@ export async function changePasswordAction(
   }
 
   const rawData = {
-    currentPassword: formData.get("currentPassword")?.toString() || undefined,
+    currentPassword: formData.get("currentPassword")?.toString() || "",
     newPassword: formData.get("newPassword")?.toString() || "",
     confirmPassword: formData.get("confirmPassword")?.toString() || "",
   };
@@ -172,9 +214,17 @@ export async function changePasswordAction(
       if (!isCurrentValid) {
         return {
           success: false,
-          message: "Current temporary password is incorrect.",
+          message: currentUser.mustChangePassword
+            ? "Current temporary password is incorrect."
+            : "Current password is incorrect.",
         };
       }
+    } else {
+      // Schema enforces min(1); this guard keeps the flow safe if it ever regresses.
+      return {
+        success: false,
+        message: "Current password is required.",
+      };
     }
 
     const isSameAsOld = await verifyPassword(newPassword, dbUser.passwordHash);
@@ -195,6 +245,11 @@ export async function changePasswordAction(
         updatedAt: new Date(),
       })
       .where(eq(users.id, currentUser.id));
+
+    // Evict every existing session (including a stolen one) before minting
+    // the fresh post-change session — closes the non-revocable-session gap
+    // on the password-change path.
+    await revokeUserSessions(currentUser.id);
 
     await createSession(
       currentUser.id,

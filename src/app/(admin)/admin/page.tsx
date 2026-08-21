@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Clock, Book, Bell, CalendarDays, Calendar, ArrowRight, PenTool, Megaphone, ClipboardList, Lock } from "lucide-react";
 import { formatTime12h } from "@/lib/time";
 
+export const dynamic = "force-dynamic";
+
 export default async function Dashboard() {
   // Get Nepal Time
   const nptDateString = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'short' }).format(new Date());
@@ -19,7 +21,9 @@ export default async function Dashboard() {
     latestHomeworkList,
     latestNotices,
     upcomingEvents,
-    recentSessions
+    recentSessions,
+    activeHomeworkCount,
+    noticesCount
   ] = await Promise.all([
     db.query.weeklyRoutine.findMany({
       where: eq(weeklyRoutine.dayOfWeek, dayOfWeek),
@@ -49,7 +53,11 @@ export default async function Dashboard() {
       orderBy: [desc(classSessions.sessionDate), desc(classSessions.startTime)],
       limit: 1,
       with: { subject: true }
-    })
+    }),
+    // Real counts — the KPI cards previously rendered `limit:1` list lengths
+    // (always 0 or 1) as totals.
+    db.$count(homework, eq(homework.status, 'active')),
+    db.$count(notices)
   ]);
 
   const latestHomework = latestHomeworkList[0] || null;
@@ -73,12 +81,12 @@ export default async function Dashboard() {
           </div>
           <div className="w-px bg-border/60 mx-2" />
           <div className="flex flex-col">
-            <span className="text-3xl font-bold tabular-nums text-foreground leading-none">{latestHomeworkList.length}</span>
+            <span className="text-3xl font-bold tabular-nums text-foreground leading-none">{activeHomeworkCount}</span>
             <span className="text-sm text-muted-foreground mt-1 font-medium">Active HW</span>
           </div>
           <div className="w-px bg-border/60 mx-2" />
           <div className="flex flex-col">
-            <span className="text-3xl font-bold tabular-nums text-foreground leading-none">{latestNotices.length}</span>
+            <span className="text-3xl font-bold tabular-nums text-foreground leading-none">{noticesCount}</span>
             <span className="text-sm text-muted-foreground mt-1 font-medium">Notices</span>
           </div>
         </div>

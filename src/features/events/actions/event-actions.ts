@@ -28,14 +28,7 @@ const eventSchema = z.object({
 });
 
 export async function createEvent(prevState: any, formData: FormData) {
-  try {
-    await requireAuth(["ADMIN", "TEACHER"]);
-  } catch {
-    return {
-      success: false,
-      message: "Unauthorized. Admin or Teacher role required.",
-    };
-  }
+  await requireAuth(["ADMIN", "TEACHER"]);
 
   const rawStartTime = formData.get("startTime")?.toString() || "";
   const rawEndTime = formData.get("endTime")?.toString() || "";
@@ -75,6 +68,7 @@ export async function createEvent(prevState: any, formData: FormData) {
       updatedAt: new Date(),
     });
   } catch (error) {
+    if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;
     console.error("Failed to create event:", error);
     return {
       success: false,

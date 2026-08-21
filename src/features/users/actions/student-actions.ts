@@ -50,11 +50,7 @@ const StudentSchema = z.object({
 });
 
 export async function createStudent(prevState: StudentActionState, formData: FormData): Promise<StudentActionState> {
-  try {
-    await requireAuth(["ADMIN"]);
-  } catch {
-    return { success: false, message: "Unauthorized. Admin role required." };
-  }
+  await requireAuth(["ADMIN"]);
 
   const validatedFields = StudentSchema.safeParse({
     name: formData.get("name"),
@@ -88,6 +84,7 @@ export async function createStudent(prevState: StudentActionState, formData: For
     revalidatePath("/admin/students");
     return { success: true, message: "Student registered successfully!" };
   } catch (error: unknown) {
+    if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;
     if (error instanceof Error && error.message?.includes("UNIQUE constraint failed")) {
       return { success: false, message: "A student with this roll number already exists." };
     }
@@ -97,11 +94,7 @@ export async function createStudent(prevState: StudentActionState, formData: For
 }
 
 export async function updateStudent(prevState: StudentActionState, formData: FormData): Promise<StudentActionState> {
-  try {
-    await requireAuth(["ADMIN"]);
-  } catch {
-    return { success: false, message: "Unauthorized. Admin role required." };
-  }
+  await requireAuth(["ADMIN"]);
 
   const id = formData.get("id") as string;
   const validatedFields = StudentSchema.safeParse({
@@ -136,6 +129,7 @@ export async function updateStudent(prevState: StudentActionState, formData: For
     revalidatePath("/admin/students");
     return { success: true, message: "Student updated successfully!" };
   } catch (error: unknown) {
+    if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;
     if (error instanceof Error && error.message?.includes("UNIQUE constraint failed")) {
       return { success: false, message: "A student with this roll number or email already exists." };
     }

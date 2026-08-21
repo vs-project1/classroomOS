@@ -51,11 +51,7 @@ const TeacherSchema = z.object({
 });
 
 export async function saveTeacher(prevState: any, formData: FormData): Promise<TeacherActionState> {
-  try {
-    await requireAuth(["ADMIN"]);
-  } catch {
-    return { success: false, message: "Unauthorized. Admin role required." };
-  }
+  await requireAuth(["ADMIN"]);
 
   const id = formData.get("id")?.toString();
   const rawData = {
@@ -100,6 +96,7 @@ export async function saveTeacher(prevState: any, formData: FormData): Promise<T
       });
     }
   } catch (error: unknown) {
+    if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;
     if (error instanceof Error && error.message?.includes("UNIQUE constraint failed")) {
       return { success: false, message: "A teacher with this email already exists." };
     }
@@ -115,11 +112,7 @@ export async function saveTeacher(prevState: any, formData: FormData): Promise<T
 }
 
 export async function deleteTeacher(id: string): Promise<TeacherActionState> {
-  try {
-    await requireAuth(["ADMIN"]);
-  } catch {
-    return { success: false, message: "Unauthorized. Admin role required." };
-  }
+  await requireAuth(["ADMIN"]);
 
   try {
     await db.delete(teachers).where(eq(teachers.id, id));
@@ -129,6 +122,7 @@ export async function deleteTeacher(id: string): Promise<TeacherActionState> {
     revalidatePath("/routine");
     return { success: true, message: "Teacher deleted successfully." };
   } catch (error) {
+    if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;
     console.error("Failed to delete teacher:", error);
     return { success: false, message: "Something went wrong. Please try again." };
   }

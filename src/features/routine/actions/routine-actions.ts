@@ -39,11 +39,7 @@ async function checkOverlap(dayOfWeek: number, startTime: string, endTime: strin
 }
 
 export async function saveRoutine(prevState: any, formData: FormData) {
-  try {
-    await requireAuth(["TEACHER", "ADMIN"]);
-  } catch {
-    return { success: false, message: "Unauthorized. Teacher or Admin role required." };
-  }
+  await requireAuth(["TEACHER", "ADMIN"]);
 
   const id = formData.get("id")?.toString();
   const rawStartTime = formData.get("startTime")?.toString() || "";
@@ -99,6 +95,7 @@ export async function saveRoutine(prevState: any, formData: FormData) {
       });
     }
   } catch (error) {
+    if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;
     console.error("Failed to save routine:", error);
     return {
       success: false,
@@ -119,6 +116,7 @@ export async function deleteRoutine(id: string) {
     revalidatePath("/routine");
     revalidatePath("/");
   } catch (error) {
+    if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;
     console.error("Failed to delete routine:", error);
   }
   redirect("/routine");

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { saveSubmissionDraftAction, submitAssignmentAction, SubmissionActionResult } from "@/features/assignments/actions/assignments";
+import { uploadFiles } from "@/utils/uploadthing";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -128,13 +129,44 @@ export function HomeworkClientWorkspace({
     }
   }
 
-  // Handle Synthetic / Real File Input
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Real File Upload (uploadthing `assignmentSubmission` route).
+  // The previous implementation stored a fabricated utfs.io URL with no
+  // validation — files never actually left the browser.
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      setFileSize(file.size);
-      setFileUrl(`https://utfs.io/f/mock-${encodeURIComponent(file.name)}`);
+    if (!file) return;
+
+    if (file.size > 16 * 1024 * 1024) {
+      setToastMessage({ text: "File exceeds the 16MB limit.", type: "error" });
+      setTimeout(() => setToastMessage(null), 4000);
+      e.target.value = "";
+      return;
+    }
+
+    setFileName(file.name);
+    setFileSize(file.size);
+    setIsUploading(true);
+    try {
+      const res = await uploadFiles("assignmentSubmission", { files: [file] });
+      const uploaded = res[0];
+      setFileUrl(uploaded.url ?? (uploaded.key ? `https://utfs.io/f/${uploaded.key}` : null));
+      setToastMessage({ text: "File uploaded successfully.", type: "success" });
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err) {
+      console.error("Upload failed:", err);
+      setFileName(null);
+      setFileSize(null);
+      setFileUrl(null);
+      setToastMessage({
+        text: "Upload failed. Check your connection — only PDF, image, and text/code files up to 16MB are accepted.",
+        type: "error",
+      });
+      setTimeout(() => setToastMessage(null), 5000);
+    } finally {
+      setIsUploading(false);
+      e.target.value = "";
     }
   };
 
@@ -479,7 +511,7 @@ export function HomeworkClientWorkspace({
             {/* File Upload Dropzone */}
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1.5">
-                File Attachment (PDF, ZIP, DOCX, Code up to 16MB)
+                File Attachment (PDF, image, or text/code file up to 16MB)
               </label>
 
               <div
@@ -491,15 +523,17 @@ export function HomeworkClientWorkspace({
                   id="file-upload-input"
                   name="file"
                   onChange={handleFileChange}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                  disabled={isUploading}
+                  aria-label="Upload assignment file (PDF, image, or text/code, max 16MB)"
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10 disabled:cursor-wait"
                 />
 
                 <UploadCloud className="w-8 h-8 text-primary mb-2 opacity-80" />
                 <p className="text-xs font-semibold text-foreground">
-                  Click or drag files here to upload
+                  {isUploading ? "Uploading…" : "Click or drag files here to upload"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5 font-medium">
-                  PDF, DOCX, ZIP, or code archive (max 16MB)
+                  PDF, image, or code/text file (max 16MB)
                 </p>
               </div>
 

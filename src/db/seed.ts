@@ -1,4 +1,5 @@
 import { config } from "dotenv";
+import { sql } from "drizzle-orm";
 config({ path: ".env.local" });
 config(); // Fallback to .env
 
@@ -41,7 +42,39 @@ async function seed() {
   console.log("🌱 Starting Classroom OS Database Seeding...");
   const startTime = Date.now();
 
-  // 1. Clean existing database in reverse topological order
+  // --- DESTRUCTIVE-SCRIPT GUARD (audit C8) ---
+  // This seed TRUNCATES every table. Refuse to run against anything that is
+  // not a local file database unless explicitly overridden.
+  const dbUrl = process.env.DATABASE_URL ?? "";
+  const isLocal = dbUrl.startsWith("file:");
+  const override = process.env.SEED_ALLOW_REMOTE === "1";
+  if (!isLocal && !override) {
+    console.error(
+      `\n🛑 REFUSING TO SEED: DATABASE_URL is "${dbUrl || "(unset)"}".\n` +
+        `   This script deletes EVERY table and re-inserts demo data.\n` +
+        `   It only runs against local file: databases by default.\n` +
+        `   To target a remote DB deliberately, re-run with SEED_ALLOW_REMOTE=1.\n`
+    );
+    process.exit(1);
+  }
+
+  // --- ATOMICITY (audit C8): one failure mid-run must not leave the DB
+  // truncated and half-populated. Single connection => explicit transaction.
+  await db.run(sql`BEGIN IMMEDIATE`);
+
+  try {
+    await seedAll();
+    await db.run(sql`COMMIT`);
+  } catch (err) {
+    await db.run(sql`ROLLBACK`);
+    throw err;
+  }
+
+  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+  console.log(`🌱 Classroom OS Database Seeding completed successfully in ${duration}s!`);
+}
+
+async function seedAll() {
   console.log("🧹 Truncating existing tables...");
   await db.delete(attendanceCorrectionRequests);
   await db.delete(assignmentSubmissions);
@@ -80,7 +113,8 @@ async function seed() {
       email: "admin@classroom.edu.np",
       passwordHash: defaultAdminPass,
       role: "ADMIN" as const,
-      mustChangePassword: false,
+      // Known public credential in a demo seed — force rotation at first login.
+      mustChangePassword: true,
       isActive: true,
     },
     {
@@ -88,7 +122,7 @@ async function seed() {
       email: "admin@classroom.os",
       passwordHash: defaultAdminPass,
       role: "ADMIN" as const,
-      mustChangePassword: false,
+      mustChangePassword: true,
       isActive: true,
     },
     {
@@ -917,9 +951,6 @@ async function seed() {
     reason: "Participating in official inter-college debate competition on behalf of college.",
     status: "pending" as const,
   });
-
-  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-  console.log(`✅ Classroom OS Database Seeding completed successfully in ${duration}s!`);
 }
 
 seed().catch((err) => {

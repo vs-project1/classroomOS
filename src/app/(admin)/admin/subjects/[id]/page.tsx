@@ -7,6 +7,8 @@ import { FileText, Video, Link as LinkIcon, File, ArrowLeft } from "lucide-react
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 
+export const dynamic = "force-dynamic";
+
 function getMaterialIcon(fileType: string) {
   const type = fileType.toLowerCase();
   if (type === "video" || type === "mp4") return <Video className="h-4 w-4 text-muted-foreground" />;

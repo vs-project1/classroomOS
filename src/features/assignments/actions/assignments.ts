@@ -77,6 +77,8 @@ export async function saveSubmissionDraftAction(
   prevState: any,
   formData: FormData
 ): Promise<SubmissionActionResult> {
+  await requireAuth(["STUDENT", "CR"]);
+
   try {
     const studentId = await resolveCurrentStudentId();
     const rawData = {
@@ -133,6 +135,7 @@ export async function saveSubmissionDraftAction(
     revalidatePath("/");
     return { success: true, message: "Draft saved successfully." };
   } catch (error: any) {
+    if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;
     console.error("Failed to save submission draft:", error);
     return { success: false, message: error.message || "Failed to save draft." };
   }
@@ -145,6 +148,8 @@ export async function submitAssignmentAction(
   prevState: any,
   formData: FormData
 ): Promise<SubmissionActionResult> {
+  await requireAuth(["STUDENT", "CR"]);
+
   try {
     const studentId = await resolveCurrentStudentId();
     const rawData = {
@@ -219,6 +224,7 @@ export async function submitAssignmentAction(
     revalidatePath("/");
     return { success: true, message: "Assignment submitted successfully!" };
   } catch (error: any) {
+    if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;
     console.error("Failed to submit assignment:", error);
     return { success: false, message: error.message || "Failed to submit assignment." };
   }

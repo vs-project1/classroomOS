@@ -8,13 +8,20 @@ import { seedE2E } from "../../scripts/seed-e2e";
 export default async function globalSetup() {
   console.log("🛠️  [Global Setup] Initializing test database & seeding...");
 
-  const targetDbUrl = process.env.DATABASE_URL || "file:local.db";
-  const dbPath = path.resolve(process.cwd(), "local.db");
+  // Isolation guard (audit C8): tests must never run against a remote DB or
+  // the developer's live local.db. Dedicated file DB unless explicitly overridden.
+  const targetDbUrl = process.env.DATABASE_URL || "file:local.test.db";
+  if (!targetDbUrl.startsWith("file:")) {
+    console.error(
+      `🛑 [Global Setup] REFUSING to run E2E against non-local DATABASE_URL: ${targetDbUrl}\n` +
+        `   Tests mutate and reseed the database. Use a local file: URL.`
+    );
+    process.exit(1);
+  }
+  const dbPath = path.resolve(process.cwd(), targetDbUrl.replace(/^file:/, ""));
   const seedBackupPath = path.resolve(process.cwd(), "local.test-seed.db");
 
-  if (targetDbUrl.startsWith("file:")) {
-    console.log("ℹ️  [Global Setup] Using target SQLite database:", targetDbUrl);
-  }
+  console.log("ℹ️  [Global Setup] Using isolated SQLite test database:", targetDbUrl);
 
   const client = createClient({
     url: targetDbUrl,

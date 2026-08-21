@@ -38,15 +38,12 @@ export default async function HomeworkPage() {
 
   // Default-deny (post-T1.1): an authenticated STUDENT/CR whose identity cannot be
   // resolved sees nothing — never another student's data, never the whole table.
-  const canViewSubmissions = studentId !== null;
-
-  // Fetch all homework items with subject info; submissions ONLY ever scoped to the
-  // resolved student. Unresolved/teacher views get no submission rows at all.
+  // Submissions are ONLY ever queried when scoped to the resolved student.
   const allHomework = await db.query.homework.findMany({
     orderBy: [desc(homework.dueDate)],
     with: {
       subject: true,
-      ...(canViewSubmissions
+      ...(studentId !== null
         ? {
             submissions: {
               where: eq(assignmentSubmissions.studentId, studentId),

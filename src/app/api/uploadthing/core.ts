@@ -6,10 +6,12 @@ const f = createUploadthing();
 
 export const ourFileRouter = {
   // Course materials uploaded by Teachers / Admins (16MB)
+  // Policy: pdf/image/text ONLY — no catch-all `blob`, which accepted
+  // arbitrary binaries (.exe) and scriptable formats (.svg).
   courseMaterial: f({
-    pdf: { maxFileSize: "16MB" },
-    image: { maxFileSize: "16MB" },
-    blob: { maxFileSize: "16MB" },
+    pdf: { maxFileSize: "16MB", maxFileCount: 1 },
+    image: { maxFileSize: "16MB", maxFileCount: 1 },
+    text: { maxFileSize: "16MB", maxFileCount: 1 },
   })
     .middleware(async () => {
       const user = await getCurrentUser();
@@ -22,11 +24,11 @@ export const ourFileRouter = {
       return { uploadedBy: metadata.userId, url: file.url, name: file.name, size: file.size };
     }),
 
-  // Student assignment submissions (16MB max)
+  // Student assignment submissions (16MB max, one file)
   assignmentSubmission: f({
-    pdf: { maxFileSize: "16MB" },
-    image: { maxFileSize: "16MB" },
-    blob: { maxFileSize: "16MB" },
+    pdf: { maxFileSize: "16MB", maxFileCount: 1 },
+    image: { maxFileSize: "16MB", maxFileCount: 1 },
+    text: { maxFileSize: "16MB", maxFileCount: 1 },
   })
     .middleware(async () => {
       const user = await getCurrentUser();
