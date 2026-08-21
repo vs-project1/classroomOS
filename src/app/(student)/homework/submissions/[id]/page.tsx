@@ -79,7 +79,7 @@ export default async function SubmissionDetailPage({ params }: Props) {
         href="/homework"
         className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-2 font-medium"
       >
-        <ArrowLeft className="w-3.5 h-3.5" /> Back to Homework
+        <ArrowLeft className="w-3.5 h-3.5" /> Back to Assignments
       </Link>
 
       <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-4">

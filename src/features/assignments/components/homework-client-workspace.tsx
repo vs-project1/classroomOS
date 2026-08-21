@@ -345,7 +345,7 @@ export function HomeworkClientWorkspace({
           <div className="flex items-center gap-2 mb-1">
             <Book className="w-6 h-6 text-primary" />
             <h2 className="text-2xl md:text-3xl font-bold font-fira-sans tracking-tight text-foreground">
-              Homework & Assignments
+              Assignments
             </h2>
           </div>
           <p className="text-muted-foreground text-sm max-w-2xl">
@@ -595,7 +595,7 @@ export function HomeworkClientWorkspace({
                 className="gap-1 text-xs"
               >
                 <Send className="w-3.5 h-3.5" />
-                Turn In
+                Submit Assignment
               </Button>
             </div>
           </div>

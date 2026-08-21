@@ -70,7 +70,7 @@ export default async function Dashboard() {
       {/* 1. Hero Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">Command Center</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-2 font-medium">Classroom operations and scheduling overview.</p>
         </div>
         
