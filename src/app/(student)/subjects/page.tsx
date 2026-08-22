@@ -1,9 +1,9 @@
 import { db } from "@/db";
 import { enrollments, subjects, homework, resources, courseUnits } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { resolveCurrentStudent, requireAuth } from "@/lib/auth";
 import Link from "next/link";
-import { BookOpen, User, FileText, ArrowRight, Layers, Sparkles } from "lucide-react";
+import { BookOpen, User, ArrowRight, Layers } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -54,8 +54,15 @@ export default async function SubjectsPage() {
     }
   }
 
-  // Fallback: If no enrollments exist for this user or admin/teacher view, query all subjects
-  if (enrolledSubjects.length === 0) {
+  // Security: STUDENT/CR are strictly enrollment-scoped. An unresolvable
+  // student profile or zero enrollments yields an empty grid — never the full
+  // catalog (audit: this page previously leaked every subject as a fallback,
+  // the same leak class fixed for the sidebar in features/subjects/queries.ts).
+  // TEACHER/ADMIN intentionally browse the full catalog.
+  if (
+    enrolledSubjects.length === 0 &&
+    (user.role === "TEACHER" || user.role === "ADMIN")
+  ) {
     const allSubjects = await db.query.subjects.findMany({
       with: {
         teacher: true,
@@ -65,7 +72,6 @@ export default async function SubjectsPage() {
       },
     });
 
-    // If student has BCA faculty or CSIT faculty, filter by faculty code or include all
     enrolledSubjects = allSubjects.map((s) => ({
       id: s.id,
       name: s.name,
@@ -94,7 +100,24 @@ export default async function SubjectsPage() {
       </div>
 
       {/* Subjects Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {enrolledSubjects.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-[50vh] space-y-4 max-w-md mx-auto text-center">
+          <div className="h-16 w-16 bg-muted/30 rounded-full flex items-center justify-center mb-4">
+            <BookOpen className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h2 className="text-2xl font-semibold font-fira-sans tracking-tight">No Subjects Yet</h2>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            You are not enrolled in any subjects yet.
+          </p>
+          <Link
+            href="/today"
+            className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors shadow-sm"
+          >
+            Back to Today
+          </Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {enrolledSubjects.map((subj) => (
           <Link
             key={subj.id}
@@ -139,7 +162,8 @@ export default async function SubjectsPage() {
             </div>
           </Link>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
