@@ -134,6 +134,11 @@ export function can(
       if (user.role === "STUDENT" && action === "read") {
         return resource.studentId === user.studentProfileId;
       }
+      // teachers can review/correct attendance disputes for their subjects;
+      // subject ownership is verified by the dispute-review layer
+      if (user.role === "TEACHER" && action === "update") {
+        return true;
+      }
       return false;
   }
   
