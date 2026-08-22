@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import crypto from "crypto";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { parseAndNormalizeTime } from "@/lib/time";
 import { requireAuth } from "@/lib/auth/session";
 import { resolveCurrentStudent } from "@/lib/auth";
@@ -87,6 +87,19 @@ const SessionSchema = z.object({
 );
 
 /**
+ * Build a readable homework title from the topics covered text.
+ * Uses the first topic (split on common list separators), capped at 60 chars.
+ */
+function buildHomeworkTitle(topicsCovered: string): string {
+  const firstTopic = topicsCovered
+    .split(/[,;\n•]+/)
+    .map((t) => t.trim())
+    .find((t) => t.length > 0) || topicsCovered.trim();
+  const capped = firstTopic.slice(0, 60);
+  return `Homework — ${capped}${firstTopic.length > 60 ? "…" : ""}`;
+}
+
+/**
  * Subject-ownership enforcement shared by session-writing paths.
  * Returns an error message when the caller may not touch subjectId, else null.
  * ADMIN bypasses unconditionally (ADMIN sessions carry no teacherId by design).
@@ -152,7 +165,8 @@ export async function getStudentsBySubject(subjectId: string) {
     })
     .from(enrollments)
     .innerJoin(students, eq(enrollments.studentId, students.id))
-    .where(eq(enrollments.subjectId, subjectId));
+    .where(eq(enrollments.subjectId, subjectId))
+    .orderBy(asc(students.rollNumber));
 
   return enrolledStudents;
 }
@@ -272,7 +286,7 @@ export async function createSession(prevState: SessionActionState, formData: For
         await tx.insert(homework).values({
           id: crypto.randomUUID(),
           subjectId,
-          title: `Homework: ${topicsCovered.slice(0, 30)}${topicsCovered.length > 30 ? "..." : ""}`,
+          title: buildHomeworkTitle(topicsCovered),
           description: homeworkDesc,
           assignedDate: new Date(sessionDate),
           dueDate: new Date(homeworkDueDate),

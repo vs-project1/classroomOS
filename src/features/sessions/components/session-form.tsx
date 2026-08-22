@@ -72,10 +72,18 @@ export function SessionForm({ subjects, defaultValues }: Props) {
   }, [selectedSubjectId, fetchEnrolledStudents]);
 
   const handleStatusChange = (studentId: string, status: AttendanceState["status"]) => {
-    setAttendance(prev => 
+    setAttendance(prev =>
       prev.map(a => a.studentId === studentId ? { ...a, status } : a)
     );
   };
+
+  const markAllPresent = () => {
+    setAttendance(prev => prev.map(a => ({ ...a, status: "present" as const })));
+  };
+
+  const markedCount = attendance.length;
+  const totalCount = enrolledStudents.length;
+  const exceptionCount = attendance.filter(a => a.status !== "present").length;
 
   const getNepalDateString = () => {
     return new Intl.DateTimeFormat('en-CA', {
@@ -189,10 +197,29 @@ export function SessionForm({ subjects, defaultValues }: Props) {
         </div>
 
         <div className="space-y-4 pt-6 border-t">
-          <div>
-            <h3 className="text-lg font-medium">Attendance</h3>
-            <p className="text-sm text-muted-foreground mt-1">Mark student attendance for this session.</p>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-medium">Attendance</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Everyone is marked present by default — only change the exceptions.
+              </p>
+            </div>
+            {enrolledStudents.length > 0 && !loadingStudents && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={markAllPresent}
+                className="min-h-11 shrink-0"
+              >
+                All Present
+              </Button>
+            )}
           </div>
+          {totalCount > 0 && (
+            <p aria-live="polite" className="text-sm text-muted-foreground">
+              {markedCount}/{totalCount} marked{exceptionCount > 0 ? ` · ${exceptionCount} exception${exceptionCount === 1 ? "" : "s"}` : ""}
+            </p>
+          )}
           <div className="space-y-2">
             {!selectedSubjectId ? (
               <p className="text-sm text-muted-foreground py-4">Select a subject to see enrolled students.</p>
@@ -204,15 +231,16 @@ export function SessionForm({ subjects, defaultValues }: Props) {
               enrolledStudents.map((student) => {
                 const currentStatus = attendance.find(a => a.studentId === student.id)?.status || "present";
                 return (
-                  <div key={student.id} className="flex items-center justify-between p-3 rounded-md border bg-card hover:bg-muted/30 transition-colors">
+                  <div key={student.id} className="flex items-center justify-between gap-3 p-3 rounded-md border bg-card hover:bg-muted/30 transition-colors">
                     <div>
                       <p className="font-medium">{student.name}</p>
                       <p className="text-xs text-muted-foreground">{student.rollNumber}</p>
                     </div>
                     <select
+                      aria-label={`Attendance status for ${student.name}`}
                       value={currentStatus}
                       onChange={(e) => handleStatusChange(student.id, e.target.value as AttendanceState["status"])}
-                      className="flex h-9 w-32 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="h-11 min-h-11 w-32 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <option value="present">Present</option>
                       <option value="absent">Absent</option>
