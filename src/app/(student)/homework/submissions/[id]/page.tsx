@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Breadcrumbs } from "@/components/shell/breadcrumbs";
-import { ShieldAlert, FileText, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ShieldAlert, FileText, ArrowLeft, CheckCircle2, Award } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +96,17 @@ export default async function SubmissionDetailPage({ params }: Props) {
     }
   }
 
+  const gradedAtFormatted = submission.gradedAt
+    ? new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Kathmandu",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(submission.gradedAt)
+    : null;
+
   return (
     <div className="flex-1 space-y-6 max-w-4xl mx-auto w-full">
       <Breadcrumbs
@@ -138,6 +149,34 @@ export default async function SubmissionDetailPage({ params }: Props) {
             <div className="p-4 rounded-xl bg-muted/20 border border-border/40 text-xs font-mono whitespace-pre-wrap">
               {submission.content}
             </div>
+          </div>
+        )}
+
+        {submission.status === "graded" && (
+          <div className="p-4 rounded-xl border bg-emerald-500/5 border-emerald-500/20 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <Award className="w-4 h-4" /> Grade &amp; Feedback
+              </span>
+              {submission.score != null && (
+                <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold text-xs tabular-nums">
+                  Score: {submission.score}/100
+                </span>
+              )}
+            </div>
+
+            {submission.feedback && (
+              <p className="text-xs text-foreground/90 italic bg-card/60 p-2.5 rounded-lg border border-border/30">
+                &quot;{submission.feedback}&quot;
+              </p>
+            )}
+
+            {submission.gradedByTeacher && (
+              <p className="text-xs text-muted-foreground font-medium">
+                Graded by {submission.gradedByTeacher.name}
+                {gradedAtFormatted ? ` · ${gradedAtFormatted}` : ""}
+              </p>
+            )}
           </div>
         )}
 
