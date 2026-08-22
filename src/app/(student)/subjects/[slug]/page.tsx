@@ -10,7 +10,10 @@ import {
 } from "@/db/schema";
 import { eq, and, asc, desc } from "drizzle-orm";
 import { notFound, permanentRedirect } from "next/navigation";
-import { getSubjectProgress } from "@/features/subjects/queries";
+import {
+  getSubjectProgress,
+  type SubjectProgress,
+} from "@/features/subjects/queries";
 import { ChapterCoverageToggle } from "@/features/subjects/components/chapter-coverage-toggle";
 import { resolveCurrentStudent, requireAuth } from "@/lib/auth";
 import { ContextHeader } from "@/components/shell/context-header";
@@ -88,6 +91,52 @@ type Props = {
   searchParams: Promise<{ tab?: string }>;
 };
 
+// --- Per-tab data loaders ---------------------------------------------------
+// Only one tab renders per request, so each slice is fetched independently.
+// Orderings replicate the previous mega-query exactly.
+
+function loadSubjectUnits(subjectId: string) {
+  return db.query.courseUnits.findMany({
+    where: eq(courseUnits.subjectId, subjectId),
+    orderBy: [asc(courseUnits.order)],
+    with: {
+      courseChapters: {
+        orderBy: [asc(courseChapters.order)],
+        with: {
+          courseMaterials: true,
+        },
+      },
+    },
+  });
+}
+
+function loadSubjectSessions(subjectId: string) {
+  return db.query.classSessions.findMany({
+    where: eq(classSessions.subjectId, subjectId),
+    orderBy: [desc(classSessions.sessionDate)],
+    with: {
+      lectureLog: true,
+    },
+  });
+}
+
+function loadSubjectHomework(subjectId: string) {
+  return db.query.homework.findMany({
+    where: eq(homework.subjectId, subjectId),
+    orderBy: [desc(homework.dueDate)],
+  });
+}
+
+function loadSubjectResources(subjectId: string) {
+  return db.query.resources.findMany({
+    where: eq(resources.subjectId, subjectId),
+    orderBy: [desc(resources.createdAt)],
+    with: {
+      chapter: true,
+    },
+  });
+}
+
 export default async function SubjectDetailPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const { tab } = await searchParams;
@@ -96,38 +145,12 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
     : "overview";
   const user = await requireAuth(["STUDENT", "CR", "ADMIN", "TEACHER"]);
 
-  // 1. Resolve subject by human-readable slug first
+  // 1. Resolve subject by human-readable slug first (base identity only —
+  // heavy relations are fetched per-tab after the authorization wall).
   const subject = await db.query.subjects.findFirst({
     where: eq(subjects.slug, slug),
     with: {
       teacher: true,
-      courseUnits: {
-        orderBy: [asc(courseUnits.order)],
-        with: {
-          courseChapters: {
-            orderBy: [asc(courseChapters.order)],
-            with: {
-              courseMaterials: true,
-            },
-          },
-        },
-      },
-      classSessions: {
-        orderBy: [desc(classSessions.sessionDate)],
-        with: {
-          lectureLog: true,
-          attendance: true,
-        },
-      },
-      homework: {
-        orderBy: [desc(homework.dueDate)],
-      },
-      resources: {
-        orderBy: [desc(resources.createdAt)],
-        with: {
-          chapter: true,
-        },
-      },
     },
   });
 
@@ -173,17 +196,72 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
     }
   }
 
-  const progress = await getSubjectProgress(subject.id);
   const canToggleCoverage = user.role === "TEACHER" || user.role === "ADMIN";
 
-  const totalChapters = progress.totalChapters;
-  const coveredChapters = progress.coveredChapters;
-  const progressPercent =
-    totalChapters > 0 ? Math.round((coveredChapters / totalChapters) * 100) : 0;
+  // 3. Load only what the active tab needs. Runs AFTER the enrollment wall
+  // above, so unauthorized students never trigger tab queries.
+  let units: Awaited<ReturnType<typeof loadSubjectUnits>> = [];
+  let sessions: Awaited<ReturnType<typeof loadSubjectSessions>> = [];
+  let assignments: Awaited<ReturnType<typeof loadSubjectHomework>> = [];
+  let subjectResources: Awaited<ReturnType<typeof loadSubjectResources>> = [];
+  let progress: SubjectProgress | null = null;
+
+  switch (activeTab) {
+    case "overview": {
+      progress = await getSubjectProgress(subject.id);
+      break;
+    }
+    case "syllabus": {
+      units = await loadSubjectUnits(subject.id);
+      break;
+    }
+    case "classes": {
+      sessions = await loadSubjectSessions(subject.id);
+      break;
+    }
+    case "assignments": {
+      assignments = await loadSubjectHomework(subject.id);
+      break;
+    }
+    case "resources": {
+      [subjectResources, units] = await Promise.all([
+        loadSubjectResources(subject.id),
+        loadSubjectUnits(subject.id),
+      ]);
+      break;
+    }
+  }
+
+  // Chapter coverage counters — Overview reads them from getSubjectProgress;
+  // Syllabus derives identical numbers from the already-fetched unit tree
+  // (chapters scoped to this subject's units, covered = coveredAt set).
+  let totalChapters = 0;
+  let coveredChapters = 0;
+  let progressPercent = 0;
+
+  if (progress) {
+    totalChapters = progress.totalChapters;
+    coveredChapters = progress.coveredChapters;
+    progressPercent =
+      totalChapters > 0 ? Math.round((coveredChapters / totalChapters) * 100) : 0;
+  } else if (activeTab === "syllabus") {
+    totalChapters = units.reduce(
+      (count, u) => count + u.courseChapters.length,
+      0
+    );
+    coveredChapters = units.reduce(
+      (count, u) =>
+        count +
+        u.courseChapters.filter((chap) => Boolean(chap.coveredAt)).length,
+      0
+    );
+    progressPercent =
+      totalChapters > 0 ? Math.round((coveredChapters / totalChapters) * 100) : 0;
+  }
 
   // Extract all materials for the Resources tab
   const allMaterials = [
-    ...subject.resources.map((r) => ({
+    ...subjectResources.map((r) => ({
       id: r.id,
       title: r.title,
       description: r.description || "Course study material & reference document.",
@@ -192,7 +270,7 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
       fileSize: r.fileSize,
       groupLabel: r.chapter ? r.chapter.title : "General",
     })),
-    ...subject.courseUnits.flatMap((u) =>
+    ...units.flatMap((u) =>
       u.courseChapters.flatMap((c) =>
         c.courseMaterials.map((m) => ({
           id: m.id,
@@ -253,7 +331,7 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
       />
 
       {/* Overview */}
-      {activeTab === "overview" && (
+      {activeTab === "overview" && progress && (
         <div className="p-6 rounded-2xl border bg-card shadow-sm space-y-2.5" data-testid="subject-overview-body">
           <div className="flex flex-wrap items-center justify-between gap-2">
             {progress.currentChapter ? (
@@ -304,9 +382,9 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
               </span>
             </div>
 
-            {subject.courseUnits.length > 0 ? (
+            {units.length > 0 ? (
               <div className="space-y-4">
-                {subject.courseUnits.map((unit) => (
+                {units.map((unit) => (
                   <div
                     key={unit.id}
                     className="p-4 rounded-xl border bg-muted/20 border-border space-y-3"
@@ -382,16 +460,16 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
           <div className="rounded-2xl border bg-card p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-bold text-lg text-foreground font-fira-sans">
-                Session Logs
+                Class History
               </h2>
               <span className="text-sm text-foreground/80 font-bold">
-                {subject.classSessions.length} Recorded Session{subject.classSessions.length === 1 ? "" : "s"}
+                {sessions.length} Recorded Session{sessions.length === 1 ? "" : "s"}
               </span>
             </div>
 
-            {subject.classSessions.length > 0 ? (
+            {sessions.length > 0 ? (
               <div className="space-y-4">
-                {subject.classSessions.map((session, idx) => {
+                {sessions.map((session, idx) => {
                   const sDate = new Intl.DateTimeFormat("en-US", {
                     timeZone: "Asia/Kathmandu",
                     weekday: "short",
@@ -408,7 +486,7 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/40 pb-3">
                         <div className="flex items-center gap-2.5">
                           <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary font-mono">
-                            Session #{subject.classSessions.length - idx}
+                            Session #{sessions.length - idx}
                           </span>
                           <span className="text-sm font-bold text-foreground">{sDate}</span>
                         </div>
@@ -477,9 +555,9 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
               </Link>
             </div>
 
-            {subject.homework.length > 0 ? (
+            {assignments.length > 0 ? (
               <div className="space-y-3">
-                {subject.homework.map((hw) => {
+                {assignments.map((hw) => {
                   const dueDateFormatted = new Intl.DateTimeFormat("en-US", {
                     timeZone: "Asia/Kathmandu",
                     month: "short",
