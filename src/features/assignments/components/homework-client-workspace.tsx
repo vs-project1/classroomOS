@@ -84,6 +84,7 @@ export function HomeworkClientWorkspace({
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const [isPending, startTransition] = useTransition();
 
@@ -99,6 +100,7 @@ export function HomeworkClientWorkspace({
     setFileName(existingSub?.fileName || null);
     setFileSize(existingSub?.fileSize || null);
     setToastMessage(null);
+    setSubmitSuccess(false);
     setModalOpen(true);
   };
 
@@ -203,14 +205,30 @@ export function HomeworkClientWorkspace({
       const res = await submitAssignmentAction(null, formData);
       if (res.success) {
         setToastMessage({ text: "Assignment submitted successfully! Status: Submitted", type: "success" });
-        setTimeout(() => {
-          setModalOpen(false);
-          setToastMessage(null);
-        }, 1500);
+        setSubmitSuccess(true);
       } else {
         setToastMessage({ text: res.message || "Failed to submit assignment.", type: "error" });
       }
     });
+  };
+
+  const handleViewStatus = () => {
+    const hwId = selectedHw?.id;
+    setModalOpen(false);
+    setSubmitSuccess(false);
+    setActiveTab("submitted");
+    setTimeout(() => {
+      document.getElementById(`assignment-${hwId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+  };
+
+  const handleSubmitAnother = () => {
+    setContent("");
+    setFileUrl(null);
+    setFileName(null);
+    setFileSize(null);
+    setToastMessage(null);
+    setSubmitSuccess(false);
   };
 
   const renderCard = (hw: HomeworkItem, defaultBadge?: string) => {
@@ -232,6 +250,7 @@ export function HomeworkClientWorkspace({
     return (
       <div
         key={hw.id}
+        id={`assignment-${hw.id}`}
         data-testid="assignment-card"
         className="flex flex-col justify-between rounded-xl border bg-card p-5 shadow-sm hover:shadow-md transition-all text-card-foreground"
       >
@@ -461,7 +480,13 @@ export function HomeworkClientWorkspace({
       </Tabs>
 
       {/* Submission & Draft Modal Dialog */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      <Dialog
+        open={modalOpen}
+        onOpenChange={(open) => {
+          setModalOpen(open);
+          if (!open) setSubmitSuccess(false);
+        }}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
@@ -472,6 +497,28 @@ export function HomeworkClientWorkspace({
             </DialogDescription>
           </DialogHeader>
 
+          {submitSuccess ? (
+            <div className="flex flex-col items-center gap-4 py-6 text-center" data-testid="submission-success">
+              <CheckCircle2 className="w-12 h-12 text-emerald-500 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-base font-bold text-foreground">Assignment submitted!</p>
+                <p className="text-xs text-muted-foreground font-medium max-w-xs">
+                  Your submission for &ldquo;{selectedHw?.title}&rdquo; has been received and is awaiting grading.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <Button size="sm" variant="outline" onClick={handleViewStatus} className="gap-1 text-xs cursor-pointer">
+                  <FileCheck className="w-3.5 h-3.5" />
+                  View Status
+                </Button>
+                <Button size="sm" variant="default" onClick={handleSubmitAnother} className="gap-1 text-xs cursor-pointer">
+                  <Send className="w-3.5 h-3.5" />
+                  Submit Another
+                </Button>
+              </div>
+            </div>
+          ) : (
+          <>
           {toastMessage && (
             <div
               role="alert"
@@ -599,6 +646,8 @@ export function HomeworkClientWorkspace({
               </Button>
             </div>
           </div>
+          </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
