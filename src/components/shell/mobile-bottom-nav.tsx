@@ -42,6 +42,7 @@ export function MobileBottomNav({ role, badges }: MobileBottomNavProps) {
             <Link
               key={tab.label}
               href={tab.href}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] font-semibold transition-colors",
                 isActive ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
@@ -50,9 +51,16 @@ export function MobileBottomNav({ role, badges }: MobileBottomNavProps) {
               <span className="relative">
                 <tab.icon className="w-5 h-5" />
                 {tab.badgeKey && (
-                  <span className="absolute -top-1.5 -right-2">
-                    <NavBadge count={badges[tab.badgeKey]} />
-                  </span>
+                  <>
+                    <span className="sr-only">
+                      {badges[tab.badgeKey]
+                        ? ` (${badges[tab.badgeKey]} ${tab.badgeKey === "assignmentsDue" ? "due" : "to grade"})`
+                        : ""}
+                    </span>
+                    <span className="absolute -top-1.5 -right-2">
+                      <NavBadge count={badges[tab.badgeKey]} />
+                    </span>
+                  </>
                 )}
               </span>
               <span>{tab.label}</span>
@@ -83,6 +91,7 @@ export function MobileBottomNav({ role, badges }: MobileBottomNavProps) {
                     <Link
                       key={item.label}
                       href={item.href}
+                      aria-current={isActive ? "page" : undefined}
                       className={cn(
                         "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                         isActive

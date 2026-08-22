@@ -142,33 +142,34 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
     notFound();
   }
 
-  // Strict Enrollment Authorization for Students
+  // Strict Enrollment Authorization for Students — fail-closed: if the
+  // student profile cannot be resolved, access is DENIED (never render).
   if (user.role === "STUDENT" || user.role === "CR") {
     const student = await resolveCurrentStudent();
-    if (student) {
-      const enrollment = await db.query.enrollments.findFirst({
-        where: and(
-          eq(enrollments.studentId, student.id),
-          eq(enrollments.subjectId, subject.id)
-        ),
-      });
+    const enrollment = student
+      ? await db.query.enrollments.findFirst({
+          where: and(
+            eq(enrollments.studentId, student.id),
+            eq(enrollments.subjectId, subject.id)
+          ),
+        })
+      : null;
 
-      if (!enrollment) {
-        return (
-          <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-8 border border-destructive/20 rounded-2xl bg-destructive/5 max-w-lg mx-auto my-12">
-            <div className="w-16 h-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mb-4">
-              <ShieldAlert className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-bold text-foreground mb-2">403 - Access Denied</h1>
-            <p className="text-sm text-muted-foreground mb-6">
-              You are not enrolled in <strong className="text-foreground">{subject.name} ({subject.code})</strong>. This subject is restricted to enrolled cohort students.
-            </p>
-            <Link href="/subjects" className={buttonVariants({ variant: "outline" })}>
-              ← Back to My Subjects
-            </Link>
+    if (!enrollment) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-8 border border-destructive/20 rounded-2xl bg-destructive/5 max-w-lg mx-auto my-12">
+          <div className="w-16 h-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mb-4">
+            <ShieldAlert className="w-8 h-8" />
           </div>
-        );
-      }
+          <h1 className="text-2xl font-bold text-foreground mb-2">403 - Access Denied</h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            You are not enrolled in <strong className="text-foreground">{subject.name} ({subject.code})</strong>. This subject is restricted to enrolled cohort students.
+          </p>
+          <Link href="/subjects" className={buttonVariants({ variant: "outline" })}>
+            ← Back to My Subjects
+          </Link>
+        </div>
+      );
     }
   }
 
@@ -295,9 +296,9 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
         <div className="space-y-4">
           <div className="rounded-2xl border bg-card p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg text-foreground font-fira-sans">
+              <h2 className="font-bold text-lg text-foreground font-fira-sans">
                 Curriculum & Unit Breakdown
-              </h3>
+              </h2>
               <span className="text-sm text-foreground/80 font-bold">
                 {coveredChapters}/{totalChapters} Chapters Covered
               </span>
@@ -311,9 +312,9 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
                     className="p-4 rounded-xl border bg-muted/20 border-border space-y-3"
                   >
                     <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-base text-foreground">
+                      <h3 className="font-bold text-base text-foreground">
                         {unit.title}
-                      </h4>
+                      </h3>
                       <span className="text-xs text-foreground/70 font-mono font-bold">
                         Unit {unit.order}
                       </span>
@@ -380,9 +381,9 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
         <div className="space-y-4">
           <div className="rounded-2xl border bg-card p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg text-foreground font-fira-sans">
+              <h2 className="font-bold text-lg text-foreground font-fira-sans">
                 Session Logs
-              </h3>
+              </h2>
               <span className="text-sm text-foreground/80 font-bold">
                 {subject.classSessions.length} Recorded Session{subject.classSessions.length === 1 ? "" : "s"}
               </span>
@@ -465,9 +466,9 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
         <div className="space-y-4">
           <div className="rounded-xl border bg-card p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-base text-foreground font-fira-sans">
+              <h2 className="font-bold text-base text-foreground font-fira-sans">
                 Subject Assignments & Tasks
-              </h3>
+              </h2>
               <Link
                 href="/homework"
                 className="text-xs font-semibold text-primary hover:underline"
@@ -496,7 +497,7 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-sm text-foreground">{hw.title}</h4>
+                          <h3 className="font-semibold text-sm text-foreground">{hw.title}</h3>
                           <span
                             className={cn(
                               "px-2.5 py-0.5 rounded-md text-xs font-bold uppercase",
@@ -545,9 +546,9 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
           <div className="rounded-xl border bg-card p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="font-bold text-base text-foreground font-fira-sans">
+                <h2 className="font-bold text-base text-foreground font-fira-sans">
                   Learning Materials & Lecture Slides
-                </h3>
+                </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Download syllabus slides, lab sheets, and reference materials uploaded by faculty.
                 </p>
@@ -583,9 +584,9 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
                             {mat.groupLabel}
                           </span>
                         </div>
-                        <h4 className="font-semibold text-sm text-foreground leading-snug mb-1">
+                        <h3 className="font-semibold text-sm text-foreground leading-snug mb-1">
                           {mat.title}
-                        </h4>
+                        </h3>
                         <p className="text-xs text-muted-foreground line-clamp-2">
                           {mat.description}
                         </p>

@@ -6,9 +6,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import crypto from "crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { parseAndNormalizeTime } from "@/lib/time";
 import { requireAuth } from "@/lib/auth/session";
+import { resolveCurrentStudent } from "@/lib/auth";
+import type { SessionUser } from "@/lib/auth/session";
 
 export type SessionActionState = {
   success: boolean;
@@ -84,7 +86,64 @@ const SessionSchema = z.object({
   }
 );
 
+/**
+ * Subject-ownership enforcement shared by session-writing paths.
+ * Returns an error message when the caller may not touch subjectId, else null.
+ * ADMIN bypasses unconditionally (ADMIN sessions carry no teacherId by design).
+ */
+async function getSubjectAccessError(
+  user: SessionUser,
+  subjectId: string,
+  subjectTeacherId: string | null
+): Promise<string | null> {
+  if (user.role === "ADMIN") {
+    return null;
+  }
+
+  if (user.role === "TEACHER") {
+    if (user.teacherId && subjectTeacherId === user.teacherId) {
+      return null;
+    }
+    return "You can only log sessions for subjects you teach.";
+  }
+
+  if (user.role === "CR") {
+    const student = await resolveCurrentStudent();
+    if (!student) {
+      return "No student profile is linked to your account.";
+    }
+    const enrolled = await db
+      .select({ studentId: enrollments.studentId })
+      .from(enrollments)
+      .where(and(eq(enrollments.studentId, student.id), eq(enrollments.subjectId, subjectId)))
+      .limit(1);
+    if (enrolled.length === 0) {
+      return "You are not enrolled in this subject.";
+    }
+    return null;
+  }
+
+  return "You do not have permission to access this subject.";
+}
+
 export async function getStudentsBySubject(subjectId: string) {
+  const user = await requireAuth(["CR", "TEACHER", "ADMIN"]);
+
+  const subjectRows = await db
+    .select({ teacherId: subjects.teacherId })
+    .from(subjects)
+    .where(eq(subjects.id, subjectId))
+    .limit(1);
+
+  if (subjectRows.length === 0) {
+    return [];
+  }
+
+  const accessError = await getSubjectAccessError(user, subjectId, subjectRows[0].teacherId);
+  if (accessError) {
+    return [];
+  }
+
   const enrolledStudents = await db
     .select({
       id: students.id,
@@ -99,7 +158,7 @@ export async function getStudentsBySubject(subjectId: string) {
 }
 
 export async function createSession(prevState: SessionActionState, formData: FormData): Promise<SessionActionState> {
-  await requireAuth(["CR", "TEACHER", "ADMIN"]);
+  const user = await requireAuth(["CR", "TEACHER", "ADMIN"]);
 
   const rawStartTime = formData.get("startTime")?.toString() || "";
   const rawEndTime = formData.get("endTime")?.toString() || "";
@@ -149,9 +208,15 @@ export async function createSession(prevState: SessionActionState, formData: For
 
   try {
     // 1. Confirm subject exists
-    const subjectExists = await db.select().from(subjects).where(eq(subjects.id, subjectId));
-    if (subjectExists.length === 0) {
+    const subjectRows = await db.select().from(subjects).where(eq(subjects.id, subjectId));
+    if (subjectRows.length === 0) {
       return { success: false, message: "The selected subject does not exist." };
+    }
+
+    // 1b. Enforce subject ownership before any INSERT (audit: role != ownership)
+    const accessError = await getSubjectAccessError(user, subjectId, subjectRows[0].teacherId);
+    if (accessError) {
+      return { success: false, message: accessError };
     }
 
     // 2. Fetch enrolled students for this subject

@@ -3,6 +3,7 @@ export * from "./token";
 export * from "./session";
 export * from "./rbac";
 
+import { cache } from "react";
 import { getCurrentUser } from "./session";
 import { getRolePermissions, RolePermissions, UserRole } from "./rbac";
 import { db } from "@/db";
@@ -39,7 +40,7 @@ export async function getPermissions(): Promise<RolePermissions> {
 /**
  * Backward-compatible resolver for finding the contextual student in the dashboard.
  */
-export async function resolveCurrentStudent() {
+export const resolveCurrentStudent = cache(async function resolveCurrentStudent() {
   const user = await getCurrentUser();
   if (user && user.studentProfileId) {
     const student = await db.query.students.findFirst({
@@ -62,4 +63,4 @@ export async function resolveCurrentStudent() {
   }
 
   return null;
-}
+});

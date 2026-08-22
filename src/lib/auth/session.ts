@@ -1,3 +1,4 @@
+﻿import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -225,7 +226,7 @@ async function resolveTestFixturePersona(cookieStore: Awaited<ReturnType<typeof 
  * Retrieves the authenticated session user, resolving student/teacher profiles.
  * In non-production, falls back to test fixture personas if mock cookies are present.
  */
-export async function getCurrentUser(): Promise<SessionUser | null> {
+export const getCurrentUser = cache(async function getCurrentUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
   const rawToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
@@ -295,7 +296,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     studentProfileId,
     teacherId,
   };
-}
+});
 
 /**
  * Enforces server-side authentication assertion.

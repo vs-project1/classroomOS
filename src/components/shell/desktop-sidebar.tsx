@@ -47,7 +47,7 @@ export function SidebarNavContent({ role, badges, subjects }: SidebarNavContentP
       </div>
 
       {/* Sectioned Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
+      <nav aria-label="Primary" className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
         {navigation.sections.map((section, sectionIndex) => (
           <div key={section.title ?? `top-${sectionIndex}`}>
             {section.title && (
@@ -68,6 +68,7 @@ export function SidebarNavContent({ role, badges, subjects }: SidebarNavContentP
                   <Link
                     key={item.label}
                     href={item.href}
+                    aria-current={isActive ? "page" : undefined}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-medium text-sm cursor-pointer",
                       isActive
@@ -85,7 +86,7 @@ export function SidebarNavContent({ role, badges, subjects }: SidebarNavContentP
                             : ""}
                         </span>
                         <span className="ml-auto">
-                          <NavBadge count={badges[item.badgeKey]} />
+                          <NavBadge count={badges[item.badgeKey]} variant="sidebar" />
                         </span>
                       </>
                     )}

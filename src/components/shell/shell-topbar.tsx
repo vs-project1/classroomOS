@@ -67,6 +67,7 @@ export function ShellTopbar({ role, name }: ShellTopbarProps) {
           <button
             type="submit"
             title="Sign Out"
+            aria-label="Sign out"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border/60 bg-card hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 text-xs font-semibold text-muted-foreground transition-all cursor-pointer shadow-xs"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -103,7 +104,7 @@ function SidebarDrawerContent({ role }: { role: UserRole }) {
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
+      <nav aria-label="Menu" className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
         {navigation.sections.map((section, sectionIndex) => (
           <div key={section.title ?? `top-${sectionIndex}`}>
             {section.title && (
@@ -121,6 +122,7 @@ function SidebarDrawerContent({ role }: { role: UserRole }) {
                   <Link
                     key={item.label}
                     href={item.href}
+                    aria-current={isActive ? "page" : undefined}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-medium text-sm",
                       isActive

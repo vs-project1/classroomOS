@@ -1,14 +1,46 @@
 import { db } from "@/db";
-import { subjects } from "@/db/schema";
+import { subjects, enrollments } from "@/db/schema";
 import { SessionForm } from "./session-form";
-import { asc } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
 
 export default async function NewSessionPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  // Page-level guard (defense in depth beyond the shared layout): only
+  // roles that can create sessions may even view the logging form.
+  const user = await requireAuth(["CR", "TEACHER", "ADMIN"]);
   const params = await searchParams;
-  const allSubjects = await db.select().from(subjects).orderBy(asc(subjects.name));
+
+  // Scope the subject picker to the caller's authority:
+  // TEACHER/ADMIN -> their assigned subjects; CR -> enrolled subjects.
+  let allSubjects: Array<typeof subjects.$inferSelect> = [];
+  if (user.role === "TEACHER" || user.role === "ADMIN") {
+    if (user.teacherId) {
+      allSubjects = await db
+        .select()
+        .from(subjects)
+        .where(eq(subjects.teacherId, user.teacherId))
+        .orderBy(asc(subjects.name));
+    }
+  } else if (user.role === "CR") {
+    const student = await resolveCurrentStudent();
+    if (student) {
+      const crEnrollments = await db.query.enrollments.findMany({
+        where: eq(enrollments.studentId, student.id),
+      });
+      const subjectIds = crEnrollments.map((e) => e.subjectId);
+      allSubjects =
+        subjectIds.length > 0
+          ? await db
+              .select()
+              .from(subjects)
+              .where(inArray(subjects.id, subjectIds))
+              .orderBy(asc(subjects.name))
+          : [];
+    }
+  }
 
   if (allSubjects.length === 0) {
     return (

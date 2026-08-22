@@ -35,28 +35,24 @@ export async function getSubjectsForSidebar(): Promise<SidebarSubject[]> {
       .orderBy(asc(subjects.name));
   }
 
-  if (user.role === "STUDENT") {
-    // Mirror src/app/(student)/subjects/page.tsx: enrolled subjects first;
-    // fall back to ALL subjects when the student has no enrollment rows
-    // (or cannot be resolved).
+  if (user.role === "STUDENT" || user.role === "CR") {
+    // Enrollment-scoped: STUDENT and CR see only subjects they are enrolled
+    // in. Zero resolvable enrollments yields [] — never the full catalog
+    // (audit: sidebar previously leaked every subject as a fallback).
     const student = await resolveCurrentStudent();
-    if (student) {
-      const enrolled = await db
-        .select({ id: subjects.id, name: subjects.name, slug: subjects.slug })
-        .from(enrollments)
-        .innerJoin(subjects, eq(enrollments.subjectId, subjects.id))
-        .where(eq(enrollments.studentId, student.id))
-        .orderBy(asc(subjects.name));
-
-      if (enrolled.length > 0) {
-        return enrolled;
-      }
+    if (!student) {
+      return [];
     }
 
-    return listAllSidebarSubjects();
+    return db
+      .select({ id: subjects.id, name: subjects.name, slug: subjects.slug })
+      .from(enrollments)
+      .innerJoin(subjects, eq(enrollments.subjectId, subjects.id))
+      .where(eq(enrollments.studentId, student.id))
+      .orderBy(asc(subjects.name));
   }
 
-  // ADMIN / CR see everything.
+  // ADMIN sees everything.
   return listAllSidebarSubjects();
 }
 
@@ -80,28 +76,30 @@ export async function getSubjectProgress(subjectId: string): Promise<SubjectProg
     return { totalChapters: 0, coveredChapters: 0, currentChapter: null };
   }
 
-  const [coveredRows] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(courseChapters)
-    .innerJoin(courseUnits, eq(courseChapters.unitId, courseUnits.id))
-    .where(and(subjectScope, isNotNull(courseChapters.coveredAt)));
+  // Covered count and current chapter are independent — run in parallel.
+  const [coveredRows, current] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(courseChapters)
+      .innerJoin(courseUnits, eq(courseChapters.unitId, courseUnits.id))
+      .where(and(subjectScope, isNotNull(courseChapters.coveredAt))),
+    db
+      .select({
+        unitTitle: courseUnits.title,
+        chapterTitle: courseChapters.title,
+      })
+      .from(courseChapters)
+      .innerJoin(courseUnits, eq(courseChapters.unitId, courseUnits.id))
+      .where(and(subjectScope, isNull(courseChapters.coveredAt)))
+      .orderBy(asc(courseUnits.order), asc(courseChapters.order))
+      .limit(1),
+  ]);
 
-  const coveredChapters = Number(coveredRows?.count ?? 0);
-
-  const [current] = await db
-    .select({
-      unitTitle: courseUnits.title,
-      chapterTitle: courseChapters.title,
-    })
-    .from(courseChapters)
-    .innerJoin(courseUnits, eq(courseChapters.unitId, courseUnits.id))
-    .where(and(subjectScope, isNull(courseChapters.coveredAt)))
-    .orderBy(asc(courseUnits.order), asc(courseChapters.order))
-    .limit(1);
+  const coveredChapters = Number(coveredRows[0]?.count ?? 0);
 
   return {
     totalChapters,
     coveredChapters,
-    currentChapter: current ?? null,
+    currentChapter: current[0] ?? null,
   };
 }

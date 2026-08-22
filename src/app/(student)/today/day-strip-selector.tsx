@@ -26,6 +26,7 @@ export function DayStripSelector({ days }: DayStripSelectorProps) {
             key={d.dateStr}
             type="button"
             data-testid="day-strip-btn"
+            aria-current={d.isActive ? "date" : undefined}
             onClick={() => router.push(`/today?date=${d.dateStr}`)}
             className={cn(
               "py-2 px-3.5 rounded-xl flex flex-col items-center transition-all min-w-[3.5rem] border cursor-pointer select-none",

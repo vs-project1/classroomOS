@@ -18,7 +18,7 @@ export async function toggleChapterCoveredAction(
 ): Promise<ToggleChapterCoveredResult> {
   // Auth gate FIRST and OUTSIDE try/catch so redirect() NEXT_REDIRECT
   // digests propagate to Next.js untouched (see session-actions.ts).
-  await requireAuth(["TEACHER", "ADMIN"]);
+  const user = await requireAuth(["TEACHER", "ADMIN"]);
 
   const validatedFields = ChapterIdSchema.safeParse(formData.get("chapterId"));
   if (!validatedFields.success) {
@@ -32,6 +32,7 @@ export async function toggleChapterCoveredAction(
         chapterId: courseChapters.id,
         coveredAt: courseChapters.coveredAt,
         subjectSlug: subjects.slug,
+        subjectTeacherId: subjects.teacherId,
       })
       .from(courseChapters)
       .innerJoin(courseUnits, eq(courseChapters.unitId, courseUnits.id))
@@ -42,6 +43,14 @@ export async function toggleChapterCoveredAction(
     const row = rows[0];
     if (!row) {
       return { ok: false, error: "Chapter not found." };
+    }
+
+    // Ownership check (audit: role != ownership). ADMIN bypasses
+    // unconditionally; ADMIN sessions carry no teacherId by design.
+    if (user.role === "TEACHER") {
+      if (!user.teacherId || row.subjectTeacherId !== user.teacherId) {
+        return { ok: false, error: "You can only update chapters for subjects you teach." };
+      }
     }
 
     const now = new Date();

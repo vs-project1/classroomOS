@@ -144,7 +144,7 @@ test.describe("F1, F2, F3, F4: Responsive Navigation & Layout Architecture", () 
       await adminPage.goto("/admin");
       await adminPage.waitForLoadState("domcontentloaded");
 
-      const adminSidebar = adminPage.locator("aside").filter({ hasText: /Administration|Classroom OS/i }).first();
+      const adminSidebar = adminPage.locator("aside").filter({ hasText: /Admin Console|Classroom OS/i }).first();
       await expect(adminSidebar).toBeVisible();
 
       // Navigate to Accounts & Auth
@@ -201,7 +201,7 @@ test.describe("F1, F2, F3, F4: Responsive Navigation & Layout Architecture", () 
       await adminPage.waitForLoadState("domcontentloaded");
 
       // Desktop sidebar should be hidden on mobile
-      const desktopSidebar = adminPage.locator("aside").filter({ hasText: /Administration/i }).first();
+      const desktopSidebar = adminPage.locator("aside").filter({ hasText: /Admin Console/i }).first();
       await expect(desktopSidebar).toBeHidden();
 
       // Mobile header should be visible
@@ -214,7 +214,7 @@ test.describe("F1, F2, F3, F4: Responsive Navigation & Layout Architecture", () 
       await adminMenuTrigger.click();
 
       // Verify Sheet dialog appears
-      const sheetDrawer = adminPage.locator("[role='dialog']").filter({ hasText: /Administration|Classroom OS/i });
+      const sheetDrawer = adminPage.locator("[role='dialog']").filter({ hasText: /Admin Console|Classroom OS/i });
       await expect(sheetDrawer).toBeVisible({ timeout: 5000 });
 
       // Click Accounts link in mobile drawer

@@ -8,7 +8,7 @@ import { formatTime12h } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { DayStripSelector } from "./day-strip-selector";
 import { getTodayDeadlines } from "./queries";
-import { getCurrentUser, getPermissions } from "@/lib/auth";
+import { getPermissions, requireAuth } from "@/lib/auth";
 import { getNavBadges } from "@/lib/navigation/badges";
 
 export const dynamic = "force-dynamic";
@@ -95,8 +95,10 @@ export default async function TodayPage({ searchParams }: Props) {
   }).format(new Date());
 
   // Command-center context: session role drives the extra sections.
-  const user = await getCurrentUser();
-  const role = user?.role ?? "STUDENT";
+  // Self-enforced guard: the shared layout admits all four roles, but this
+  // page must not silently degrade if rendered outside it.
+  const user = await requireAuth(["STUDENT", "CR", "TEACHER", "ADMIN"]);
+  const role = user.role;
   const isClassMember = role === "STUDENT" || role === "CR";
   const nptHour = parseInt(currentNptTime.split(":")[0] ?? "0", 10);
   const greeting = nptHour < 12 ? "Good morning" : nptHour < 17 ? "Good afternoon" : "Good evening";
@@ -268,6 +270,7 @@ export default async function TodayPage({ searchParams }: Props) {
             href={`/today?date=${todayNptStr}`}
             className={buttonVariants({ variant: "ghost", size: "sm", className: "cursor-pointer" })}
             title="Go to Today"
+            aria-label="Go to today"
           >
             <Calendar className="h-4 w-4" />
           </Link>

@@ -64,10 +64,32 @@ export default async function SubmissionDetailPage({ params }: Props) {
           </div>
           <h1 className="text-2xl font-bold text-foreground mb-2">403 - Forbidden</h1>
           <p className="text-sm text-muted-foreground mb-6">
-            Access Denied: You do not have permission to view another student's assignment submission.
+            Access Denied: You do not have permission to view another student&apos;s assignment submission.
           </p>
           <Link href="/homework" className={buttonVariants({ variant: "outline" })}>
             ← Return to My Assignments
+          </Link>
+        </div>
+      );
+    }
+  }
+
+  // Teachers may only read submissions for subjects they teach (mirrors the
+  // grading queue's scope); ADMIN keeps unrestricted access.
+  if (user.role === "TEACHER") {
+    const teacherId = submission.homework.subject.teacherId;
+    if (!user.teacherId || teacherId !== user.teacherId) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-8 border border-destructive/20 rounded-2xl bg-destructive/5 max-w-lg mx-auto my-12">
+          <div className="w-16 h-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mb-4">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground mb-2">403 - Forbidden</h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            Access Denied: This submission belongs to a subject you do not teach.
+          </p>
+          <Link href="/teacher/grading" className={buttonVariants({ variant: "outline" })}>
+            ← Return to Grading
           </Link>
         </div>
       );
