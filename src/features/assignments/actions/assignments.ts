@@ -1,10 +1,10 @@
 "use server";
 
 import { db } from "@/db";
-import { homework, assignmentSubmissions, studentProfiles, students, enrollments, users } from "@/db/schema";
+import { homework, assignmentSubmissions, studentProfiles, students, enrollments, subjects, users } from "@/db/schema";
 import { getCurrentUser, requireAuth } from "@/lib/auth";
 import { notifyMany } from "@/lib/notifications";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -202,7 +202,10 @@ export async function submitAssignmentAction(
 
     // Idempotent upsert on unq_assignment_submissions_homework_student —
     // double-submits update the existing row instead of crashing.
-    await db
+    // setWhere guards against a TOCTOU race with grading: if the row was
+    // flipped to "graded" between the pre-check above and this statement,
+    // the conflict update is skipped and we report "already graded".
+    const upserted = await db
       .insert(assignmentSubmissions)
       .values({
         id: `sub_${crypto.randomUUID()}`,
@@ -228,7 +231,16 @@ export async function submitAssignmentAction(
           submittedAt: new Date(),
           updatedAt: new Date(),
         },
-      });
+        setWhere: ne(assignmentSubmissions.status, "graded"),
+      })
+      .returning({ id: assignmentSubmissions.id });
+
+    if (upserted.length === 0) {
+      return {
+        success: false,
+        message: "This assignment has already been graded and cannot be resubmitted.",
+      };
+    }
 
     revalidatePath("/homework");
     revalidatePath("/");
@@ -244,7 +256,7 @@ export async function submitAssignmentAction(
  * Creates homework assignment (for teacher / CR admin forms).
  */
 export async function createHomework(prevState: any, formData: FormData) {
-  await requireAuth(["TEACHER", "CR", "ADMIN"]);
+  const user = await requireAuth(["TEACHER", "CR", "ADMIN"]);
 
   const validatedFields = createHomeworkSchema.safeParse({
     subjectId: formData.get("subjectId"),
@@ -263,6 +275,49 @@ export async function createHomework(prevState: any, formData: FormData) {
   }
 
   const data = validatedFields.data;
+
+  // Subject authorization: ADMIN unrestricted; TEACHER only for subjects they
+  // teach; CR only for subjects they are enrolled in (via their student
+  // identity). Mirrors the ownership-check style used in grading.ts.
+  if (user.role !== "ADMIN") {
+    const [subject] = await db
+      .select({ teacherId: subjects.teacherId })
+      .from(subjects)
+      .where(eq(subjects.id, data.subjectId))
+      .limit(1);
+
+    if (!subject) {
+      return { success: false, message: "Subject not found." };
+    }
+
+    if (user.role === "TEACHER") {
+      if (!user.teacherId || subject.teacherId !== user.teacherId) {
+        return {
+          success: false,
+          message: "You are not authorized to create assignments for this subject.",
+        };
+      }
+    } else {
+      const studentId = await resolveCurrentStudentId();
+      const [enrollment] = await db
+        .select({ id: enrollments.id })
+        .from(enrollments)
+        .where(
+          and(
+            eq(enrollments.subjectId, data.subjectId),
+            eq(enrollments.studentId, studentId)
+          )
+        )
+        .limit(1);
+
+      if (!enrollment) {
+        return {
+          success: false,
+          message: "You can only create assignments for subjects you are enrolled in.",
+        };
+      }
+    }
+  }
 
   try {
     const homeworkId = crypto.randomUUID();

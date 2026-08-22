@@ -9,7 +9,7 @@ import {
   subjects,
   users,
 } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth/session";
 import { notify } from "@/lib/notifications";
@@ -79,23 +79,38 @@ export async function reviewDisputeAction(
 
     const now = new Date();
 
+    const nextStatus = action === "approve" ? "approved" : "rejected";
+
+    // Conditional UPDATE guards against a TOCTOU race: if the dispute was
+    // already reviewed between the pre-check above and this statement, the
+    // WHERE clause matches nothing and we report "already reviewed".
+    const [updated] = await db
+      .update(attendanceCorrectionRequests)
+      .set({
+        status: nextStatus,
+        reviewNote: reviewNote || null,
+        reviewedBy: reviewerTeacherId,
+        reviewedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(attendanceCorrectionRequests.id, disputeId),
+          eq(attendanceCorrectionRequests.status, "pending")
+        )
+      )
+      .returning({ id: attendanceCorrectionRequests.id });
+
+    if (!updated) {
+      return { success: false, message: "This dispute has already been reviewed." };
+    }
+
     if (action === "approve") {
       await db
         .update(attendance)
         .set({ status: dispute.requestedStatus })
         .where(eq(attendance.id, dispute.attendanceId));
     }
-
-    await db
-      .update(attendanceCorrectionRequests)
-      .set({
-        status: action === "approve" ? "approved" : "rejected",
-        reviewNote: reviewNote || null,
-        reviewedBy: reviewerTeacherId,
-        reviewedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(attendanceCorrectionRequests.id, disputeId));
 
     // Notify the requesting student of the outcome. notifications.userId
     // references users.id while the request stores a legacy students-table id
