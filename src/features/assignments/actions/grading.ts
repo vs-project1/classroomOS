@@ -3,7 +3,8 @@
 import { db } from "@/db";
 import { assignmentSubmissions, homework, subjects } from "@/db/schema";
 import { requireAuth } from "@/lib/auth";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
+import { notify } from "@/lib/notifications";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -73,7 +74,7 @@ export async function gradeSubmissionAction(
       }
     }
 
-    await db
+    const graded = await db
       .update(assignmentSubmissions)
       .set({
         status: "graded",
@@ -83,7 +84,24 @@ export async function gradeSubmissionAction(
         gradedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(assignmentSubmissions.id, submissionId));
+      .where(
+        and(
+          eq(assignmentSubmissions.id, submissionId),
+          isNull(assignmentSubmissions.gradedAt)
+        )
+      )
+      .returning({ id: assignmentSubmissions.id });
+
+    if (graded.length === 0) {
+      return { success: false, message: "This submission has already been graded by someone else." };
+    }
+
+    await notify({
+      userId: submission.studentId,
+      type: "assignment",
+      title: `Your submission for "${hw.title}" has been graded: ${score}/100`,
+      link: `/homework/submissions/${submissionId}`,
+    });
 
     revalidatePath("/teacher/grading");
     return { success: true, message: "Submission graded successfully." };
