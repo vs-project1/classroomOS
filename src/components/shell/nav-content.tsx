@@ -6,12 +6,19 @@ import { Book, GraduationCap, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/actions/auth";
 import type { SidebarSubject } from "@/features/subjects/queries";
-import type { NavBadges, UserRole } from "@/lib/navigation/types";
+import type { NavBadgeKey, NavBadges, UserRole } from "@/lib/navigation/types";
 import { isNavItemActive } from "@/lib/navigation/types";
 import { getNavigationForRole } from "@/lib/navigation";
 import { NavBadge } from "./nav-badge";
 
 type NavVariant = "sidebar" | "drawer";
+
+/** sr-only unit label per badge key, e.g. "(3 to grade)". */
+const badgeUnitLabels: Record<NavBadgeKey, string> = {
+  assignmentsDue: "due",
+  pendingGrading: "to grade",
+  notifications: "unread",
+};
 
 type NavContentProps = {
   role: UserRole;
@@ -121,7 +128,7 @@ export function NavContent({
                       <>
                         <span className="sr-only">
                           {badges[item.badgeKey]
-                            ? ` (${badges[item.badgeKey]} ${item.badgeKey === "assignmentsDue" ? "due" : "to grade"})`
+                            ? ` (${badges[item.badgeKey]} ${badgeUnitLabels[item.badgeKey]})`
                             : ""}
                         </span>
                         <span className="ml-auto">

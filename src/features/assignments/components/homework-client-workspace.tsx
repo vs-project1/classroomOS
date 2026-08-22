@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { saveSubmissionDraftAction, submitAssignmentAction, SubmissionActionResult } from "@/features/assignments/actions/assignments";
 import { uploadFiles } from "@/utils/uploadthing";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -230,6 +230,15 @@ export function HomeworkClientWorkspace({
     setToastMessage(null);
     setSubmitSuccess(false);
   };
+
+  // Move focus to the success heading when the form swaps to the success
+  // panel, so keyboard and screen-reader users don't lose their place.
+  const successHeadingRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (submitSuccess) {
+      successHeadingRef.current?.focus();
+    }
+  }, [submitSuccess]);
 
   const renderCard = (hw: HomeworkItem, defaultBadge?: string) => {
     const sub = hw.submissions?.[0];
@@ -498,10 +507,12 @@ export function HomeworkClientWorkspace({
           </DialogHeader>
 
           {submitSuccess ? (
-            <div className="flex flex-col items-center gap-4 py-6 text-center" data-testid="submission-success">
+            <div className="flex flex-col items-center gap-4 py-6 text-center" data-testid="submission-success" role="status">
               <CheckCircle2 className="w-12 h-12 text-emerald-500 shrink-0" />
               <div className="space-y-1">
-                <p className="text-base font-bold text-foreground">Assignment submitted!</p>
+                <p ref={successHeadingRef} tabIndex={-1} className="text-base font-bold text-foreground outline-none focus:outline-none">
+                  Assignment submitted!
+                </p>
                 <p className="text-xs text-muted-foreground font-medium max-w-xs">
                   Your submission for &ldquo;{selectedHw?.title}&rdquo; has been received and is awaiting grading.
                 </p>
@@ -513,7 +524,7 @@ export function HomeworkClientWorkspace({
                 </Button>
                 <Button size="sm" variant="default" onClick={handleSubmitAnother} className="gap-1 text-xs cursor-pointer">
                   <Send className="w-3.5 h-3.5" />
-                  Submit Another
+                  Edit Submission
                 </Button>
               </div>
             </div>
