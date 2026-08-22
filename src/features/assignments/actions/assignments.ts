@@ -1,8 +1,9 @@
 "use server";
 
 import { db } from "@/db";
-import { homework, assignmentSubmissions, studentProfiles, students } from "@/db/schema";
+import { homework, assignmentSubmissions, studentProfiles, students, enrollments, users } from "@/db/schema";
 import { getCurrentUser, requireAuth } from "@/lib/auth";
+import { notifyMany } from "@/lib/notifications";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -23,6 +24,7 @@ const createHomeworkSchema = z.object({
   description: z.string().trim().min(1, "Description is required"),
   assignedDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date" }),
   dueDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date" }),
+  sessionId: z.string().trim().optional().nullable(),
 }).refine((data) => new Date(data.dueDate) >= new Date(data.assignedDate), {
   message: "Due date cannot be before assigned date",
   path: ["dueDate"],
@@ -191,21 +193,18 @@ export async function submitAssignmentAction(
       ),
     });
 
-    if (existing) {
-      await db
-        .update(assignmentSubmissions)
-        .set({
-          content: content ?? existing.content,
-          fileUrl: fileUrl ?? existing.fileUrl,
-          fileName: fileName ?? existing.fileName,
-          fileSize: fileSize ?? existing.fileSize,
-          status: finalStatus,
-          submittedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(assignmentSubmissions.id, existing.id));
-    } else {
-      await db.insert(assignmentSubmissions).values({
+    if (existing?.status === "graded") {
+      return {
+        success: false,
+        message: "This assignment has already been graded and cannot be resubmitted.",
+      };
+    }
+
+    // Idempotent upsert on unq_assignment_submissions_homework_student —
+    // double-submits update the existing row instead of crashing.
+    await db
+      .insert(assignmentSubmissions)
+      .values({
         id: `sub_${crypto.randomUUID()}`,
         homeworkId,
         studentId,
@@ -217,8 +216,19 @@ export async function submitAssignmentAction(
         submittedAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [assignmentSubmissions.homeworkId, assignmentSubmissions.studentId],
+        set: {
+          content: content ?? existing?.content ?? null,
+          fileUrl: fileUrl ?? existing?.fileUrl ?? null,
+          fileName: fileName ?? existing?.fileName ?? null,
+          fileSize: fileSize ?? existing?.fileSize ?? null,
+          status: finalStatus,
+          submittedAt: new Date(),
+          updatedAt: new Date(),
+        },
       });
-    }
 
     revalidatePath("/homework");
     revalidatePath("/");
@@ -242,6 +252,7 @@ export async function createHomework(prevState: any, formData: FormData) {
     description: formData.get("description"),
     assignedDate: formData.get("assignedDate"),
     dueDate: formData.get("dueDate"),
+    sessionId: formData.get("sessionId")?.toString() || null,
   });
 
   if (!validatedFields.success) {
@@ -254,17 +265,44 @@ export async function createHomework(prevState: any, formData: FormData) {
   const data = validatedFields.data;
 
   try {
+    const homeworkId = crypto.randomUUID();
     await db.insert(homework).values({
-      id: crypto.randomUUID(),
+      id: homeworkId,
       subjectId: data.subjectId,
       title: data.title,
       description: data.description,
       assignedDate: new Date(data.assignedDate),
       dueDate: new Date(data.dueDate),
+      sessionId: data.sessionId || null,
       status: "active",
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+
+    // Notify enrolled students (best-effort — notifyMany never throws).
+    try {
+      // notifications.userId references users.id, but enrollments.studentId is a
+      // legacy students-table id — map via students.email = users.email.
+      const enrolledUsers = await db
+        .selectDistinct({ userId: users.id })
+        .from(enrollments)
+        .innerJoin(students, eq(students.id, enrollments.studentId))
+        .innerJoin(users, eq(users.email, students.email))
+        .where(eq(enrollments.subjectId, data.subjectId));
+
+      if (enrolledUsers.length > 0) {
+        await notifyMany(
+          enrolledUsers.map((row) => ({
+            userId: row.userId,
+            type: "assignment" as const,
+            title: `New assignment "${data.title}" was posted`,
+            link: "/homework",
+          }))
+        );
+      }
+    } catch (notifyError) {
+      console.error("Failed to queue homework notifications:", notifyError);
+    }
   } catch (error) {
     console.error("Failed to create homework:", error);
     return {
