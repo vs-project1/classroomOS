@@ -1,9 +1,10 @@
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/db";
-import { subjects, weeklyRoutine } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { subjects, weeklyRoutine, homework, assignmentSubmissions } from "@/db/schema";
+import { eq, and, inArray, count } from "drizzle-orm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarRange, BookOpen, Clock } from "lucide-react";
+import { CalendarRange, BookOpen, Clock, ClipboardCheck } from "lucide-react";
+import Link from "next/link";
 
 export default async function TeacherDashboard() {
   const user = await requireAuth(["TEACHER", "ADMIN"]);
@@ -24,6 +25,20 @@ export default async function TeacherDashboard() {
     .select()
     .from(subjects)
     .where(eq(subjects.teacherId, user.teacherId));
+
+  // Pending grading: submitted/late submissions on this teacher's subjects
+  const [pendingRow] = await db
+    .select({ value: count() })
+    .from(assignmentSubmissions)
+    .innerJoin(homework, eq(assignmentSubmissions.homeworkId, homework.id))
+    .innerJoin(subjects, eq(homework.subjectId, subjects.id))
+    .where(
+      and(
+        eq(subjects.teacherId, user.teacherId),
+        inArray(assignmentSubmissions.status, ["submitted", "late"])
+      )
+    );
+  const pendingGrading = Number(pendingRow?.value ?? 0);
 
   // Fetch today's classes
   // Timezone standardization: NPT day of week
@@ -60,6 +75,56 @@ export default async function TeacherDashboard() {
       <h1 className="text-3xl font-bold tracking-tight">Teacher Dashboard</h1>
       <p className="text-muted-foreground">Welcome to the Teacher Portal, {user.name}.</p>
 
+      {/* Quick Links */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Link
+          href="/teacher/grading"
+          data-testid="quick-grading-link"
+          className="relative flex flex-col items-start gap-2 rounded-2xl border border-border/40 bg-card p-4 hover:border-primary/50 transition-all"
+        >
+          <ClipboardCheck className="w-5 h-5 text-primary" />
+          <span className="text-sm font-bold">Grading</span>
+          {pendingGrading > 0 && (
+            <span
+              data-slot="nav-badge"
+              aria-hidden="true"
+              className="absolute top-3 right-3 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none bg-primary/15 text-primary min-w-[20px] text-center"
+            >
+              {pendingGrading > 9 ? "9+" : pendingGrading}
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground">
+            {pendingGrading > 0
+              ? `${pendingGrading} submission${pendingGrading === 1 ? "" : "s"} to grade`
+              : "Nothing to grade"}
+          </span>
+        </Link>
+        <Link
+          href="/teacher/attendance"
+          className="flex flex-col items-start gap-2 rounded-2xl border border-border/40 bg-card p-4 hover:border-primary/50 transition-all"
+        >
+          <CalendarRange className="w-5 h-5 text-primary" />
+          <span className="text-sm font-bold">Attendance</span>
+          <span className="text-xs text-muted-foreground">Record &amp; review</span>
+        </Link>
+        <Link
+          href="/teacher/lecture-logs"
+          className="flex flex-col items-start gap-2 rounded-2xl border border-border/40 bg-card p-4 hover:border-primary/50 transition-all"
+        >
+          <Clock className="w-5 h-5 text-primary" />
+          <span className="text-sm font-bold">Sessions</span>
+          <span className="text-xs text-muted-foreground">Lecture logs</span>
+        </Link>
+        <Link
+          href="/subjects"
+          className="flex flex-col items-start gap-2 rounded-2xl border border-border/40 bg-card p-4 hover:border-primary/50 transition-all"
+        >
+          <BookOpen className="w-5 h-5 text-primary" />
+          <span className="text-sm font-bold">My Subjects</span>
+          <span className="text-xs text-muted-foreground">{assignedSubjects.length} assigned</span>
+        </Link>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -91,7 +156,7 @@ export default async function TeacherDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CalendarRange className="w-5 h-5 text-primary" />
-              Today's Schedule
+              Today&apos;s Schedule
             </CardTitle>
             <CardDescription>Your schedule for today ({todayString}).</CardDescription>
           </CardHeader>

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { weeklyRoutine, classSessions, enrollments } from "@/db/schema";
-import { desc, eq, asc, and, inArray } from "drizzle-orm";
+import { desc, eq, asc, and, inArray, gte } from "drizzle-orm";
 import Link from "next/link";
 import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
 import { formatTime12h } from "@/lib/time";
@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 
 export default async function CRDashboard() {
-  const user = await requireAuth(["CR", "ADMIN"]);
+  // RBAC Guard: CR or ADMIN only
+  await requireAuth(["CR", "ADMIN"]);
 
   const student = await resolveCurrentStudent();
 
@@ -61,8 +62,17 @@ export default async function CRDashboard() {
   });
   const enrolledSubjectIds = crEnrollments.map((e) => e.subjectId);
 
+  // Sessions logged this week (Mon=1..Sun=0 in JS, but we use 0-6)
+  const startOfWeek = new Date(nptDate);
+  const dayOffset = startOfWeek.getDay() === 0 ? 6 : startOfWeek.getDay() - 1; // Monday-based
+  startOfWeek.setDate(startOfWeek.getDate() - dayOffset);
+  startOfWeek.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(endOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+
   // Parallel queries
-  const [todaysClasses, recentSessionsWithLogs, allSessions] = await Promise.all([
+  const [todaysClasses, recentSessionsWithLogs, weekSessions] = await Promise.all([
     enrolledSubjectIds.length > 0
       ? db.query.weeklyRoutine.findMany({
           where: and(
@@ -85,23 +95,20 @@ export default async function CRDashboard() {
           },
         })
       : Promise.resolve([]),
-    // All sessions this week (for KPI count)
+    // This week's sessions only — clamped at the DB level so the query
+    // cannot grow unboundedly with academic history.
     enrolledSubjectIds.length > 0
       ? db.query.classSessions.findMany({
-          where: inArray(classSessions.subjectId, enrolledSubjectIds),
+          where: and(
+            inArray(classSessions.subjectId, enrolledSubjectIds),
+            gte(classSessions.sessionDate, startOfWeek)
+          ),
           with: { subject: true },
         })
       : Promise.resolve([]),
   ]);
 
-  // Sessions logged this week (Mon=1..Sun=0 in JS, but we use 0-6)
-  const startOfWeek = new Date(nptDate);
-  const dayOffset = startOfWeek.getDay() === 0 ? 6 : startOfWeek.getDay() - 1; // Monday-based
-  startOfWeek.setDate(startOfWeek.getDate() - dayOffset);
-  startOfWeek.setHours(0, 0, 0, 0);
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(endOfWeek.getDate() + 6);
-  endOfWeek.setHours(23, 59, 59, 999);
+  const allSessions = weekSessions;
 
   const sessionsThisWeek = allSessions.filter((s) => {
     const d = new Date(s.sessionDate);
@@ -112,6 +119,17 @@ export default async function CRDashboard() {
   const classesToday = todaysClasses.length;
   const pendingTasks = 0; // CR does not track homework submissions per the spec
   const recentSessionsCount = sessionsThisWeek.length;
+
+  // Today's logging status: how many of today's classes have a session row
+  const todayStart = new Date(nptDate);
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(nptDate);
+  todayEnd.setHours(23, 59, 59, 999);
+  const loggedToday = allSessions.filter((s) => {
+    const d = new Date(s.sessionDate);
+    return d >= todayStart && d <= todayEnd;
+  }).length;
+  const remainingToday = Math.max(classesToday - loggedToday, 0);
 
   // Quick actions
   const quickActions = [
@@ -148,6 +166,65 @@ export default async function CRDashboard() {
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-xs font-bold tracking-wide uppercase">
             Class Representative
           </span>
+        </div>
+      </div>
+
+      {/* 1b. Today Summary Strip */}
+      <div
+        data-testid="cr-today-strip"
+        className="rounded-2xl border border-border/40 bg-card p-5 flex flex-col lg:flex-row lg:items-center gap-5 justify-between"
+      >
+        <div className="flex items-center gap-6 sm:gap-8">
+          <div>
+            <p data-testid="cr-classes-today" className="text-2xl font-bold tabular-nums text-foreground">
+              {classesToday}
+            </p>
+            <p className="text-xs font-medium text-muted-foreground">Classes today</p>
+          </div>
+          <div className="w-px h-10 bg-border" aria-hidden />
+          <div>
+            <p data-testid="cr-logged-today" className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+              {loggedToday}
+            </p>
+            <p className="text-xs font-medium text-muted-foreground">Logged</p>
+          </div>
+          <div className="w-px h-10 bg-border" aria-hidden />
+          <div>
+            <p
+              data-testid="cr-remaining"
+              className={cn(
+                "text-2xl font-bold tabular-nums",
+                remainingToday > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
+              )}
+            >
+              {remainingToday}
+            </p>
+            <p className="text-xs font-medium text-muted-foreground">Remaining</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Link
+            href="/cr/log-session"
+            className={cn(
+              "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all",
+              "bg-primary text-primary-foreground shadow-sm shadow-primary/30 hover:opacity-90"
+            )}
+          >
+            <ClipboardList className="w-4 h-4" /> Log Session
+          </Link>
+          <Link
+            href="/attendance"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border border-border/60 bg-background hover:bg-muted transition-all"
+          >
+            <Users className="w-4 h-4" /> Take Attendance
+          </Link>
+          <Link
+            href="/lecture-logs"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border border-border/60 bg-background hover:bg-muted transition-all"
+          >
+            <FileText className="w-4 h-4" /> View Sessions
+          </Link>
         </div>
       </div>
 
