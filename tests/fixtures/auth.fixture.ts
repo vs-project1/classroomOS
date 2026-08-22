@@ -19,10 +19,24 @@ async function persistSessionRow(token: string, userId: string, expiresAtMs: num
   const client = createClient({ url });
   try {
     // drizzle `{ mode: "timestamp" }` stores epoch SECONDS; created_at has a DB default.
-    await client.execute({
-      sql: "INSERT OR IGNORE INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
-      args: [getSessionTokenId(token), userId, Math.floor(expiresAtMs / 1000)],
-    });
+    // SQLITE_BUSY can surface when the dev server holds a write lock during
+    // global-setup reseeding — retry briefly rather than fail the persona.
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        await client.execute({
+          sql: "INSERT OR IGNORE INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
+          args: [getSessionTokenId(token), userId, Math.floor(expiresAtMs / 1000)],
+        });
+        return;
+      } catch (err) {
+        lastError = err;
+        const message = String(err);
+        if (!message.includes("SQLITE_BUSY") && !message.includes("database is locked")) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+      }
+    }
+    throw lastError;
   } finally {
     client.close();
   }

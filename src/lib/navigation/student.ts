@@ -1,4 +1,4 @@
-import { Book, CalendarDays, CalendarOff, CalendarRange, CheckCircle, Clock, FileText, GraduationCap, Home, Bell } from "lucide-react";
+import { Bell, Book, CalendarDays, CalendarOff, CalendarRange, CheckCircle, Clock, FileText, GraduationCap, Home, Inbox } from "lucide-react";
 import type { RoleNavigation } from "./types";
 
 export const studentNavigation: RoleNavigation = {
@@ -23,7 +23,7 @@ export const studentNavigation: RoleNavigation = {
       title: "Class",
       items: [
         { label: "Routine", href: "/routine", icon: CalendarRange },
-        { label: "Session Logs", href: "/lecture-logs", icon: FileText },
+        { label: "Class History", href: "/lecture-logs", icon: FileText },
         { label: "What You Missed", href: "/missed", icon: CalendarOff },
       ],
     },
@@ -32,6 +32,7 @@ export const studentNavigation: RoleNavigation = {
       items: [
         { label: "Notices", href: "/notices", icon: Bell },
         { label: "Events", href: "/events", icon: CalendarDays },
+        { label: "Notifications", href: "/notifications", icon: Inbox, badgeKey: "notifications" },
       ],
     },
   ],

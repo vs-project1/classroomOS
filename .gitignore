@@ -58,3 +58,5 @@ scratch/
 
 # agent runtime state (heartbeat, loop state, QA screenshots)
 /.runtime/
+
+.worktrees/

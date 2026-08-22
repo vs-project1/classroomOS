@@ -337,6 +337,55 @@ export async function seedE2E(customClient?: Client) {
     });
   }
 
+  // 12. Seed Notifications (usr_student_001 bell feed)
+  // DO UPDATE on is_read/link so UI-driven flips (TC-NOTIF-03/04) never leak
+  // into the next run's baseline, mirroring the submissions reset above.
+  // NOTE: notif_student_2 deliberately has NO link — the notifications page
+  // renders the per-row "Mark read" button only on unread rows without a safe
+  // internal link (linked unread rows are whole-card anchors instead), so a
+  // linkless unread row is required to keep that affordance testable.
+  const notificationsData = [
+    {
+      id: "notif_student_1",
+      userId: "usr_student_001",
+      title: "Mid-term schedule posted",
+      message: "Check the notice board for your exam slots.",
+      type: "notice",
+      link: "/notices",
+      isRead: 0,
+      createdAt: now,
+    },
+    {
+      id: "notif_student_2",
+      userId: "usr_student_001",
+      title: "New assignment in DSA",
+      message: "Assignment 3 has been posted.",
+      type: "assignment",
+      link: null, // linkless on purpose — see NOTE above (TC-NOTIF-03)
+      isRead: 0,
+      createdAt: now - 3600,
+    },
+    {
+      id: "notif_student_3",
+      userId: "usr_student_001",
+      title: "Welcome to Classroom OS",
+      message: "Your account is ready.",
+      type: "system",
+      link: null,
+      isRead: 1,
+      createdAt: now - oneDay,
+    },
+  ];
+
+  for (const n of notificationsData) {
+    await client.execute({
+      sql: `INSERT INTO notifications (id, user_id, title, message, type, link, is_read, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET is_read = excluded.is_read, link = excluded.link;`,
+      args: [n.id, n.userId, n.title, n.message, n.type, n.link, n.isRead, n.createdAt],
+    });
+  }
+
   console.log("✅ [Seed E2E] Seeding completed successfully.");
 }
 
