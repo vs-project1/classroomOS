@@ -1,8 +1,18 @@
 "use server";
 
 import { db } from "@/db";
-import { attendance, attendanceCorrectionRequests, students, studentProfiles } from "@/db/schema";
+import {
+  attendance,
+  attendanceCorrectionRequests,
+  classSessions,
+  students,
+  studentProfiles,
+  subjects,
+  teachers,
+  users,
+} from "@/db/schema";
 import { requireAuth } from "@/lib/auth/session";
+import { notify } from "@/lib/notifications";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -101,6 +111,32 @@ export async function submitAttendanceCorrectionAction(
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+
+    // Notify the subject teacher so the request isn't invisible.
+    // notifications.userId references users.id; bridge legacy ids via email
+    // (students/teachers tables have no userId column).
+    try {
+      const [recipient] = await db
+        .select({ userId: users.id })
+        .from(attendance)
+        .innerJoin(classSessions, eq(classSessions.id, attendance.classSessionId))
+        .innerJoin(subjects, eq(subjects.id, classSessions.subjectId))
+        .innerJoin(teachers, eq(teachers.id, subjects.teacherId))
+        .innerJoin(users, eq(users.email, teachers.email))
+        .where(eq(attendance.id, targetAttendance.id))
+        .limit(1);
+
+      if (recipient) {
+        await notify({
+          userId: recipient.userId,
+          type: "attendance",
+          title: "New attendance correction request submitted",
+          link: "/attendance",
+        });
+      }
+    } catch (notifyError) {
+      console.error("Failed to send dispute submission notification:", notifyError);
+    }
 
     revalidatePath("/attendance");
     return {
