@@ -1,24 +1,12 @@
 "use client";
 
 import { Book, LogOut, Menu } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetTrigger, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { logoutAction } from "@/app/actions/auth";
 import type { NavBadges, UserRole } from "@/lib/navigation/types";
 import { NavContent } from "./nav-content";
-
-function initialsOf(name: string): string {
-  return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((word) => word[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase() || "U"
-  );
-}
+import { AvatarMenu } from "./avatar-menu";
 
 type ShellTopbarProps = {
   role: UserRole;
@@ -72,11 +60,7 @@ export function ShellTopbar({ role, name, badges }: ShellTopbarProps) {
             <span className="hidden sm:inline">Sign Out</span>
           </button>
         </form>
-        <Avatar className="h-8 w-8 ring-1 ring-border/50 hover:ring-border transition-all">
-          <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
-            {initialsOf(name)}
-          </AvatarFallback>
-        </Avatar>
+        <AvatarMenu name={name} />
       </div>
     </header>
   );
