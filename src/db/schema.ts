@@ -450,7 +450,7 @@ export const notifications = sqliteTable("notifications", {
     .references(() => users.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   message: text("message").notNull(),
-  type: text("type").notNull(), // 'system' | 'assignment' | 'attendance' | 'notice' | 'exam' | 'correction_request'
+  type: text("type").notNull(), // 'system' | 'assignment' | 'attendance' | 'resource' | 'notice' | 'event' | 'exam' | 'correction_request'
   link: text("link"),
   isRead: integer("is_read", { mode: "boolean" })
     .notNull()
@@ -461,7 +461,7 @@ export const notifications = sqliteTable("notifications", {
 }, (table) => [
   index("idx_notifications_user_unread").on(table.userId, table.isRead),
   index("idx_notifications_user_created").on(table.userId, table.createdAt),
-  check("chk_notifications_type", sql`${table.type} IN ('system', 'assignment', 'attendance', 'notice', 'exam', 'correction_request')`),
+  check("chk_notifications_type", sql`${table.type} IN ('system', 'assignment', 'attendance', 'resource', 'notice', 'event', 'exam', 'correction_request')`),
 ]);
 
 // 10. Attendance Correction Requests (Dispute resolution)
