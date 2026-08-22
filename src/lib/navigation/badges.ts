@@ -3,7 +3,7 @@ export type { NavBadgeKey, NavBadges };
 
 import { and, count, eq, gt, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { assignmentSubmissions, enrollments, homework, subjects } from "@/db/schema";
+import { assignmentSubmissions, enrollments, homework, notifications, subjects } from "@/db/schema";
 import { getCurrentUser, resolveCurrentStudent, type SessionUser } from "@/lib/auth";
 
 /**
@@ -15,6 +15,15 @@ export async function getNavBadges(): Promise<NavBadges> {
   const user = await getCurrentUser();
   if (!user) return {};
 
+  const [roleBadges, unreadNotifications] = await Promise.all([
+    getRoleBadges(user),
+    getUnreadNotificationsBadge(user.id),
+  ]);
+
+  return { ...roleBadges, ...unreadNotifications };
+}
+
+async function getRoleBadges(user: SessionUser): Promise<NavBadges> {
   switch (user.role) {
     case "STUDENT":
     case "CR":
@@ -25,6 +34,16 @@ export async function getNavBadges(): Promise<NavBadges> {
     default:
       return {};
   }
+}
+
+async function getUnreadNotificationsBadge(userId: string): Promise<NavBadges> {
+  const rows = await db
+    .select({ value: count() })
+    .from(notifications)
+    .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+
+  const notifications_ = Number(rows[0]?.value ?? 0);
+  return notifications_ > 0 ? { notifications: notifications_ } : {};
 }
 
 async function getAssignmentsDueBadge(): Promise<NavBadges> {

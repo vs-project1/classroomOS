@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 
 export type UserRole = "STUDENT" | "TEACHER" | "CR" | "ADMIN";
 
-export type NavBadgeKey = "assignmentsDue" | "pendingGrading";
+export type NavBadgeKey = "assignmentsDue" | "pendingGrading" | "notifications";
 
 export type NavItem = {
   label: string;
