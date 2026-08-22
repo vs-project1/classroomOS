@@ -7,6 +7,7 @@ import { Sheet, SheetTrigger, SheetContent, SheetTitle } from "@/components/ui/s
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/actions/auth";
 import type { NavBadges, UserRole } from "@/lib/navigation/types";
+import { isNavItemActive } from "@/lib/navigation/types";
 import { getNavigationForRole } from "@/lib/navigation";
 import { NavBadge } from "./nav-badge";
 
@@ -36,8 +37,7 @@ export function MobileBottomNav({ role, badges }: MobileBottomNavProps) {
     >
       <div className="grid grid-cols-4">
         {navigation.mobileTabs.map((tab) => {
-          const isActive =
-            tab.href === "/" ? pathname === "/" : pathname === tab.href || pathname?.startsWith(`${tab.href}/`);
+          const isActive = isNavItemActive(pathname, tab);
           return (
             <Link
               key={tab.label}
@@ -83,10 +83,7 @@ export function MobileBottomNav({ role, badges }: MobileBottomNavProps) {
               </p>
               <div className="grid grid-cols-2 gap-1">
                 {moreItems.map((item) => {
-                  const isActive =
-                    item.href === "/"
-                      ? pathname === "/"
-                      : pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                  const isActive = isNavItemActive(pathname, item);
                   return (
                     <Link
                       key={item.label}
