@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { assignmentSubmissions, homework, subjects } from "@/db/schema";
+import { assignmentSubmissions, homework, students, subjects, users } from "@/db/schema";
 import { requireAuth } from "@/lib/auth";
 import { eq, and, isNull } from "drizzle-orm";
 import { notify } from "@/lib/notifications";
@@ -96,12 +96,23 @@ export async function gradeSubmissionAction(
       return { success: false, message: "This submission has already been graded by someone else." };
     }
 
-    await notify({
-      userId: submission.studentId,
-      type: "assignment",
-      title: `Your submission for "${hw.title}" has been graded: ${score}/100`,
-      link: `/homework/submissions/${submissionId}`,
-    });
+    // notifications.userId references users.id; submission.studentId is a
+    // legacy students-table id — map via students.email = users.email.
+    const recipient = await db
+      .selectDistinct({ userId: users.id })
+      .from(students)
+      .innerJoin(users, eq(users.email, students.email))
+      .where(eq(students.id, submission.studentId))
+      .limit(1);
+
+    if (recipient[0]) {
+      await notify({
+        userId: recipient[0].userId,
+        type: "assignment",
+        title: `Your submission for "${hw.title}" has been graded: ${score}/100`,
+        link: `/homework/submissions/${submissionId}`,
+      });
+    }
 
     revalidatePath("/teacher/grading");
     return { success: true, message: "Submission graded successfully." };
