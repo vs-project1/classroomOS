@@ -1,7 +1,7 @@
 import { db } from "@/db";
-import { homework, assignmentSubmissions, studentProfiles, students } from "@/db/schema";
+import { homework, assignmentSubmissions, studentProfiles, students, enrollments } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { HomeworkClientWorkspace } from "./homework-client-workspace";
 
 export const dynamic = "force-dynamic";
@@ -36,29 +36,45 @@ export default async function HomeworkPage() {
     }
   }
 
-  // Default-deny (post-T1.1): an authenticated STUDENT/CR whose identity cannot be
-  // resolved sees nothing — never another student's data, never the whole table.
-  // Submissions are ONLY ever queried when scoped to the resolved student.
-  const allHomework = await db.query.homework.findMany({
-    orderBy: [desc(homework.dueDate)],
-    with: {
-      subject: true,
-      ...(studentId !== null
-        ? {
+  // Fail closed: if the student identity cannot be resolved, enrolledSubjectIds
+  // stays empty and the listing below returns [] — never another student's data,
+  // never the whole table. Submissions are ONLY queried for the resolved student.
+  let enrolledSubjectIds: string[] = [];
+  if (studentId) {
+    const userEnrollments = await db.query.enrollments.findMany({
+      where: eq(enrollments.studentId, studentId),
+    });
+    enrolledSubjectIds = userEnrollments.map((e) => e.subjectId);
+  }
+
+  const scopedHomework =
+    enrolledSubjectIds.length === 0
+      ? []
+      : await db.query.homework.findMany({
+          where: inArray(homework.subjectId, enrolledSubjectIds),
+          orderBy: [desc(homework.dueDate)],
+          with: {
+            subject: true,
             submissions: {
-              where: eq(assignmentSubmissions.studentId, studentId),
+              where: eq(assignmentSubmissions.studentId, studentId as string),
               with: { gradedByTeacher: true },
             },
-          }
-        : {}),
-    },
-  });
+          },
+        });
 
   return (
-    <HomeworkClientWorkspace
-      allHomework={allHomework.map((h) => ({ ...h, submissions: h.submissions ?? [] }))}
-      currentStudentId={studentId}
-      currentUserRole={user?.role || "STUDENT"}
-    />
+    <>
+      {!studentId && (
+        <div className="max-w-6xl mx-auto w-full py-16 px-4 text-center text-sm text-muted-foreground rounded-xl border border-dashed bg-muted/5">
+          We couldn&rsquo;t confirm your student account, so no assignments are shown. Please log
+          in with your student account or contact your class coordinator.
+        </div>
+      )}
+      <HomeworkClientWorkspace
+        allHomework={scopedHomework.map((h) => ({ ...h, submissions: h.submissions ?? [] }))}
+        currentStudentId={studentId}
+        currentUserRole={user?.role || "STUDENT"}
+      />
+    </>
   );
 }
