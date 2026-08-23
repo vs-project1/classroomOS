@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import { createSession, getStudentsBySubject, type SessionActionState } from "@/features/sessions/actions/session-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,8 +40,43 @@ const initialState: SessionActionState = {
   success: false,
 };
 
+function isRedirectError(error: unknown): boolean {
+  const digest = (error as { digest?: string } | null)?.digest;
+  return typeof digest === "string" && digest.startsWith("NEXT_REDIRECT");
+}
+
 export function SessionForm({ subjects, defaultValues }: Props) {
-  const [state, formAction, isPending] = useActionState(createSession, initialState);
+  const handleSessionAction = useCallback(
+    async (_prev: SessionActionState, formData: FormData): Promise<SessionActionState> => {
+      try {
+        const result = await createSession(initialState, formData);
+        if (result.success) {
+          toast.success(
+            "Session published.",
+            enrolledStudents.length > 0
+              ? { description: `${enrolledStudents.length} students can now see today's class.` }
+              : undefined
+          );
+        } else if (result.message) {
+          toast.error(result.message);
+        }
+        return result;
+      } catch (error) {
+        if (isRedirectError(error)) {
+          toast.success(
+            "Session published.",
+            enrolledStudents.length > 0
+              ? { description: `${enrolledStudents.length} students can now see today's class.` }
+              : undefined
+          );
+        }
+        throw error;
+      }
+    },
+    [enrolledStudents.length]
+  );
+
+  const [state, formAction, isPending] = useActionState(handleSessionAction, initialState);
   
   const [selectedSubjectId, setSelectedSubjectId] = useState(defaultValues?.subjectId || "");
   const [enrolledStudents, setEnrolledStudents] = useState<StudentInfo[]>([]);
