@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useActionState } from "react";
+import { toast } from "sonner";
 import { createResourceAction, getChapterTreeAction, type ChapterTreeNode } from "../actions/resources";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Paperclip, Link as LinkIcon } from "lucide-react";
-import { UploadDropzone } from "@/utils/uploadthing";
+import { uploadFiles } from "@/utils/uploadthing";
 import { cn } from "@/lib/utils";
 
 type UploadedFile = {
@@ -46,9 +47,19 @@ export function ResourceForm({ subjects }: { subjects: { id: string; name: strin
   const [fileType, setFileType] = useState("pdf");
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [chapterTreeError, setChapterTreeError] = useState("");
-  const [uploadError, setUploadError] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
   const [units, setUnits] = useState<ChapterTreeNode[]>([]);
   const [chaptersLoading, setChaptersLoading] = useState(false);
+
+  // Publish feedback toasts (inline banners remain for field-level context).
+  useEffect(() => {
+    if (!state) return;
+    if (state.success) {
+      toast.success("Material published to students.");
+    } else if (state.message && !state.fieldErrors) {
+      toast.error(state.message);
+    }
+  }, [state]);
 
   // Load the units -> chapters tree whenever the selected subject changes.
   useEffect(() => {
@@ -81,6 +92,40 @@ export function ResourceForm({ subjects }: { subjects: { id: string; name: strin
       cancelled = true;
     };
   }, [subjectId]);
+
+  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setIsUploading(true);
+    const uploadPromise = uploadFiles("courseMaterial", { files: [file] })
+      .then((data) => {
+        const uploaded = data[0];
+        setUploadedFile({
+          url: uploaded.url,
+          key: uploaded.key,
+          name: uploaded.name,
+          size: uploaded.size,
+        });
+        const detected = detectFileType(uploaded.name);
+        if (detected) setFileType(detected);
+        return uploaded;
+      })
+      .catch((error) => {
+        setUploadedFile(null);
+        throw error;
+      })
+      .finally(() => {
+        setIsUploading(false);
+      });
+
+    toast.promise(uploadPromise, {
+      loading: "Uploading material…",
+      success: (uploaded) => `${uploaded.name} ready — pick chapter and publish`,
+      error: "Upload failed. Try again.",
+    });
+  };
 
   const fileUrlValue = mode === "upload" ? uploadedFile?.url ?? "" : "";
   const canSubmit =
@@ -183,32 +228,19 @@ export function ResourceForm({ subjects }: { subjects: { id: string; name: strin
       {mode === "upload" ? (
         <div className="space-y-2">
           <Label>File Upload</Label>
-          <UploadDropzone
-            endpoint="courseMaterial"
-            appearance={{
-              container: "border-dashed border-2 border-border rounded-lg bg-muted/30 py-6 outline-none transition-colors hover:border-primary/50",
-              button: "bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium ut-uploading:bg-primary/50 after:bg-primary",
-              label: "text-foreground font-medium text-sm",
-              allowedContent: "text-muted-foreground text-xs",
-            }}
-            onClientUploadComplete={(res) => {
-              if (res && res.length > 0) {
-                const file = res[0];
-                setUploadedFile({
-                  url: file.url,
-                  key: file.key,
-                  name: file.name,
-                  size: file.size,
-                });
-                const detected = detectFileType(file.name);
-                if (detected) setFileType(detected);
-              }
-            }}
-            onUploadError={(error: Error) => {
-              setUploadedFile(null);
-              setUploadError(`Upload failed: ${error.message}`);
-            }}
-          />
+          <label className="flex flex-col items-center gap-3 border-dashed border-2 border-border rounded-lg bg-muted/30 py-6 outline-none transition-colors hover:border-primary/50 cursor-pointer">
+            <span className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium">
+              {isUploading ? "Uploading…" : "Choose File"}
+            </span>
+            <span className="text-muted-foreground text-xs">PDF, image, or text — up to 16MB</span>
+            <input
+              type="file"
+              accept=".pdf,image/*,.txt,.md,.csv"
+              className="hidden"
+              disabled={isUploading}
+              onChange={handleFileSelected}
+            />
+          </label>
           <input type="hidden" name="fileUrl" value={fileUrlValue} />
           <input type="hidden" name="fileKey" value={uploadedFile?.key ?? ""} />
           <input type="hidden" name="fileSize" value={uploadedFile?.size ?? ""} />
@@ -216,9 +248,6 @@ export function ResourceForm({ subjects }: { subjects: { id: string; name: strin
             <p className="text-sm font-medium text-emerald-500">
               “{uploadedFile.name}” attached and ready to save!
             </p>
-          )}
-          {uploadError && (
-            <p className="text-sm text-destructive">{uploadError}</p>
           )}
           {state?.fieldErrors?.fileUrl && (
             <p className="text-sm text-destructive">Please upload a file before saving.</p>
