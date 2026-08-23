@@ -26,10 +26,9 @@ import {
   Send,
   Save,
   Check,
-  AlertCircle,
   FileCheck,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface SubmissionInfo {
   id: string;
@@ -83,7 +82,6 @@ export function HomeworkClientWorkspace({
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState<number | null>(null);
-  const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const [isPending, startTransition] = useTransition();
@@ -99,7 +97,6 @@ export function HomeworkClientWorkspace({
     setFileUrl(existingSub?.fileUrl || null);
     setFileName(existingSub?.fileName || null);
     setFileSize(existingSub?.fileSize || null);
-    setToastMessage(null);
     setSubmitSuccess(false);
     setModalOpen(true);
   };
@@ -141,8 +138,7 @@ export function HomeworkClientWorkspace({
     if (!file) return;
 
     if (file.size > 16 * 1024 * 1024) {
-      setToastMessage({ text: "File exceeds the 16MB limit.", type: "error" });
-      setTimeout(() => setToastMessage(null), 4000);
+      toast.error("File exceeds the 16MB limit.");
       e.target.value = "";
       return;
     }
@@ -154,18 +150,13 @@ export function HomeworkClientWorkspace({
       const res = await uploadFiles("assignmentSubmission", { files: [file] });
       const uploaded = res[0];
       setFileUrl(uploaded.url ?? (uploaded.key ? `https://utfs.io/f/${uploaded.key}` : null));
-      setToastMessage({ text: "File uploaded successfully.", type: "success" });
-      setTimeout(() => setToastMessage(null), 4000);
+      toast.success("Attachment ready.");
     } catch (err) {
       console.error("Upload failed:", err);
       setFileName(null);
       setFileSize(null);
       setFileUrl(null);
-      setToastMessage({
-        text: "Upload failed. Check your connection — only PDF, image, and text/code files up to 16MB are accepted.",
-        type: "error",
-      });
-      setTimeout(() => setToastMessage(null), 5000);
+      toast.error("Upload failed. Check your connection — only PDF, image, and text/code files up to 16MB are accepted.");
     } finally {
       setIsUploading(false);
       e.target.value = "";
@@ -184,10 +175,9 @@ export function HomeworkClientWorkspace({
 
       const res = await saveSubmissionDraftAction(null, formData);
       if (res.success) {
-        setToastMessage({ text: res.message || "Draft saved successfully.", type: "success" });
-        setTimeout(() => setToastMessage(null), 4000);
+        toast.success("Draft saved.");
       } else {
-        setToastMessage({ text: res.message || "Failed to save draft.", type: "error" });
+        toast.error(res.message || "Failed to save draft.");
       }
     });
   };
@@ -204,10 +194,10 @@ export function HomeworkClientWorkspace({
 
       const res = await submitAssignmentAction(null, formData);
       if (res.success) {
-        setToastMessage({ text: "Assignment submitted successfully! Status: Submitted", type: "success" });
+        toast.success("Assignment submitted.", { description: "Your instructor can now review it." });
         setSubmitSuccess(true);
       } else {
-        setToastMessage({ text: res.message || "Failed to submit assignment.", type: "error" });
+        toast.error(res.message || "Failed to submit assignment.");
       }
     });
   };
@@ -227,7 +217,6 @@ export function HomeworkClientWorkspace({
     setFileUrl(null);
     setFileName(null);
     setFileSize(null);
-    setToastMessage(null);
     setSubmitSuccess(false);
   };
 
@@ -382,26 +371,6 @@ export function HomeworkClientWorkspace({
         </div>
       </div>
 
-      {/* Global In-Page Toast Notification */}
-      {toastMessage && (
-        <div
-          role="status"
-          className={cn(
-            "p-4 rounded-xl border flex items-center gap-3 text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-200",
-            toastMessage.type === "success"
-              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
-              : "bg-destructive/10 border-destructive/30 text-destructive"
-          )}
-        >
-          {toastMessage.type === "success" ? (
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 shrink-0" />
-          )}
-          <span>{toastMessage.text}</span>
-        </div>
-      )}
-
       {/* 5 Filter Tabs */}
       <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
         <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 w-full h-auto p-1 bg-muted/60 rounded-xl">
@@ -530,25 +499,6 @@ export function HomeworkClientWorkspace({
             </div>
           ) : (
           <>
-          {toastMessage && (
-            <div
-              role="alert"
-              className={cn(
-                "p-3 rounded-lg border text-xs font-medium flex items-center gap-2",
-                toastMessage.type === "success"
-                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
-                  : "bg-destructive/10 border-destructive/20 text-destructive"
-              )}
-            >
-              {toastMessage.type === "success" ? (
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-              ) : (
-                <AlertCircle className="w-4 h-4 shrink-0" />
-              )}
-              <span>{toastMessage.text}</span>
-            </div>
-          )}
-
           <div className="space-y-4 pt-1">
             {/* Written Text Solution */}
             <div>
