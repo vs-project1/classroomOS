@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { submitAttendanceCorrectionAction, AttendanceActionState } from "@/features/attendance/actions/dispute";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,16 @@ const initialState: AttendanceActionState = { success: false };
 export function CorrectionDialog({ recentSessions }: CorrectionDialogProps) {
   const [open, setOpen] = useState(false);
   const [state, formAction, isPending] = useActionState(submitAttendanceCorrectionAction, initialState);
+
+  useEffect(() => {
+    if (state === initialState) return;
+    if (state.success) {
+      toast.success("Correction request sent.", { description: "Your teacher will review it shortly." });
+    } else if (state.message && !(state.fieldErrors && Object.keys(state.fieldErrors).length > 0)) {
+      toast.error(state.message);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useEffect, useActionState } from "react";
+import { toast } from "sonner";
 import { gradeSubmissionAction, GradingActionResult } from "@/features/assignments/actions/grading";
 import {
   Dialog,
@@ -55,6 +56,23 @@ interface SubmissionData {
 function GradingFormDialog({ studentName, homeworkTitle, submissionId }: { studentName: string; homeworkTitle: string; submissionId: string }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, isPending] = useActionState(gradeSubmissionAction, null as GradingActionResult | null);
+  const [gradedScore, setGradedScore] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!state) return;
+    if (state.success) {
+      toast.success(`Graded ${studentName} — ${gradedScore ?? 0}/100`);
+    } else if (state.message && !(state.fieldErrors && Object.keys(state.fieldErrors).length > 0)) {
+      toast.error(state.message);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  const handleAction = async (formData: FormData) => {
+    const score = formData.get("score");
+    if (score != null) setGradedScore(Number(score));
+    formAction(formData);
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -88,7 +106,7 @@ function GradingFormDialog({ studentName, homeworkTitle, submissionId }: { stude
             </div>
           </div>
         ) : (
-          <form action={formAction} className="space-y-4">
+          <form action={handleAction} className="space-y-4">
             <input type="hidden" name="submissionId" value={submissionId} />
             {state?.message && !state.success && (
               <div className="p-2.5 bg-destructive/10 text-destructive text-xs rounded-lg flex items-center gap-2">
