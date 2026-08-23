@@ -150,6 +150,7 @@ export const notices = sqliteTable("notices", {
   content: text("content").notNull(),
   expiresAt: integer("expires_at", { mode: "timestamp" }),
   isPinned: integer("is_pinned", { mode: "boolean" }).notNull().default(false),
+  attachments: text("attachments", { mode: "json" }).$type<string[]>(),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -413,6 +414,7 @@ export const resources = sqliteTable("resources", {
 }, (table) => [
   index("idx_resources_subject").on(table.subjectId),
   index("idx_resources_chapter").on(table.chapterId),
+  index("idx_resources_chapter_created").on(table.chapterId, table.createdAt),
   index("idx_resources_uploaded_by").on(table.uploadedBy),
 ]);
 
@@ -506,6 +508,40 @@ export const sessions = sqliteTable("sessions", {
     .default(sql`(unixepoch())`),
 }, (table) => [
   index("idx_sessions_user_id").on(table.userId),
+]);
+
+// 12. Files (Versioned file graph — UploadThing key as source of truth)
+export const files = sqliteTable("files", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  utKey: text("ut_key").notNull().unique(), // UploadThing key (formerly r2_key)
+  url: text("url").notNull(),
+  mime: text("mime").notNull(),
+  size: integer("size").notNull(),
+  checksum: text("checksum"),
+  courseId: text("course_id")
+    .references(() => subjects.id, { onDelete: "set null" }),
+  chapterId: text("chapter_id")
+    .references(() => courseChapters.id, { onDelete: "set null" }),
+  submissionId: text("submission_id")
+    .references(() => assignmentSubmissions.id, { onDelete: "cascade" }),
+  noticeId: text("notice_id")
+    .references(() => notices.id, { onDelete: "cascade" }),
+  version: integer("version").notNull().default(1),
+  parentFileId: text("parent_file_id")
+    .references((): any => files.id, { onDelete: "set null" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+}, (table) => [
+  index("idx_files_checksum").on(table.checksum),
+  index("idx_files_course").on(table.courseId),
+  index("idx_files_owner").on(table.ownerId),
+  index("idx_files_chapter").on(table.chapterId),
+  index("idx_files_submission").on(table.submissionId),
+  index("idx_files_notice").on(table.noticeId),
 ]);
 
 // --- Drizzle Relations ---
@@ -737,6 +773,33 @@ export const attendanceCorrectionRequestsRelations = relations(attendanceCorrect
   }),
 }));
 
+export const filesRelations = relations(files, ({ one }) => ({
+  owner: one(users, {
+    fields: [files.ownerId],
+    references: [users.id],
+  }),
+  course: one(subjects, {
+    fields: [files.courseId],
+    references: [subjects.id],
+  }),
+  chapter: one(courseChapters, {
+    fields: [files.chapterId],
+    references: [courseChapters.id],
+  }),
+  submission: one(assignmentSubmissions, {
+    fields: [files.submissionId],
+    references: [assignmentSubmissions.id],
+  }),
+  notice: one(notices, {
+    fields: [files.noticeId],
+    references: [notices.id],
+  }),
+  parentFile: one(files, {
+    fields: [files.parentFileId],
+    references: [files.id],
+  }),
+}));
+
 // --- TypeScript Inferred Types & Enums ---
 
 export type Teacher = typeof teachers.$inferSelect;
@@ -820,3 +883,6 @@ export type AttendanceCorrectionRequest = typeof attendanceCorrectionRequests.$i
 export type NewAttendanceCorrectionRequest = typeof attendanceCorrectionRequests.$inferInsert;
 export type CorrectionRequestedStatus = "present" | "excused";
 export type CorrectionRequestStatus = "pending" | "approved" | "rejected";
+
+export type File = typeof files.$inferSelect;
+export type NewFile = typeof files.$inferInsert;

@@ -1,8 +1,9 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Book, GraduationCap, LogOut } from "lucide-react";
+import { Book, ChevronDown, GraduationCap, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/actions/auth";
 import type { SidebarSubject } from "@/features/subjects/queries";
@@ -56,6 +57,49 @@ function BrandHeader({ portalLabel }: { portalLabel: string }) {
   );
 }
 
+function CourseSwitcher({ subjects }: { subjects?: SidebarSubject[] }) {
+  const [open, setOpen] = React.useState(true);
+  return (
+    <div data-testid="course-switcher" className="px-3 py-3 border-b border-sidebar-border/40">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls="course-switcher-list"
+        aria-label="Toggle course switcher"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+      >
+        <span className="flex items-center gap-2">
+          <GraduationCap className="w-4 h-4 text-primary shrink-0" />
+          <span>Courses</span>
+          {subjects && subjects.length > 0 && (
+            <span className="ml-1 text-xs text-slate-500 font-normal">({subjects.length})</span>
+          )}
+        </span>
+        <ChevronDown className={cn("w-4 h-4 text-slate-500 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div id="course-switcher-list" className="mt-2 space-y-1 pl-1">
+          {subjects && subjects.length > 0 ? (
+            subjects.map((s) => (
+              <Link
+                key={s.id}
+                href={`/subjects/${s.slug}`}
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
+                <span className="truncate">{s.name}</span>
+              </Link>
+            ))
+          ) : (
+            <p className="px-2 py-1.5 text-xs text-slate-500">No courses enrolled</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * Single renderer for the desktop sidebar (`variant="sidebar"`) and the
  * mobile hamburger drawer (`variant="drawer"`). The nav tree drives
@@ -95,7 +139,10 @@ export function NavContent({
       {/* Brand Header */}
       <BrandHeader portalLabel={navigation.portalLabel} />
 
-      {/* Sectioned Navigation */}
+      {/* Collapsible Course Switcher — visible for all roles, role filtered via subjects */}
+      <CourseSwitcher subjects={subjects} />
+
+      {/* Sectioned Navigation — grouped: ACADEMICS / Work / Class / Campus */}
       <nav
         aria-label={variant === "sidebar" ? "Primary" : "Menu"}
         className="flex-1 px-3 py-4 space-y-4 overflow-y-auto"
@@ -103,7 +150,7 @@ export function NavContent({
         {navigation.sections.map((section, sectionIndex) => (
           <div key={section.title ?? `top-${sectionIndex}`}>
             {section.title && (
-              <p className="px-3 pb-1.5 text-xs font-bold text-sidebar-foreground/60 tracking-wider uppercase">
+              <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-[0.08em] text-slate-500 uppercase">
                 {section.title}
               </p>
             )}

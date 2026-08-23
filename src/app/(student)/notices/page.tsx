@@ -6,6 +6,15 @@ import { Plus, Pin, Clock, BellRing, Megaphone } from "lucide-react";
 import { NoticeActions } from "./notice-actions";
 import { getPermissions } from "@/lib/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FilePreview } from "@/components/files/file-preview";
+
+function inferFileType(url: string): string {
+  const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+  if (["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp", "svg"].includes(ext)) return "image";
+  if (["mp4", "webm", "mov"].includes(ext)) return "video";
+  if (ext === "pdf") return "pdf";
+  return ext || "file";
+}
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +78,14 @@ export default async function NoticesPage() {
               <p className="mt-3 text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap max-w-3xl font-medium">
                 {notice.content}
               </p>
+
+              {(notice as any).attachments && Array.isArray((notice as any).attachments) && (notice as any).attachments.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  {(notice as any).attachments.map((url: string) => (
+                    <FilePreview key={url} fileUrl={url} fileType={inferFileType(url)} fileName={url.split("/").pop()} />
+                  ))}
+                </div>
+              )}
               
               {notice.expiresAt && !isPast && (
                 <div className="mt-4 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">

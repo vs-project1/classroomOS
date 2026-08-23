@@ -6,7 +6,7 @@ import { resolveCurrentStudent } from "@/lib/auth";
 import { formatTime12h } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { calculateAttendanceMetrics } from "@/lib/attendance";
-import { AttendanceGauge } from "@/components/student/attendance-gauge";
+import { ArcGauge } from "@/components/attendance/arc-gauge";
 import { Book, Bell, CalendarDays, CheckCircle2, AlertCircle, ArrowRight, Laptop, Lock, AlertTriangle } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth";
@@ -296,19 +296,8 @@ export default async function StudentDashboard() {
           <div data-testid="attendance-gauge" className="rounded-xl border border-border/40 shadow-sm p-6 bg-card flex flex-col items-center text-center">
             <h2 className="text-base font-semibold mb-4 w-full text-left font-fira-sans">Attendance Barometer</h2>
             
-            <div className="w-36 h-36 mb-4">
-              <AttendanceGauge 
-                percentage={metrics.percentage} 
-                threshold={80}
-                strokeClassName={isSafeZone ? "stroke-emerald-500" : (isDangerZone ? "stroke-destructive" : "stroke-amber-500")}
-              >
-                <span className={cn(
-                  "text-4xl font-bold tabular-nums tracking-tighter",
-                  isSafeZone ? "text-emerald-600 dark:text-emerald-400" : (isDangerZone ? "text-destructive" : "text-amber-600 dark:text-amber-400")
-                )}>
-                  {metrics.percentage}%
-                </span>
-              </AttendanceGauge>
+            <div className="flex justify-center py-2">
+              <ArcGauge value={metrics.percentage} />
             </div>
 
             <div className="mb-4">

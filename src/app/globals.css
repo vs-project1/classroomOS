@@ -60,23 +60,23 @@
    LIGHT MODE — Ice-Indigo Theme
    ═══════════════════════════════════════════ */
 :root {
-  --background: #F0F4FF;
+  --background: #F8FAFF;
   --foreground: #0F172A;
-  --card: #ffffff;
+  --card: #FFFFFF;
   --card-foreground: #0F172A;
-  --popover: #ffffff;
+  --popover: #FFFFFF;
   --popover-foreground: #0F172A;
   --primary: #4F46E5;
   --primary-foreground: #ffffff;
   --secondary: #E0E7FF;
   --secondary-foreground: #1E1B4B;
-  --muted: #E2E8F0;
-  --muted-foreground: #334155;
+  --muted: #F1F5F9;
+  --muted-foreground: #475569;
   --accent: #EEF2FF;
   --accent-foreground: #1E1B4B;
   --destructive: #EF4444;
-  --border: #CBD5E1;
-  --input: #CBD5E1;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
   --ring: #4F46E5;
   --chart-1: #4F46E5;
   --chart-2: #14B8A6;
@@ -85,26 +85,26 @@
   --chart-5: #F97316;
   --radius: 0.75rem;
 
-  /* Sidebar — Deep Indigo */
-  --sidebar: #1E1B4B;
-  --sidebar-foreground: #F8FAFC;
-  --sidebar-primary: #818CF8;
+  /* Sidebar — Light Academic */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0F172A;
+  --sidebar-primary: #4F46E5;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #312E81;
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #3730A3;
-  --sidebar-ring: #818CF8;
+  --sidebar-accent: #EEF2FF;
+  --sidebar-accent-foreground: #1E1B4B;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #4F46E5;
 }
 
 /* ═══════════════════════════════════════════
    DARK MODE — Deep Midnight Indigo
    ═══════════════════════════════════════════ */
 .dark {
-  --background: #0B0F19;
+  --background: #070B14;
   --foreground: #F8FAFC;
-  --card: #111827;
+  --card: #0F172A;
   --card-foreground: #F8FAFC;
-  --popover: #111827;
+  --popover: #0F172A;
   --popover-foreground: #F8FAFC;
   --primary: #6366F1;
   --primary-foreground: #ffffff;
@@ -115,7 +115,7 @@
   --accent: #1E293B;
   --accent-foreground: #F8FAFC;
   --destructive: #F87171;
-  --border: #334155;
+  --border: #1E293B;
   --input: #1E293B;
   --ring: #818CF8;
   --chart-1: #818CF8;
@@ -133,6 +133,16 @@
   --sidebar-accent-foreground: #C7D2FE;
   --sidebar-border: #1E293B;
   --sidebar-ring: #818CF8;
+}
+
+/* Sidebar — light academic chrome */
+.sidebar {
+  background: #FFFFFF;
+  border-right: 1px solid #E2E8F0;
+}
+.sidebar [data-active="true"] {
+  border-left: 3px solid #4F46E5;
+  background: #EEF2FF;
 }
 
 @layer base {

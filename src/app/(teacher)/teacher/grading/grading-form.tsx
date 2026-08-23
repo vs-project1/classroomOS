@@ -18,6 +18,15 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, ChevronDown, ChevronUp, FileText, PenLine, AlertCircle, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { FilePreview } from "@/components/files/file-preview";
+
+function inferFileType(url: string): string {
+  const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+  if (["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp", "svg"].includes(ext)) return "image";
+  if (["mp4", "webm", "mov"].includes(ext)) return "video";
+  if (ext === "pdf") return "pdf";
+  return ext || "file";
+}
 
 interface SubmissionData {
   submission: {
@@ -176,51 +185,63 @@ export function GradingSubmissionList({ submissions }: { submissions: Submission
         return (
           <div
             key={submission.id}
-            className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+            className="flex flex-col gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
           >
-            <div className="flex items-start gap-3">
-              <div className="bg-primary/10 p-2 rounded-lg shrink-0 mt-1">
-                <FileText className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <h3 className="font-semibold">{homework.title}</h3>
-                  <Badge variant={isGraded ? "default" : submission.status === "submitted" ? "secondary" : "outline"}>
-                    {submission.status}
-                  </Badge>
-                  {isGraded && submission.score != null && (
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
-                      Score: {submission.score}/100
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg shrink-0 mt-1">
+                  <FileText className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h3 className="font-semibold">{homework.title}</h3>
+                    <Badge variant={isGraded ? "default" : submission.status === "submitted" ? "secondary" : "outline"}>
+                      {submission.status}
                     </Badge>
+                    {isGraded && submission.score != null && (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800">
+                        Score: {submission.score}/100
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">{student.name}</span> ({student.rollNumber}) &bull; {subject.name}
+                  </p>
+                  {submission.submittedAt && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Submitted: {new Date(submission.submittedAt).toLocaleDateString()}
+                    </p>
+                  )}
+                  {isGraded && submission.feedback && (
+                    <FeedbackExpandable feedback={submission.feedback} />
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">{student.name}</span> ({student.rollNumber}) &bull; {subject.name}
-                </p>
-                {submission.submittedAt && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Submitted: {new Date(submission.submittedAt).toLocaleDateString()}
-                  </p>
-                )}
-                {isGraded && submission.feedback && (
-                  <FeedbackExpandable feedback={submission.feedback} />
+              </div>
+              <div className="flex shrink-0">
+                {isGraded ? (
+                  <Badge variant="default">
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                    Graded
+                  </Badge>
+                ) : (
+                  <GradingFormDialog
+                    studentName={student.name}
+                    homeworkTitle={homework.title}
+                    submissionId={submission.id}
+                  />
                 )}
               </div>
             </div>
-            <div className="flex shrink-0">
-              {isGraded ? (
-                <Badge variant="default">
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                  Graded
-                </Badge>
-              ) : (
-                <GradingFormDialog
-                  studentName={student.name}
-                  homeworkTitle={homework.title}
-                  submissionId={submission.id}
-                />
-              )}
-            </div>
+            {(submission.fileUrl || submission.content) && (
+              <div className="space-y-2 border-t pt-3">
+                {submission.content && (
+                  <p className="text-xs font-mono whitespace-pre-wrap rounded-lg border bg-muted/20 p-3">{submission.content}</p>
+                )}
+                {submission.fileUrl && (
+                  <FilePreview fileUrl={submission.fileUrl} fileType={inferFileType(submission.fileUrl)} fileName={submission.fileName ?? undefined} title={`${student.name} – ${homework.title}`} />
+                )}
+              </div>
+            )}
           </div>
         );
       })}

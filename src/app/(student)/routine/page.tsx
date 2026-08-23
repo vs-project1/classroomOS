@@ -3,10 +3,10 @@ import { weeklyRoutine } from "@/db/schema";
 import { asc } from "drizzle-orm";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
-import { Plus, Edit, CalendarDays, User, MapPin, FileText } from "lucide-react";
+import { Plus, Edit, CalendarDays } from "lucide-react";
 import { DeleteRoutineButton } from "./delete-button";
-import { formatTime12h } from "@/lib/time";
 import { getPermissions } from "@/lib/auth";
+import { TimelineRiver, type TimelineRiverSlot } from "@/components/timetable/timeline-river";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +33,24 @@ export default async function RoutinePage() {
       routines: allRoutine.filter(r => r.dayOfWeek === index),
     };
   });
+
+  // Current NPT time for river status (pulse + desaturate)
+  const nptTime = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kathmandu",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date());
+  const nptParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kathmandu",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(new Date());
+  const nptY = parseInt(nptParts.find((p) => p.type === "year")?.value ?? "1970", 10);
+  const nptM = parseInt(nptParts.find((p) => p.type === "month")?.value ?? "1", 10) - 1;
+  const nptD = parseInt(nptParts.find((p) => p.type === "day")?.value ?? "1", 10);
+  const todayIndex = new Date(nptY, nptM, nptD).getDay();
 
   return (
     <div className="flex-1 max-w-6xl mx-auto w-full space-y-8">
@@ -73,62 +91,68 @@ export default async function RoutinePage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {grouped.map((group) => {
             if (group.routines.length === 0) return null;
-            return (
-              <section key={group.dayName} className="rounded-xl border bg-card shadow-sm overflow-hidden flex flex-col">
-                <div className="px-5 py-3 border-b border-border/50 bg-muted/10">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground font-fira-sans">{group.dayName}</h3>
-                </div>
-                <div className="flex flex-col divide-y divide-border/30">
-                  {group.routines.map((routine, idx) => {
-                    const isFirst = idx === 0;
-                    return (
-                      <div key={routine.id} className="group relative flex flex-col p-5 hover:bg-muted/20 transition-colors">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-md border border-primary/20">
-                            {formatTime12h(routine.startTime)} - {formatTime12h(routine.endTime)}
-                          </div>
-                          {isFirst && group.dayName === DAYS[new Date().getDay()] && (
-                            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active Today
-                            </span>
-                          )}
-                        </div>
-                        
-                        <div className="mt-1">
-                          <h4 className="font-semibold text-foreground font-fira-sans text-sm md:text-base">{routine.subject.name}</h4>
-                          <div className="text-xs text-muted-foreground mt-2 grid gap-1.5 font-medium">
-                            {(routine.subject.teacher?.name || routine.teacherName) && (
-                              <div className="flex items-center gap-2">
-                                <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                <span>{routine.subject.teacher?.name || routine.teacherName}</span>
-                              </div>
-                            )}
-                            {routine.room && (
-                              <div className="flex items-center gap-2">
-                                <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                <span>Room {routine.room}</span>
-                              </div>
-                            )}
-                            {routine.notes && (
-                              <div className="flex items-center gap-2">
-                                <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                <span>{routine.notes}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+            const isToday = DAYS[todayIndex] === group.dayName;
+            const slots: TimelineRiverSlot[] = group.routines.map((routine) => {
+              let status: TimelineRiverSlot["status"] = "upcoming";
+              if (isToday) {
+                if (nptTime > routine.endTime) status = "completed";
+                else if (nptTime >= routine.startTime && nptTime <= routine.endTime) status = "ongoing";
+                else status = "upcoming";
+              } else {
+                // Past days desaturate when compared to today index
+                const dayIdx = DAYS.indexOf(group.dayName);
+                // If weekly view and day is before today in week order, mark completed (visual hint)
+                if (dayIdx < todayIndex) status = "completed";
+              }
+              return {
+                id: routine.id,
+                subject: routine.subject.name,
+                code: routine.subject.code,
+                startTime: routine.startTime,
+                endTime: routine.endTime,
+                room: routine.room,
+                teacherName: routine.subject.teacher?.name || routine.teacherName,
+                notes: routine.notes,
+                status,
+              };
+            });
 
-                        {permissions.canManageRoutine && (
-                          <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-card/80 backdrop-blur-sm p-1 rounded-lg shadow-sm border">
-                            <Link className={buttonVariants({ variant: "ghost", size: "icon", className: "h-7 w-7 cursor-pointer rounded-md" })} href={`/routine/${routine.id}/edit`} title="Edit">
-                              <Edit className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                            </Link>
-                            <DeleteRoutineButton id={routine.id} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+            return (
+              <section
+                key={group.dayName}
+                className="rounded-xl border bg-card shadow-sm overflow-hidden flex flex-col"
+              >
+                <div className="flex items-center justify-between gap-2 px-5 py-3 border-b border-border/50 bg-muted/10">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground font-fira-sans">
+                    {group.dayName}
+                  </h3>
+                  {isToday && (
+                    <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Today
+                    </span>
+                  )}
+                </div>
+                <div className="p-4 sm:p-5">
+                  <TimelineRiver
+                    slots={slots}
+                    renderActions={
+                      permissions.canManageRoutine
+                        ? (slot: TimelineRiverSlot) => (
+                            <>
+                              <Link
+                                className={buttonVariants({ variant: "ghost", size: "icon", className: "h-7 w-7 cursor-pointer rounded-md" })}
+                                href={`/routine/${slot.id}/edit`}
+                                title={`Edit ${slot.subject}`}
+                                aria-label={`Edit ${slot.subject}`}
+                              >
+                                <Edit className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                              </Link>
+                              <DeleteRoutineButton id={slot.id} />
+                            </>
+                          )
+                        : undefined
+                    }
+                  />
                 </div>
               </section>
             );

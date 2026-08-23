@@ -5,7 +5,7 @@ import { resolveCurrentStudent } from "@/lib/auth";
 import { calculateAttendanceMetrics } from "@/lib/attendance";
 import { Activity, ShieldAlert, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { AttendanceGauge } from "@/components/student/attendance-gauge";
+import { ArcGauge } from "@/components/attendance/arc-gauge";
 import { WhatIfCalculator } from "./what-if-calculator";
 import { CorrectionDialog } from "./correction-dialog";
 
@@ -175,27 +175,10 @@ export default async function AttendancePage() {
             </span>
           </div>
 
-          <div className="flex flex-col items-center justify-center py-2 text-center">
-            <div className="w-36 h-36 mb-4">
-              <AttendanceGauge
-                percentage={metrics.percentage}
-                threshold={80}
-                strokeClassName={
-                  isSafe
-                    ? "stroke-emerald-500"
-                    : isDanger
-                    ? "stroke-destructive"
-                    : "stroke-amber-500"
-                }
-              >
-                <span
-                  data-testid="overall-percentage"
-                  className="text-4xl font-bold tabular-nums tracking-tighter"
-                >
-                  {metrics.percentage}%
-                </span>
-              </AttendanceGauge>
-            </div>
+            <div className="flex flex-col items-center justify-center py-2 text-center">
+              <div className="flex justify-center py-2">
+                <ArcGauge value={metrics.percentage} />
+              </div>
 
             <div className="w-full bg-muted/30 rounded-xl p-3.5 border border-border/40">
               <p className="text-xs font-semibold text-foreground">
