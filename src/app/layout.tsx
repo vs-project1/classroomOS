@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Fira_Sans, Fira_Code } from "next/font/google";
+import { Toaster } from "sonner";
 
 
 const inter = Inter({
@@ -39,6 +40,13 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
           {children}
+          <Toaster
+            position="bottom-right"
+            richColors
+            theme="system"
+            offset="24px"
+            mobileOffset="80px"
+          />
       </body>
     </html>
   );
