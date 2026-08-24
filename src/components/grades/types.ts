@@ -10,8 +10,8 @@ export interface ExamLineItem {
   title: string;
   category: string;
   totalMarks: number;
-  /** ISO date string */
-  examDate: string;
+  /** ISO date string (provided by views that render dates) */
+  examDate?: string;
   obtainedMarks: number | null;
   isAbsent: boolean;
   /** false when no exam_results row exists yet → renders as Pending */
