@@ -13,6 +13,7 @@
     "db:verify": "tsx --env-file=.env.local scripts/verify-db.ts",
     "db:seed": "tsx --env-file=.env.local src/db/seed.ts",
     "dev:watch": "start /b next dev & start /b uv run graphify extract . --code-only",
+    "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
@@ -49,6 +50,7 @@
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
     "tsx": "^4.23.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   }
 }
