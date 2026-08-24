@@ -539,6 +539,27 @@ export const files = sqliteTable("files", {
   index("idx_files_notice").on(table.noticeId),
 ]);
 
+// 13. Subject Grade Weights (weighted gradebook category taxonomy)
+export const subjectGradeWeights = sqliteTable("subject_grade_weights", {
+  id: text("id").primaryKey(),
+  subjectId: text("subject_id")
+    .notNull()
+    .references(() => subjects.id, { onDelete: "cascade" }),
+  category: text("category").notNull(), // reuses exams.examType values
+  weightPct: integer("weight_pct").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+}, (table) => [
+  unique("unq_subject_grade_weights_subject_category").on(table.subjectId, table.category),
+  index("idx_subject_grade_weights_subject").on(table.subjectId),
+  check("chk_subject_grade_weights_category", sql`${table.category} IN ('unit_test', 'midterm', 'pre_board', 'practical', 'final')`),
+  check("chk_subject_grade_weights_weight", sql`${table.weightPct} BETWEEN 0 AND 100`),
+]);
+
 // --- Drizzle Relations ---
 
 export const teachersRelations = relations(teachers, ({ many }) => ({
@@ -561,6 +582,14 @@ export const subjectsRelations = relations(subjects, ({ one, many }) => ({
   exams: many(exams),
   resources: many(resources),
   studyTasks: many(studyTasks),
+  gradeWeights: many(subjectGradeWeights),
+}));
+
+export const subjectGradeWeightsRelations = relations(subjectGradeWeights, ({ one }) => ({
+  subject: one(subjects, {
+    fields: [subjectGradeWeights.subjectId],
+    references: [subjects.id],
+  }),
 }));
 
 export const studentsRelations = relations(students, ({ many }) => ({
@@ -881,3 +910,6 @@ export type CorrectionRequestStatus = "pending" | "approved" | "rejected";
 
 export type FileRecord = typeof files.$inferSelect;
 export type NewFileRecord = typeof files.$inferInsert;
+
+export type SubjectGradeWeight = typeof subjectGradeWeights.$inferSelect;
+export type NewSubjectGradeWeight = typeof subjectGradeWeights.$inferInsert;
