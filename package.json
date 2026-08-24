@@ -23,6 +23,8 @@
     "@uploadthing/react": "^7.3.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "csv-parse": "^7.0.2",
+    "csv-stringify": "^6.8.3",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "google-libphonenumber": "^3.2.44",
