@@ -1,5 +1,13 @@
 import { z } from "zod";
-import type { ParseError } from "@/lib/csv/parse";
+import type { ImportRowError } from "@/lib/csv/types";
+
+// Shared importer vocabulary lives in the CSV kernel; re-exported so this
+// module's public API is unchanged for existing consumers.
+export type {
+  ImportErrorCode,
+  ImportRowError,
+} from "@/lib/csv/types";
+export { toImportRowError } from "@/lib/csv/types";
 
 export const STUDENT_CSV_COLUMNS = [
   "name",
@@ -36,21 +44,6 @@ export const StudentCsvRowSchema = z.object({
 
 export type StudentCsvRow = z.infer<typeof StudentCsvRowSchema>;
 
-export type ImportErrorCode =
-  | "MISSING_COLUMN"
-  | "INVALID_EMAIL"
-  | "INVALID_VALUE"
-  | "DUPLICATE_ROLL"
-  | "DUPLICATE_EMAIL"
-  | "FK_NOT_FOUND";
-
-export interface ImportRowError {
-  row: number;
-  field?: string;
-  code: ImportErrorCode;
-  reason: string;
-}
-
 /**
  * Split a comma-separated subjectCodes cell into trimmed, de-duplicated,
  * uppercase codes. Empty/undefined input yields [].
@@ -65,32 +58,6 @@ export function splitSubjectCodes(raw?: string): string[] {
         .filter((code) => code.length > 0),
     ),
   );
-}
-
-/**
- * Map a kernel ParseError (zod issue) onto an import error with a stable code.
- */
-export function toImportRowError(e: ParseError): ImportRowError {
-  const base = { row: e.row, field: e.field };
-  if (e.field === "email") {
-    return {
-      ...base,
-      code: "INVALID_EMAIL",
-      reason: e.message || "Invalid email address format.",
-    };
-  }
-  if (e.code === "invalid_type" && /undefined/i.test(e.message)) {
-    return {
-      ...base,
-      code: "MISSING_COLUMN",
-      reason: `${e.field ?? "Column"} is required but missing.`,
-    };
-  }
-  return {
-    ...base,
-    code: "INVALID_VALUE",
-    reason: e.message || "Invalid value.",
-  };
 }
 
 /** A validated CSV row paired with its Excel-style row number (first data row = 2). */
