@@ -46,6 +46,43 @@ export const ourFileRouter = {
         key: file.key,
       };
     }),
+
+  // Notice attachments — Teachers/Admins only, pdf/image/text 16MB
+  noticeAttachment: f({
+    pdf: { maxFileSize: "16MB", maxFileCount: 5 },
+    image: { maxFileSize: "16MB", maxFileCount: 5 },
+    text: { maxFileSize: "16MB", maxFileCount: 5 },
+  })
+    .middleware(async () => {
+      const user = await getCurrentUser();
+      if (!user || (user.role !== "TEACHER" && user.role !== "ADMIN")) {
+        throw new UploadThingError("Unauthorized: Only teachers and admins can upload notice attachments.");
+      }
+      return { userId: user.id };
+    })
+    .onUploadComplete(async ({ metadata, file }) => {
+      return { uploadedBy: metadata.userId, url: file.url, name: file.name, size: file.size, key: file.key };
+    }),
+
+  // General files — pdf/docx/pptx/mp4/zip 32MB, any authenticated user.
+  // UploadThing types: pdf, image, video, text, blob. Blob covers docx/pptx/zip.
+  generalFile: f({
+    pdf: { maxFileSize: "32MB", maxFileCount: 5 },
+    image: { maxFileSize: "32MB", maxFileCount: 5 },
+    video: { maxFileSize: "32MB", maxFileCount: 1 },
+    text: { maxFileSize: "32MB", maxFileCount: 5 },
+    blob: { maxFileSize: "32MB", maxFileCount: 5 },
+  })
+    .middleware(async () => {
+      const user = await getCurrentUser();
+      if (!user) {
+        throw new UploadThingError("Unauthorized: Authentication required to upload files.");
+      }
+      return { userId: user.id, role: user.role };
+    })
+    .onUploadComplete(async ({ metadata, file }) => {
+      return { uploadedBy: metadata.userId, url: file.url, name: file.name, size: file.size, key: file.key };
+    }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;
