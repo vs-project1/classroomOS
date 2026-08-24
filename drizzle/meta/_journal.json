@@ -71,6 +71,13 @@
       "when": 1787581025704,
       "tag": "0009_jittery_slipstream",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1787670000000,
+      "tag": "0010_notice_attachments_resources_idx",
+      "breakpoints": true
     }
   ]
 }

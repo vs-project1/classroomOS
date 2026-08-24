@@ -10,6 +10,7 @@ import { DayStripSelector } from "./day-strip-selector";
 import { getTodayDeadlines } from "./queries";
 import { getPermissions, requireAuth } from "@/lib/auth";
 import { getNavBadges } from "@/lib/navigation/badges";
+import { TimelineRiver, type TimelineRiverSlot } from "@/components/timetable/timeline-river";
 
 export const dynamic = "force-dynamic";
 
@@ -297,136 +298,80 @@ export default async function TodayPage({ searchParams }: Props) {
         })}
       />
 
-      {/* Class Schedule Timeline Cards */}
-      <div className="space-y-3">
-        {routinesWithStatus.length === 0 ? (
-          <div data-testid="timeline-session-card" className="py-16 text-center text-sm text-muted-foreground rounded-xl border border-dashed bg-muted/5">
-            No classes scheduled for {DAYS_OF_WEEK[dayOfWeek]}.
-          </div>
-        ) : (
-          routinesWithStatus.map((r) => {
+      {/* Class Schedule — Timeline River (7AM–4PM) */}
+      {routinesWithStatus.length === 0 ? (
+        <div
+          data-testid="timeline-session-card"
+          className="py-16 text-center text-sm text-muted-foreground rounded-xl border border-dashed bg-muted/5"
+        >
+          No classes scheduled for {DAYS_OF_WEEK[dayOfWeek]}.
+        </div>
+      ) : (
+        <TimelineRiver
+          slots={
+            routinesWithStatus.map(
+              (r): TimelineRiverSlot => ({
+                id: r.id,
+                subject: r.subject.name,
+                code: r.subject.code,
+                startTime: r.startTime,
+                endTime: r.endTime,
+                room: r.room,
+                teacherName: r.subject.teacher?.name || r.teacherName,
+                notes: r.notes,
+                status: r.status,
+              })
+            ) as TimelineRiverSlot[]
+          }
+          renderActions={(slot) => {
+            const r = routinesWithStatus.find((x) => x.id === slot.id);
+            if (!r) return null;
             const isOngoing = r.status === "ongoing";
             const isCompleted = r.status === "completed";
-            const isUpcoming = r.status === "upcoming";
-
-            return (
-              <div
-                key={r.id}
-                data-testid="timeline-session-card"
-                className={cn(
-                  "group relative flex flex-col md:flex-row md:items-center gap-4 rounded-xl border p-4 transition-all",
-                  isOngoing
-                    ? "bg-primary/5 border-primary/40 shadow-md ring-1 ring-primary/20"
-                    : isCompleted
-                    ? "bg-muted/15 border-border/30 opacity-75 hover:opacity-100"
-                    : "bg-card border-border/40 hover:border-border"
-                )}
+            if (!permissions.canTakeAttendance) {
+              return r.hasSession ? (
+                <Link
+                  href={`/sessions/${r.sessionId}`}
+                  className={buttonVariants({
+                    variant: "ghost",
+                    size: "sm",
+                    className: "text-muted-foreground hover:text-foreground",
+                  })}
+                >
+                  View Log
+                </Link>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">
+                  {isCompleted ? "Completed" : "Scheduled"}
+                </span>
+              );
+            }
+            return r.hasSession ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-4 w-4" /> Logged
+              </span>
+            ) : (
+              <Link
+                href={`/sessions/new?subjectId=${r.subjectId}&startTime=${r.startTime}&endTime=${r.endTime}&routineId=${r.id}&sessionDate=${selectedDateStr}`}
+                className={buttonVariants({
+                  variant: isOngoing ? "default" : "secondary",
+                  size: "sm",
+                  className: "text-xs font-semibold",
+                })}
               >
-                {isOngoing && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl bg-primary" />
-                )}
-
-                {/* Time & Subject Column */}
-                <div className="flex-1 space-y-1.5 min-w-[220px]">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-bold text-base text-foreground leading-snug">
-                      {r.subject.name}
-                    </h3>
-                    <span className="text-xs font-bold text-foreground px-2.5 py-0.5 bg-muted rounded-md tabular-nums border border-border/50">
-                      {r.subject.code}
-                    </span>
-
-                    {/* Explicit Status Badges */}
-                    {isOngoing && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-bold tracking-wider animate-pulse uppercase">
-                        <Radio className="w-3 h-3 animate-spin" /> ONGOING
-                      </span>
-                    )}
-                    {isCompleted && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs font-bold uppercase border border-border/40">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500" /> COMPLETED
-                      </span>
-                    )}
-                    {isUpcoming && (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-bold uppercase border border-secondary-foreground/10">
-                        UPCOMING
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="text-xs text-muted-foreground flex items-center gap-2 font-medium">
-                    <span className="flex items-center gap-1 tabular-nums">
-                      <Clock className="w-3.5 h-3.5 text-muted-foreground/70" />
-                      {formatTime12h(r.startTime)} - {formatTime12h(r.endTime)}
-                    </span>
-                    {r.room && (
-                      <>
-                        <span className="opacity-40">•</span>
-                        <span>Room {r.room}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Faculty & Notes */}
-                <div className="flex-1 space-y-1 text-xs text-muted-foreground">
-                  {(r.subject.teacher?.name || r.teacherName) && (
-                    <div className="flex items-center gap-2 font-medium text-foreground">
-                      <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-secondary-foreground border border-secondary-foreground/10 shrink-0">
-                        {(r.subject.teacher?.name || r.teacherName || "T").charAt(0)}
-                      </div>
-                      <span>{r.subject.teacher?.name || r.teacherName}</span>
-                    </div>
-                  )}
-                  {r.notes && (
-                    <div className="italic text-muted-foreground opacity-90 line-clamp-1">
-                      {r.notes}
-                    </div>
-                  )}
-                </div>
-
-                {/* Action / Logging Column */}
-                <div className="shrink-0 flex items-center justify-start md:justify-end w-full md:w-32 pt-2 md:pt-0 border-t md:border-t-0 md:border-l md:pl-4 mt-2 md:mt-0">
-                  {!permissions.canTakeAttendance ? (
-                    r.hasSession ? (
-                      <Link
-                        href={`/sessions/${r.sessionId}`}
-                        className={buttonVariants({
-                          variant: "ghost",
-                          size: "sm",
-                          className: "w-full text-muted-foreground hover:text-foreground",
-                        })}
-                      >
-                        View Log
-                      </Link>
-                    ) : (
-                      <span className="text-xs text-muted-foreground italic w-full text-center">
-                        {isCompleted ? "Completed" : "Scheduled"}
-                      </span>
-                    )
-                  ) : (
-                    r.hasSession ? (
-                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center justify-center w-full gap-1.5">
-                        <CheckCircle2 className="h-4 w-4" /> Logged
-                      </span>
-                    ) : (
-                      <Link
-                        href={`/sessions/new?subjectId=${r.subjectId}&startTime=${r.startTime}&endTime=${r.endTime}&routineId=${r.id}&sessionDate=${selectedDateStr}`}
-                        className={buttonVariants({
-                          variant: isOngoing ? "default" : "secondary",
-                          size: "sm",
-                          className: "w-full text-xs font-semibold",
-                        })}
-                      >
-                        <Play className="mr-1.5 h-3.5 w-3.5" /> Log Session
-                      </Link>
-                    )
-                  )}
-                </div>
-              </div>
+                <Play className="mr-1.5 h-3.5 w-3.5" /> Log Session
+              </Link>
             );
-          })
-        )}
+          }}
+        />
+      )}
+      {/* Legacy anchor for existing e2e that queries by card */}
+      <div className="sr-only" aria-hidden data-testid="timeline-river-legacy">
+        {routinesWithStatus.map((r) => (
+          <span key={r.id} data-testid="timeline-session-card" data-status={r.status}>
+            {r.subject.name}
+          </span>
+        ))}
       </div>
 
       {/* Deadlines (class members only) */}

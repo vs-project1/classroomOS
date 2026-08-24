@@ -38,6 +38,9 @@ import {
 } from "lucide-react";
 import { formatTime12h } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Dropzone } from "@/components/files/dropzone";
+import { FilePreview } from "@/components/files/file-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -618,7 +621,7 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
         </div>
       )}
 
-      {/* Resources */}
+      {/* Resources — Units→Chapters accordion + ResourceList + Dropzone + FilePreview (read-only browser) */}
       {activeTab === "resources" && (
         <div className="space-y-4">
           <div className="rounded-xl border bg-card p-6 shadow-sm">
@@ -628,7 +631,7 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
                   Learning Materials & Lecture Slides
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Download syllabus slides, lab sheets, and reference materials uploaded by faculty.
+                  Browse by Units → Chapters. Uses relations courseUnits → courseChapters → resources / courseMaterials. Read-only.
                 </p>
               </div>
               <span className="text-xs text-muted-foreground font-medium">
@@ -636,44 +639,46 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
               </span>
             </div>
 
-            {allMaterials.length > 0 ? (
+            {/* Read-only Dropzone hint — same component as teacher side, disabled */}
+            <div className="mb-6">
+              <Dropzone endpoint="courseMaterial" readOnly />
+              <p className="text-xs text-muted-foreground mt-1.5 text-center">Dropzone is read-only for students — faculty uploads appear here.</p>
+            </div>
+
+            {units.length === 0 && allMaterials.length === 0 ? (
+              <div className="py-12 text-center text-sm text-muted-foreground rounded-lg border border-dashed">
+                Nothing here yet — study materials and lecture slides will appear once faculty uploads them.
+              </div>
+            ) : units.length === 0 ? (
+              // Fallback flat grid when no syllabus units exist but legacy resources do
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {allMaterials.map((mat) => {
                   const style = fileTypeStyle(mat.fileType);
                   const Icon = style.icon;
-
                   return (
                     <div
                       key={mat.id}
-                      className="p-4 rounded-xl border bg-card border-border/40 flex flex-col justify-between hover:border-primary/50 hover:bg-muted/20 transition-all shadow-sm"
+                      className="p-4 rounded-xl border bg-card border-border/40 flex flex-col gap-3 hover:border-primary/50 hover:bg-muted/20 transition-all shadow-sm"
                     >
-                      <div>
-                        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-bold uppercase border",
-                              style.tint
-                            )}
-                          >
-                            <Icon className="w-3.5 h-3.5" />
-                            {mat.fileType || "File"}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-muted text-muted-foreground border border-border/60 truncate max-w-[55%]">
-                            {mat.groupLabel}
-                          </span>
-                        </div>
-                        <h3 className="font-semibold text-sm text-foreground leading-snug mb-1">
-                          {mat.title}
-                        </h3>
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {mat.description}
-                        </p>
-                      </div>
-
-                      <div className="pt-3 mt-3 border-t border-border/30 flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground font-medium">
-                          {formatFileSize(mat.fileSize)}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-bold uppercase border",
+                            style.tint
+                          )}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                          {mat.fileType || "File"}
                         </span>
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-muted text-muted-foreground border border-border/60 truncate max-w-[55%]">
+                          {mat.groupLabel}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold text-sm text-foreground leading-snug">{mat.title}</h3>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{mat.description}</p>
+                      <FilePreview fileUrl={mat.fileUrl} fileType={mat.fileType} title={mat.title} />
+                      <div className="flex items-center justify-between text-xs border-t border-border/30 pt-3">
+                        <span className="text-muted-foreground font-medium">{formatFileSize(mat.fileSize)}</span>
                         <a
                           href={mat.fileUrl}
                           target="_blank"
@@ -688,10 +693,139 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
                 })}
               </div>
             ) : (
-              <div className="py-12 text-center text-sm text-muted-foreground rounded-lg border border-dashed">
-                Nothing here yet — study materials and lecture slides will appear once faculty uploads them.
-              </div>
+              <Accordion className="rounded-xl border divide-y bg-card">
+                {units.map((unit) => (
+                  <AccordionItem key={unit.id} value={unit.id} className="px-4">
+                    <AccordionTrigger className="hover:no-underline py-3">
+                      <span className="flex items-center gap-2 text-left">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-primary text-xs font-bold shrink-0">
+                          {unit.order}
+                        </span>
+                        <span className="font-semibold text-sm">{unit.title}</span>
+                        <span className="text-xs text-muted-foreground">({unit.courseChapters.length} chapters)</span>
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-4">
+                      {unit.courseChapters.length === 0 ? (
+                        <p className="text-xs text-muted-foreground py-2">No chapters in this unit.</p>
+                      ) : (
+                        <div className="space-y-4">
+                          {unit.courseChapters.map((chapter) => {
+                            const chapterResources = subjectResources.filter((r) => r.chapterId === chapter.id);
+                            const chapterMaterials = chapter.courseMaterials ?? [];
+                            const combined = [
+                              ...chapterResources.map((r) => ({
+                                id: r.id,
+                                title: r.title,
+                                fileUrl: r.fileUrl,
+                                fileType: r.fileType,
+                                description: r.description,
+                                fileSize: r.fileSize,
+                              })),
+                              ...chapterMaterials.map((m) => ({
+                                id: m.id,
+                                title: m.title,
+                                fileUrl: m.fileUrl,
+                                fileType: m.fileType,
+                                description: `Chapter resource: ${chapter.title}` as string | null,
+                                fileSize: null as number | null,
+                              })),
+                            ];
+                            return (
+                              <div key={chapter.id} className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-sm font-semibold">{chapter.title}</h4>
+                                  <span className="text-xs text-muted-foreground">
+                                    {combined.length} file{combined.length === 1 ? "" : "s"}
+                                  </span>
+                                </div>
+                                {combined.length === 0 ? (
+                                  <p className="text-xs text-muted-foreground italic">No materials in this chapter yet.</p>
+                                ) : (
+                                  <div className="space-y-3">
+                                    {combined.map((item) => {
+                                      const style = fileTypeStyle(item.fileType);
+                                      const Icon = style.icon;
+                                      return (
+                                        <div
+                                          key={item.id}
+                                          className="rounded-lg border bg-card p-3 space-y-2 shadow-sm"
+                                        >
+                                          <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <span
+                                              className={cn(
+                                                "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-bold uppercase border",
+                                                style.tint
+                                              )}
+                                            >
+                                              <Icon className="w-3.5 h-3.5" />
+                                              {item.fileType || "File"}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground font-medium">
+                                              {formatFileSize(item.fileSize)}
+                                            </span>
+                                          </div>
+                                          <h5 className="font-semibold text-sm text-foreground leading-snug">{item.title}</h5>
+                                          {item.description && (
+                                            <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+                                          )}
+                                          <FilePreview fileUrl={item.fileUrl} fileType={item.fileType} title={item.title} />
+                                          <div className="flex justify-end">
+                                            <a
+                                              href={item.fileUrl}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 text-xs gap-1 cursor-pointer" })}
+                                            >
+                                              <ExternalLink className="w-3 h-3" /> Open
+                                            </a>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             )}
+
+            {/* General bucket — resources without chapter */}
+            {(() => {
+              const general = subjectResources.filter((r) => !r.chapterId);
+              if (general.length === 0) return null;
+              return (
+                <div className="mt-6 space-y-3 border-t pt-6">
+                  <h3 className="font-semibold text-sm">General (Unchaptered)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {general.map((r) => {
+                      const style = fileTypeStyle(r.fileType);
+                      const Icon = style.icon;
+                      return (
+                        <div key={r.id} className="rounded-xl border bg-card p-4 space-y-2 shadow-sm">
+                          <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-bold uppercase border", style.tint)}>
+                            <Icon className="w-3.5 h-3.5" /> {r.fileType}
+                          </span>
+                          <h4 className="font-semibold text-sm">{r.title}</h4>
+                          <FilePreview fileUrl={r.fileUrl} fileType={r.fileType} title={r.title} />
+                          <div className="flex justify-end pt-1">
+                            <a href={r.fileUrl} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 text-xs gap-1 cursor-pointer" })}>
+                              <ExternalLink className="w-3 h-3" /> Open
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

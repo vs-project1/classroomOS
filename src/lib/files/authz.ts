@@ -1,69 +1,114 @@
 import "server-only";
+
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
-import { enrollments, subjects, teachers, users, studentProfiles, students } from "@/db/schema";
+import { enrollments, subjects, users, studentProfiles, students, teachers } from "@/db/schema";
 
 /**
- * Throws if user cannot read the course (subject).
- * Allowed: ADMIN, teacher of subject, enrolled student/CR.
+ * Resolve student.id(s) owned by a given users.id via studentProfiles -> students.
+ * Returns empty array if no link exists.
  */
-export async function assertCanRead(courseId: string, userId: string): Promise<void> {
-  if (!courseId) return;
-  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
-  if (!user) throw new Error("Unauthorized: user not found");
+async function resolveStudentIds(userId: string): Promise<string[]> {
+  const profiles = await db.query.studentProfiles.findMany({
+    where: eq(studentProfiles.userId, userId),
+  });
 
-  if (user.role === "ADMIN") return;
+  if (profiles.length === 0) return [];
 
-  // Resolve subject
-  const subject = await db.query.subjects.findFirst({ where: eq(subjects.id, courseId) });
-  if (!subject) throw new Error(`Course not found: ${courseId}`);
-
-  // Teacher check — subjects.teacherId references teachers.id, teachers.email links to users.email
-  if (user.role === "TEACHER") {
-    const teacher = await db.query.teachers.findFirst({ where: eq(teachers.email, user.email) });
-    if (teacher && subject.teacherId === teacher.id) return;
-    // Also allow if teacher owns via subject.teacherId null? deny.
-    throw new Error("Forbidden: teacher does not own this course");
-  }
-
-  // Student / CR check via enrollments
-  if (user.role === "STUDENT" || user.role === "CR") {
-    const profile = await db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.userId, userId),
+  const rollNumbers = profiles.map((p) => p.rollNumber);
+  // Fetch students matching those rollNumbers
+  const matched: string[] = [];
+  for (const rn of rollNumbers) {
+    const st = await db.query.students.findFirst({
+      where: eq(students.rollNumber, rn),
     });
-    if (profile) {
-      const student = await db.query.students.findFirst({
-        where: eq(students.rollNumber, profile.rollNumber),
-      });
-      if (student) {
-        const enrollment = await db.query.enrollments.findFirst({
-          where: and(eq(enrollments.studentId, student.id), eq(enrollments.subjectId, courseId)),
-        });
-        if (enrollment) return;
-      }
-    }
-    throw new Error("Forbidden: student not enrolled in this course");
+    if (st) matched.push(st.id);
   }
+  return matched;
+}
 
-  // Fallback deny
-  throw new Error("Forbidden: cannot read course");
+async function resolveTeacherId(userId: string): Promise<string | null> {
+  const u = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!u) return null;
+  const t = await db.query.teachers.findFirst({ where: eq(teachers.email, u.email) });
+  return t?.id ?? null;
 }
 
 /**
- * Throws if user cannot write to course.
- * Allowed: ADMIN, teacher of subject.
+ * Assert the user can READ the given course (subject).
+ * Allowed if:
+ * - ADMIN
+ * - Teacher of the subject (subjects.teacherId matches user's teacher record)
+ * - Student enrolled in the subject (enrollments)
+ *
+ * Throws on forbidden / not found.
+ */
+export async function assertCanRead(courseId: string, userId: string): Promise<void> {
+  if (!courseId || !userId) {
+    throw new Error("Forbidden: missing course or user");
+  }
+
+  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!user || !user.isActive) {
+    throw new Error("Forbidden: user not found or inactive");
+  }
+
+  if (user.role === "ADMIN") return;
+
+  const subject = await db.query.subjects.findFirst({ where: eq(subjects.id, courseId) });
+  if (!subject) {
+    throw new Error(`Forbidden: course ${courseId} not found`);
+  }
+
+  // Teacher ownership check via teachers table (matched by email)
+  const teacherId = await resolveTeacherId(userId);
+  if (teacherId && subject.teacherId === teacherId) {
+    return;
+  }
+
+  // Student enrollment check
+  const studentIds = await resolveStudentIds(userId);
+  if (studentIds.length > 0) {
+    for (const sid of studentIds) {
+      const enr = await db.query.enrollments.findFirst({
+        where: and(eq(enrollments.studentId, sid), eq(enrollments.subjectId, courseId)),
+      });
+      if (enr) return;
+    }
+  }
+
+  // CR is also a student; same enrollment check above covers CR.
+  throw new Error(`Forbidden: user ${userId} has no read access to course ${courseId}`);
+}
+
+/**
+ * Assert the user can WRITE to the given course (subject).
+ * Allowed if:
+ * - ADMIN
+ * - Teacher of the subject
+ * Students / CR cannot write even if enrolled.
  */
 export async function assertCanWrite(courseId: string, userId: string): Promise<void> {
-  if (!courseId) throw new Error("courseId required for write");
-  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
-  if (!user) throw new Error("Unauthorized: user not found");
-  if (user.role === "ADMIN") return;
-  if (user.role === "TEACHER") {
-    const subject = await db.query.subjects.findFirst({ where: eq(subjects.id, courseId) });
-    if (!subject) throw new Error(`Course not found: ${courseId}`);
-    const teacher = await db.query.teachers.findFirst({ where: eq(teachers.email, user.email) });
-    if (teacher && subject.teacherId === teacher.id) return;
-    throw new Error("Forbidden: teacher does not own this course");
+  if (!courseId || !userId) {
+    throw new Error("Forbidden: missing course or user");
   }
-  throw new Error("Forbidden: only teachers and admins can write to this course");
+
+  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!user || !user.isActive) {
+    throw new Error("Forbidden: user not found or inactive");
+  }
+
+  if (user.role === "ADMIN") return;
+
+  const subject = await db.query.subjects.findFirst({ where: eq(subjects.id, courseId) });
+  if (!subject) {
+    throw new Error(`Forbidden: course ${courseId} not found`);
+  }
+
+  const teacherId = await resolveTeacherId(userId);
+  if (teacherId && subject.teacherId === teacherId) {
+    return;
+  }
+
+  throw new Error(`Forbidden: user ${userId} has no write access to course ${courseId}`);
 }

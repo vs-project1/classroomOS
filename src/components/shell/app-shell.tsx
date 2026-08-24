@@ -25,7 +25,7 @@ export function AppShell({ user, subjects, badges, children }: AppShellProps) {
         <ShellTopbar role={user.role} name={user.name} badges={badges} />
         <main className="flex-1 p-4 md:p-6 pb-24 md:pb-8 w-full max-w-7xl mx-auto">{children}</main>
       </div>
-      <MobileBottomNav role={user.role} badges={badges} />
+      <MobileBottomNav role={user.role} badges={badges} subjects={subjects} />
     </div>
   );
 }

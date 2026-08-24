@@ -150,6 +150,7 @@ export const notices = sqliteTable("notices", {
   content: text("content").notNull(),
   expiresAt: integer("expires_at", { mode: "timestamp" }),
   isPinned: integer("is_pinned", { mode: "boolean" }).notNull().default(false),
+  attachments: text("attachments", { mode: "json" }).$type<string[]>(),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -413,6 +414,7 @@ export const resources = sqliteTable("resources", {
 }, (table) => [
   index("idx_resources_subject").on(table.subjectId),
   index("idx_resources_chapter").on(table.chapterId),
+  index("idx_resources_chapter_created").on(table.chapterId, table.createdAt),
   index("idx_resources_uploaded_by").on(table.uploadedBy),
 ]);
 
@@ -514,7 +516,7 @@ export const files = sqliteTable("files", {
   ownerId: text("owner_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  utKey: text("ut_key").notNull().unique(),
+  utKey: text("ut_key").notNull().unique(), // UploadThing key
   url: text("url").notNull(),
   mime: text("mime").notNull(),
   size: integer("size").notNull(),

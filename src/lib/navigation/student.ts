@@ -12,20 +12,21 @@ export const studentNavigation: RoleNavigation = {
       ],
     },
     {
-      title: "Academics",
+      title: "ACADEMICS",
       items: [
         { label: "My Subjects", href: "/subjects", icon: GraduationCap },
-        { label: "Assignments", href: "/homework", icon: Book, badgeKey: "assignmentsDue" },
-        { label: "Attendance", href: "/attendance", icon: CheckCircle },
-      ],
-    },
-    {
-      title: "Class",
-      items: [
-        { label: "Routine", href: "/routine", icon: CalendarRange },
+        { label: "Timetable", href: "/routine", icon: CalendarRange, activePatterns: ["/routine"] },
         { label: "Class History", href: "/lecture-logs", icon: FileText },
         { label: "What You Missed", href: "/missed", icon: CalendarOff },
       ],
+    },
+    {
+      title: "Work",
+      items: [{ label: "Assignments", href: "/homework", icon: Book, badgeKey: "assignmentsDue" }],
+    },
+    {
+      title: "Class",
+      items: [{ label: "Attendance", href: "/attendance", icon: CheckCircle }],
     },
     {
       title: "Campus",

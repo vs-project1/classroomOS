@@ -51,13 +51,20 @@ export default defineConfig({
     navigationTimeout: 30 * 1000,
   },
 
-  /* Configure projects for major browsers */
+  /* Configure projects for major browsers — keep Desktop 1280 + add Mobile 375 for responsive coverage */
   projects: [
     {
       name: "Desktop Chrome",
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1280, height: 720 },
+      },
+    },
+    {
+      name: "Mobile 375",
+      use: {
+        ...devices["Pixel 5"],
+        viewport: { width: 375, height: 667 },
       },
     },
   ],

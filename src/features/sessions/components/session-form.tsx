@@ -46,6 +46,12 @@ function isRedirectError(error: unknown): boolean {
 }
 
 export function SessionForm({ subjects, defaultValues }: Props) {
+  const [selectedSubjectId, setSelectedSubjectId] = useState(defaultValues?.subjectId || "");
+  const [enrolledStudents, setEnrolledStudents] = useState<StudentInfo[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+
+  const [attendance, setAttendance] = useState<AttendanceState[]>([]);
+
   const handleSessionAction = useCallback(
     async (_prev: SessionActionState, formData: FormData): Promise<SessionActionState> => {
       try {
@@ -77,12 +83,6 @@ export function SessionForm({ subjects, defaultValues }: Props) {
   );
 
   const [state, formAction, isPending] = useActionState(handleSessionAction, initialState);
-  
-  const [selectedSubjectId, setSelectedSubjectId] = useState(defaultValues?.subjectId || "");
-  const [enrolledStudents, setEnrolledStudents] = useState<StudentInfo[]>([]);
-  const [loadingStudents, setLoadingStudents] = useState(false);
-
-  const [attendance, setAttendance] = useState<AttendanceState[]>([]);
 
   const fetchEnrolledStudents = useCallback(async (subjectId: string) => {
     if (!subjectId) {
