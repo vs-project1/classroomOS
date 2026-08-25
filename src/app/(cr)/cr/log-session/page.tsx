@@ -1,15 +1,27 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
 import { db } from "@/db";
-import { subjects } from "@/db/schema";
+import { subjects, enrollments } from "@/db/schema";
 import { SessionForm } from "@/features/sessions/components/session-form";
-import { asc } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 
 export default async function LogSessionPage() {
-  await requireAuth(["CR", "ADMIN"]);
+  const user = await requireAuth(["CR", "ADMIN", "TEACHER"]);
   
-  const allSubjects = await db.query.subjects.findMany({
-    orderBy: [asc(subjects.name)],
-  });
+  let allSubjects: Array<typeof subjects.$inferSelect> = [];
+  if (user.role === "ADMIN") {
+    allSubjects = await db.query.subjects.findMany({ orderBy: [asc(subjects.name)] });
+  } else if (user.role === "TEACHER" && user.teacherId) {
+    allSubjects = await db.select().from(subjects).where(eq(subjects.teacherId, user.teacherId)).orderBy(asc(subjects.name));
+  } else {
+    const student = await resolveCurrentStudent();
+    if (student) {
+      const crEnrollments = await db.query.enrollments.findMany({ where: eq(enrollments.studentId, student.id) });
+      const subjectIds = crEnrollments.map((e) => e.subjectId);
+      allSubjects = subjectIds.length > 0
+        ? await db.select().from(subjects).where(inArray(subjects.id, subjectIds)).orderBy(asc(subjects.name))
+        : [];
+    }
+  }
 
   return (
     <div className="max-w-md mx-auto p-4 space-y-6">

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/actions/auth";
 import type { SidebarSubject } from "@/features/subjects/queries";
 import type { NavBadges, UserRole } from "@/lib/navigation/types";
-import { isNavItemActive } from "@/lib/navigation/types";
+import { badgeUnitLabels, isNavItemActive } from "@/lib/navigation/types";
 import { getNavigationForRole } from "@/lib/navigation";
 import { NavBadge } from "./nav-badge";
 
@@ -35,6 +35,7 @@ export function MobileBottomNav({ role, badges, subjects }: MobileBottomNavProps
     }))
     .filter((section) => section.items.length > 0);
   const [courseOpen, setCourseOpen] = React.useState(true);
+  const [moreOpen, setMoreOpen] = React.useState(false);
 
   return (
     <nav
@@ -61,7 +62,7 @@ export function MobileBottomNav({ role, badges, subjects }: MobileBottomNavProps
                   <>
                     <span className="sr-only">
                       {badges[tab.badgeKey]
-                        ? ` (${badges[tab.badgeKey]} ${tab.badgeKey === "assignmentsDue" ? "due" : "to grade"})`
+                        ? ` (${badges[tab.badgeKey]} ${badgeUnitLabels[tab.badgeKey]})`
                         : ""}
                     </span>
                     <span className="absolute -top-1.5 -right-2">
@@ -74,7 +75,7 @@ export function MobileBottomNav({ role, badges, subjects }: MobileBottomNavProps
             </Link>
           );
         })}
-        <Sheet>
+        <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
           <SheetTrigger
             className="flex flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             aria-label="More navigation"
@@ -111,6 +112,7 @@ export function MobileBottomNav({ role, badges, subjects }: MobileBottomNavProps
                         <Link
                           key={s.id}
                           href={`/subjects/${s.slug}`}
+                          onClick={() => setMoreOpen(false)}
                           className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/70 hover:bg-muted transition-colors"
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
@@ -137,6 +139,7 @@ export function MobileBottomNav({ role, badges, subjects }: MobileBottomNavProps
                         <Link
                           key={item.label}
                           href={item.href}
+                          onClick={() => setMoreOpen(false)}
                           aria-current={isActive ? "page" : undefined}
                           className={cn(
                             "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",

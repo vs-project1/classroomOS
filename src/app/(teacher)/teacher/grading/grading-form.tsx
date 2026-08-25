@@ -64,6 +64,7 @@ interface SubmissionData {
 
 function GradingFormDialog({ studentName, homeworkTitle, submissionId }: { studentName: string; homeworkTitle: string; submissionId: string }) {
   const [open, setOpen] = useState(false);
+  const [resetKey, setResetKey] = useState(0);
   const [state, formAction, isPending] = useActionState(gradeSubmissionAction, null as GradingActionResult | null);
   const [gradedScore, setGradedScore] = useState<number | null>(null);
 
@@ -77,6 +78,11 @@ function GradingFormDialog({ studentName, homeworkTitle, submissionId }: { stude
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && state?.success) setResetKey((k) => k + 1);
+    setOpen(nextOpen);
+  };
+
   const handleAction = async (formData: FormData) => {
     const score = formData.get("score");
     if (score != null) setGradedScore(Number(score));
@@ -84,7 +90,7 @@ function GradingFormDialog({ studentName, homeworkTitle, submissionId }: { stude
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog key={resetKey} open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={<Button variant="outline" size="sm" />}>
         <PenLine className="w-4 h-4 mr-1.5" />
         Grade

@@ -28,6 +28,12 @@ export type MobileTab = {
 
 export type NavBadges = Partial<Record<NavBadgeKey, number>>;
 
+export const badgeUnitLabels: Record<NavBadgeKey, string> = {
+  assignmentsDue: "due",
+  pendingGrading: "to grade",
+  notifications: "unread",
+};
+
 export type RoleNavigation = {
   portalLabel: string;
   footer: { title: string; subtitle?: string };

@@ -42,14 +42,17 @@ export function WhatIfCalculator({ initialAttended, initialTotal }: WhatIfCalcul
         {/* Inputs */}
         <div className="space-y-4">
           <div>
-            <div className="flex justify-between text-xs font-medium mb-1.5">
+            <label htmlFor="what-if-attend" className="flex justify-between text-xs font-medium mb-1.5 cursor-pointer">
               <span>Future Classes to Attend</span>
               <span className="font-bold tabular-nums text-emerald-700 dark:text-emerald-400">+{plannedAttended} classes</span>
-            </div>
+            </label>
             <input
+              id="what-if-attend"
+              aria-label="Future Classes to Attend"
               type="range"
               min="0"
               max="20"
+              step="1"
               value={plannedAttended}
               data-testid="what-if-slider"
               onChange={(e) => setPlannedAttended(parseInt(e.target.value, 10) || 0)}
@@ -58,15 +61,19 @@ export function WhatIfCalculator({ initialAttended, initialTotal }: WhatIfCalcul
           </div>
 
           <div>
-            <div className="flex justify-between text-xs font-medium mb-1.5">
+            <label htmlFor="what-if-miss" className="flex justify-between text-xs font-medium mb-1.5 cursor-pointer">
               <span>Future Classes to Miss</span>
               <span className="font-bold tabular-nums text-destructive">+{plannedMissed} missed</span>
-            </div>
+            </label>
             <input
+              id="what-if-miss"
+              aria-label="Future Classes to Miss"
               type="range"
               min="0"
               max="20"
+              step="1"
               value={plannedMissed}
+              data-testid="what-if-slider-missed"
               onChange={(e) => setPlannedMissed(parseInt(e.target.value, 10) || 0)}
               className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-destructive"
             />

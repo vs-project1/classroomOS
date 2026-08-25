@@ -84,32 +84,38 @@ export async function reviewDisputeAction(
     // Conditional UPDATE guards against a TOCTOU race: if the dispute was
     // already reviewed between the pre-check above and this statement, the
     // WHERE clause matches nothing and we report "already reviewed".
-    const [updated] = await db
-      .update(attendanceCorrectionRequests)
-      .set({
-        status: nextStatus,
-        reviewNote: reviewNote || null,
-        reviewedBy: reviewerTeacherId,
-        reviewedAt: now,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(attendanceCorrectionRequests.id, disputeId),
-          eq(attendanceCorrectionRequests.status, "pending")
+    // Atomic transaction: dispute status + attendance correction together
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(attendanceCorrectionRequests)
+        .set({
+          status: nextStatus,
+          reviewNote: reviewNote || null,
+          reviewedBy: reviewerTeacherId,
+          reviewedAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(attendanceCorrectionRequests.id, disputeId),
+            eq(attendanceCorrectionRequests.status, "pending")
+          )
         )
-      )
-      .returning({ id: attendanceCorrectionRequests.id });
+        .returning({ id: attendanceCorrectionRequests.id });
+
+      if (!row) return null;
+
+      if (action === "approve") {
+        await tx
+          .update(attendance)
+          .set({ status: dispute.requestedStatus })
+          .where(eq(attendance.id, dispute.attendanceId));
+      }
+      return row;
+    });
 
     if (!updated) {
       return { success: false, message: "This dispute has already been reviewed." };
-    }
-
-    if (action === "approve") {
-      await db
-        .update(attendance)
-        .set({ status: dispute.requestedStatus })
-        .where(eq(attendance.id, dispute.attendanceId));
     }
 
     // Notify the requesting student of the outcome. notifications.userId

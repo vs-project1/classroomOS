@@ -8,6 +8,14 @@ export const dynamic = "force-dynamic";
 
 export default async function HomeworkPage() {
   const user = await getCurrentUser();
+  if (user?.role === "TEACHER") {
+    const { redirect } = await import("next/navigation");
+    redirect("/teacher/grading");
+  }
+  if (user?.role === "ADMIN") {
+    const { redirect } = await import("next/navigation");
+    redirect("/admin/homework");
+  }
 
   let studentId: string | null = null;
   if (user && (user.role === "STUDENT" || user.role === "CR")) {

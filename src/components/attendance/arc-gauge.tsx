@@ -4,18 +4,24 @@ interface ArcGaugeProps {
   value: number
   className?: string
   showValue?: boolean
+  /** When provided, color follows TU category (exact-ratio) not rounded pct */
+  category?: "SAFE" | "CAUTION" | "DANGER"
 }
 
-function getArcColor(pct: number): string {
-  if (pct < 60) return "#E11D48" // red-600 danger
-  if (pct < 75) return "#D97706" // amber-600 caution
-  if (pct < 80) return "#F59E0B" // amber-500 near threshold
-  return "#16A34A" // green-600 safe
+function getArcColor(pct: number, category?: string): string {
+  if (category) {
+    if (category === "DANGER") return "#E11D48"
+    if (category === "CAUTION") return "#F59E0B"
+    return "#16A34A"
+  }
+  if (pct < 75) return "#E11D48" // DANGER <75 (TU mandate)
+  if (pct < 80) return "#F59E0B" // CAUTION 75-79
+  return "#16A34A" // SAFE >=80
 }
 
-export function ArcGauge({ value, className, showValue = true }: ArcGaugeProps) {
+export function ArcGauge({ value, className, showValue = true, category }: ArcGaugeProps) {
   const pct = Math.max(0, Math.min(100, value))
-  const color = getArcColor(pct)
+  const color = getArcColor(pct, category)
   // Half-circle gauge: 180deg arc from 180° to 0° (left to right)
   // Needle rotation: -90deg at 0% (pointing left), +90deg at 100% (pointing right)
   const needleRotation = pct * 1.8 - 90

@@ -29,10 +29,11 @@ const initialState: AttendanceActionState = { success: false };
 
 export function CorrectionDialog({ recentSessions }: CorrectionDialogProps) {
   const [open, setOpen] = useState(false);
+  const [resetKey, setResetKey] = useState(0);
   const [state, formAction, isPending] = useActionState(submitAttendanceCorrectionAction, initialState);
 
   useEffect(() => {
-    if (state === initialState) return;
+    if ((state as unknown) === initialState) return;
     if (state.success) {
       toast.success("Correction request sent.", { description: "Your teacher will review it shortly." });
     } else if (state.message && !(state.fieldErrors && Object.keys(state.fieldErrors).length > 0)) {
@@ -41,8 +42,16 @@ export function CorrectionDialog({ recentSessions }: CorrectionDialogProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
+  // Reset stale success/error when dialog closes so reopen starts fresh
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && state.success) setResetKey((k) => k + 1);
+    // Also clear error state on close by remounting via key
+    if (!nextOpen && !state.success && state.message) setResetKey((k) => k + 1);
+    setOpen(nextOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog key={resetKey} open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
           <Button variant="outline" size="sm" className="gap-2 text-xs font-medium cursor-pointer" />
@@ -89,24 +98,29 @@ export function CorrectionDialog({ recentSessions }: CorrectionDialogProps) {
               <label htmlFor="attendanceId" className="block text-xs font-semibold text-foreground mb-1">
                 Select Lecture Session
               </label>
-              {recentSessions.length > 0 ? (
+              {(() => {
+                const disputable = recentSessions.filter((s) => s.status === "absent" || s.status === "late");
+                return disputable.length > 0 ? (
                 <select
                   name="attendanceId"
                   id="attendanceId"
                   required
                   className="w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                 >
-                  {recentSessions.map((s) => (
+                  {disputable.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.subjectName} ({s.dateFormatted}) — Marked {s.status.toUpperCase()}
                     </option>
                   ))}
                 </select>
-              ) : (
+                ) : (
                 <div className="text-xs text-muted-foreground p-2 rounded border bg-muted/20">
-                  No attendance records available to dispute.
+                  {recentSessions.length > 0
+                    ? "No disputable records — only absent/late sessions can be disputed. Present/excused sessions are not shown."
+                    : "No attendance records available to dispute."}
                 </div>
-              )}
+                );
+              })()}
             </div>
 
             <div>
@@ -145,7 +159,7 @@ export function CorrectionDialog({ recentSessions }: CorrectionDialogProps) {
               <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" size="sm" disabled={isPending || recentSessions.length === 0}>
+              <Button type="submit" size="sm" disabled={isPending || recentSessions.filter((s) => s.status === "absent" || s.status === "late").length === 0}>
                 {isPending && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
                 Submit Request
               </Button>

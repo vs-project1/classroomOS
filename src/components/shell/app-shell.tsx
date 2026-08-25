@@ -22,7 +22,7 @@ export function AppShell({ user, subjects, badges, children }: AppShellProps) {
     <div className="flex h-screen overflow-hidden">
       <DesktopSidebar role={user.role} badges={badges} subjects={subjects} />
       <div className="flex-1 flex flex-col relative w-full overflow-y-auto">
-        <ShellTopbar role={user.role} name={user.name} badges={badges} />
+        <ShellTopbar role={user.role} name={user.name} badges={badges} subjects={subjects} />
         <main className="flex-1 p-4 md:p-6 pb-24 md:pb-8 w-full max-w-7xl mx-auto">{children}</main>
       </div>
       <MobileBottomNav role={user.role} badges={badges} subjects={subjects} />

@@ -12,10 +12,10 @@ export const studentNavigation: RoleNavigation = {
       ],
     },
     {
-      title: "ACADEMICS",
+      title: "Academics",
       items: [
         { label: "My Subjects", href: "/subjects", icon: GraduationCap },
-        { label: "Timetable", href: "/routine", icon: CalendarRange, activePatterns: ["/routine"] },
+        { label: "Routine", href: "/routine", icon: CalendarRange },
         { label: "Class History", href: "/lecture-logs", icon: FileText },
         { label: "What You Missed", href: "/missed", icon: CalendarOff },
       ],

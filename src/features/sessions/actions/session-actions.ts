@@ -37,9 +37,19 @@ const AttendanceSchema = z.array(
 
 const SessionSchema = z.object({
   subjectId: z.string().trim().min(1, "Subject is required"),
-  sessionDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid session date",
-  }),
+  sessionDate: z
+    .string()
+    .refine((val) => !isNaN(Date.parse(val)), { message: "Invalid session date" })
+    .refine(
+      (val) => {
+        const d = new Date(val);
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        const min = new Date("2000-01-01");
+        return d <= today && d >= min;
+      },
+      { message: "Session date cannot be in the future and must be after 2000", path: ["sessionDate"] }
+    ),
   startTime: z.string().trim().min(1, "Start time is required"),
   endTime: z.string().trim().min(1, "End time is required"),
   topicsCovered: z.string().trim().min(1, "Topics covered is required"),

@@ -587,7 +587,7 @@ export function HomeworkClientWorkspace({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={isPending}
+                disabled={isPending || isUploading}
                 onClick={handleSaveDraft}
                 className="gap-1 text-xs"
               >
@@ -598,7 +598,7 @@ export function HomeworkClientWorkspace({
               <Button
                 type="submit"
                 size="sm"
-                disabled={isPending || (!content && !fileName && !fileUrl)}
+                disabled={isPending || isUploading || (!content && !fileName && !fileUrl)}
                 onClick={handleSubmitWork}
                 className="gap-1 text-xs"
               >

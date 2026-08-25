@@ -15,7 +15,7 @@ export const crNavigation: RoleNavigation = {
       title: "Class Mgmt",
       items: [
         { label: "Log Session", href: "/cr/log-session", icon: ClipboardEdit },
-        { label: "Attendance", href: "/attendance", icon: CheckCircle },
+        { label: "My Attendance", href: "/attendance", icon: CheckCircle },
         { label: "Class History", href: "/lecture-logs", icon: FileText },
       ],
     },
@@ -24,7 +24,7 @@ export const crNavigation: RoleNavigation = {
       items: [
         { label: "Subjects", href: "/subjects", icon: Book },
         { label: "Routine", href: "/routine", icon: CalendarRange },
-        { label: "Notifications", href: "/notifications", icon: Inbox },
+        { label: "Notifications", href: "/notifications", icon: Inbox, badgeKey: "notifications" },
       ],
     },
   ],

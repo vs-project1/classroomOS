@@ -1,83 +1,41 @@
 # Phase 1: Gradebook + Report Cards — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Council-synthesized (5 free models, chairman-resolved). Execute task-by-task; verify with `npx tsc --noEmit` after each.
 
-**Goal:** Weighted gradebook aggregating existing homework scores + exam results per subject/semester, with configurable weights & grade scales, teacher grid, student "My Grades", and printable report card.
+**Goal:** Weighted gradebook over existing `exams`/`examResults`, admin grid + student view + printable report card.
 
-**Architecture:** Pure compute module (`compute.ts`, no DB imports) fed by a Drizzle query layer; server-rendered grids via RSC queries, mutations via server actions. No persisted computed grades in v1 — live computation with coverage warnings.
+**Architecture:** New `subject_grade_weights` table reusing the `examType` enum as category taxonomy. One pure compute module (`src/lib/grading/compute.ts`) is the single source of truth consumed by grid, student page, and report card. Report card via print-CSS (zero deps, free ethos — council split 2-2, chairman ruled print-CSS).
 
-**Tech Stack:** Next.js 15 App Router (verify APIs against `node_modules/next/dist/docs/`), Drizzle/SQLite, Tailwind v4 print-CSS.
+## Resolved Decisions
+- **Weights: table, not JSON.** `UNIQUE(subjectId, category)`. Default seed per subject: unit_test 20, midterm 20, pre_board 20, practical 10, final 30.
+- **Aggregation:** `categoryPct[c] = ΣobtainedMarks / ΣtotalMarks` across exams of category `c` where graded. `finalPct = Σ(pct_c × w_c) / Σ(w_c)` renormalized over categories having ≥1 graded exam.
+- **Semantics:** `isAbsent=true` → excluded from numerator AND denominator, renders "AB". `obtainedMarks=null && !isAbsent` → "Pending", excluded from both, never coerced to 0. Reject absent+marks together in zod refine.
+- **Homework scores stay OUT of v1 math** (completion, not weighted assessment).
+- **Grade scale:** TS constant in `src/lib/grading/scale.ts` (A≥90, B≥80, C≥70, D≥60, F<60). Promote to table only when admins ask.
+- **Term = semester** (aligns with `enrollments.semester`). No terms table (YAGNI).
 
-**Spec:** Council consensus from 2 blueprints (big-pickle + mimo). Key agreements: live-compute over snapshot tables; absent≠missing≠zero (3 states); weight renormalization with `coverage` flag; single rounding rule (float internally, round at band lookup, format at render).
-
-## Global Constraints
-- Free tier only; no new paid deps. Print via CSS (`window.print()`), no PDF service.
-- SQLite CHECK/enum limits: validate enums in Zod at every action boundary.
-- All grades scoped by academic session; NULL sessionId rows treated as current session.
-- Authz: TEACHER only owns subjects where `subjects.teacherId` matches their teachers.id (linked by email); ADMIN global; STUDENT only own data; publish gate enforced server-side.
-- Verify `revalidatePath` semantics and async searchParams against bundled Next docs before page shells.
+## Tasks
 
 ### Task 1: Schema + migration
+Add to `src/db/schema.ts`: `subjectGradeWeights` (id text PK, subjectId FK→subjects cascade, category text CHECK in examType values, weightPct int CHECK 0-100, UNIQUE(subjectId,category), timestamps). Run `npm run db:generate` then review SQL, `npm run db:migrate`.
 
-**Files:**
-- Modify: `src/db/schema.ts`
-- Create: `drizzle/0011_gradebook.sql` + journal entry (idx 11)
+### Task 2: Pure compute module
+Create `src/lib/grading/compute.ts`: `computeSubjectGrade(studentId, subjectId): { finalPct: number|null, categories: Array<{category, pct, status:'graded'|'absent'|'pending'}>, letter }`. No IO inside math — fetch results first, pass arrays in. Unit-test the formula edge cases (all pending → null; absent-only category dropped from denominator).
 
-Tables:
-```ts
-gradeScales(id autoincrement, name, displayMode 'percentage'|'letter'|'gpa', isActive bool default false)
-gradeBands(id, scaleId FK cascade, label text, minPercent real, gradePoint real null, isPassing bool default true, UNIQUE(scaleId,minPercent))
-subjectGradeWeights(id, subjectId FK cascade, category text check IN ('homework','unit_test','midterm','pre_board','practical','final'), weightPct real, UNIQUE(subjectId,category))
-termConfigurations(id, academicSessionId FK unique, scaleId FK, includeHomework bool, includedExamTypes json, areGradesPublished bool default false, publishedAt ts null)
-```
-Also add to `homework`: `maxScore integer NOT NULL DEFAULT 100`.
-
-- [ ] Add schema, run `npm run db:generate`, review SQL, apply via `npm run db:migrate`
-- [ ] Seed: one letter scale (A+ 90/4.0 …) active + term config for current session
-- [ ] Commit `feat(gradebook): schema for scales, bands, weights, term config`
-
-### Task 2: Pure compute + scale libs (TDD)
-
-**Files:**
-- Create: `src/features/gradebook/lib/types.ts`, `constants.ts` (GRADE_CATEGORIES, DEFAULT_WEIGHTS), `compute.ts`, `scale.ts`
-- Test: `src/features/gradebook/lib/compute.test.ts`
-
-Compute rules (council consensus):
-- homework component = mean of `(score/maxScore)*100` over submissions with status `graded|late`; missing/ungraded excluded from numerator AND denominator ("N/M graded")
-- each included exam type = mean of `obtainedMarks/totalMarks*100`; `isAbsent=true` excluded + flagged "AB"; no row flagged "—"
-- empty components → null; renormalize weights over available; result carries `coverage` (% of configured weight backed by data)
-- finalPct null when nothing available; never NaN into JSX
-- band lookup on `Math.round(pct*100)/100`, bands sorted desc by minPercent
-- unit tests: empty inputs, all-absent, Σweights≠100 tolerance (99.99–100.01), boundary 89.95→round→band, late inclusion
-
-- [ ] Write failing tests, implement, pass
-- [ ] Commit `feat(gradebook): pure computation engine`
-
-### Task 3: Query layer
-
-**Files:** Create `src/features/gradebook/lib/queries.ts`
-- `getGradebookGrid(subjectId)` → students (enrollments join profiles, order rollNumber) × category inputs + finals
-- `getMyGrades(studentUserId)` → per-subject breakdown; **throws/blocks unless `areGradesPublished`**
-- `getReportCard(studentId)` → DTO incl. attendance % (reuse formula consistent with what-if calculator: `(present+late)/(total-excused)`)
-- [ ] Implement + commit `feat(gradebook): query layer`
+### Task 3: Grade scale + zod schemas
+`src/lib/grading/scale.ts` constant + `letterForPct(pct)`. Zod schema for weight upsert (weights must sum to 100 per subject) and exam-result save (absent XOR marks).
 
 ### Task 4: Server actions
+`src/features/grades/actions.ts` ("use server"): `upsertWeights(subjectId, weights[])`, `saveExamResult(examId, studentId, data)`. Guards: ADMIN or owning TEACHER (`requireAuth(["ADMIN","TEACHER"])` + teacherId check). `revalidatePath`.
 
-**Files:** Create `src/features/gradebook/actions/{grade-scales.ts,subject-weights.ts,term-config.ts}`
-- Signatures: `saveSubjectWeights(subjectId, weights[])` Zod Σ=100±0.01; `activateGradeScale(id)` tx swap; `publishGrades(sessionId)`/`unpublishGrades`
-- Every action: zod → role guard (TEACHER ownership via subjects.teacherId / ADMIN) → tx → revalidatePath
-- [ ] Implement + commit `feat(gradebook): actions`
+### Task 5: Admin gradebook grid
+`src/app/(admin)/admin/gradebook/page.tsx` (server) + `src/components/gradebook/grade-grid.tsx` + `weight-editor.tsx` (client). Students × subjects matrix; cell = final% + letter + AB/Pending chips; click cell → drilldown of that student-subject's exams. Sticky headers.
 
-### Task 5: Teacher UI
+### Task 6: Student My Grades
+`src/app/(student)/my-grades/page.tsx` + `src/components/grades/subject-card.tsx`. Per enrolled subject: final%, letter, per-category contribution bars, exam list with obtained/total + flags. No class rank in v1.
 
-**Files:** Create `src/features/gradebook/components/{gradebook-grid.tsx,weight-editor.tsx}`; routes `/teacher/gradebook/page.tsx` (+ settings)
-- Server-rendered table: rows=students, cols=categories+Final%+Letter+coverage ⚠️ badge; `<details>` cell drill-down linking to source homework/exam
-- [ ] Implement + commit `feat(gradebook): teacher grid + weights editor`
+### Task 7: Report card (print)
+`src/app/report-cards/[studentId]/page.tsx` server component rendering semantic HTML report card (student info, per-subject rows: category breakdowns, weighted total, letter; attendance % from existing queries) + `print.css` (`@media print`, `@page { size: A4; margin: 12mm }`) + auto `window.print()` button. Access: ADMIN/TEACHER any student; STUDENT self only.
 
-### Task 6: Student UI + report card
-
-**Files:** Create components `{subject-grade-card.tsx,report-card.tsx,print-button.tsx}`; routes `/my-grades/page.tsx`, `/my-grades/report-card/page.tsx`
-- Unpublished state = explicit "Results not yet published" (server-enforced)
-- Print CSS: chrome `print:hidden`, card `print-color-adjust:exact`, `@page{margin:12mm}`, force light-mode values inside card
-- [ ] Implement + Playwright spec `tests/e2e/gradebook.spec.ts` (grid seeded fixture, Σ≠100 blocked, pre-publish block, post-publish visible, print emulation)
-- [ ] Commit `feat(gradebook): student grades + printable report card`
+### Task 8: Seed defaults + verify
+Backfill weights for existing subjects (seed script or action). Full verify: tsc, lint, e2e smoke of grid + my-grades + print page.

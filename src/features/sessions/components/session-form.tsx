@@ -161,6 +161,7 @@ export function SessionForm({ subjects, defaultValues }: Props) {
               required 
               value={selectedSubjectId}
               onChange={(e) => setSelectedSubjectId(e.target.value)}
+              disabled={isPending}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="">Select a subject...</option>
@@ -175,7 +176,7 @@ export function SessionForm({ subjects, defaultValues }: Props) {
 
           <div className="space-y-2">
             <Label htmlFor="sessionDate" className="text-sm font-medium">Session Date</Label>
-            <Input type="date" id="sessionDate" name="sessionDate" required defaultValue={defaultValues?.sessionDate || getNepalDateString()} className="h-10" />
+            <Input type="date" id="sessionDate" name="sessionDate" required min="2000-01-01" max={getNepalDateString()} defaultValue={defaultValues?.sessionDate || getNepalDateString()} className="h-10" />
             {state.fieldErrors?.sessionDate && (
               <p className="text-sm font-medium text-destructive">{state.fieldErrors.sessionDate[0]}</p>
             )}
@@ -275,8 +276,9 @@ export function SessionForm({ subjects, defaultValues }: Props) {
                     <select
                       aria-label={`Attendance status for ${student.name}`}
                       value={currentStatus}
+                      disabled={isPending}
                       onChange={(e) => handleStatusChange(student.id, e.target.value as AttendanceState["status"])}
-                      className="h-11 min-h-11 w-32 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="h-11 min-h-11 w-32 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
                     >
                       <option value="present">Present</option>
                       <option value="absent">Absent</option>

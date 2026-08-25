@@ -11,6 +11,4 @@ CREATE TABLE `subject_grade_weights` (
 );
 --> statement-breakpoint
 CREATE INDEX `idx_subject_grade_weights_subject` ON `subject_grade_weights` (`subject_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `unq_subject_grade_weights_subject_category` ON `subject_grade_weights` (`subject_id`,`category`);--> statement-breakpoint
-ALTER TABLE `notices` ADD `attachments` text;--> statement-breakpoint
-CREATE INDEX `idx_resources_chapter_created` ON `resources` (`chapter_id`,`created_at`);
+CREATE UNIQUE INDEX `unq_subject_grade_weights_subject_category` ON `subject_grade_weights` (`subject_id`,`category`);

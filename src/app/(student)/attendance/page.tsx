@@ -1,17 +1,23 @@
 import { db } from "@/db";
 import { attendance, subjects, enrollments } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { resolveCurrentStudent } from "@/lib/auth";
+import { resolveCurrentStudent, getCurrentUser } from "@/lib/auth";
 import { calculateAttendanceMetrics } from "@/lib/attendance";
 import { Activity, ShieldAlert, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { ArcGauge } from "@/components/attendance/arc-gauge";
 import { WhatIfCalculator } from "./what-if-calculator";
 import { CorrectionDialog } from "./correction-dialog";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function AttendancePage() {
+  // Teachers/admins have dedicated attendance surfaces — redirect them
+  const _viewer = await getCurrentUser();
+  if (_viewer?.role === "TEACHER") redirect("/teacher/attendance");
+  if (_viewer?.role === "ADMIN") redirect("/admin/attendance");
+
   const student = await resolveCurrentStudent();
 
   if (!student) {
@@ -41,13 +47,16 @@ export default async function AttendancePage() {
     },
   });
 
-  const attendedCount = records.filter((r) => r.status === "present").length;
+  const presentCount = records.filter((r) => r.status === "present").length;
   const lateCount = records.filter((r) => r.status === "late").length;
   const excusedCount = records.filter((r) => r.status === "excused").length;
   const absentCount = records.filter((r) => r.status === "absent").length;
   const totalCount = records.length;
+  // Late counts as attended (present), excused excluded from denominator per TU guidance
+  const attendedForMetrics = presentCount + lateCount;
+  const effectiveTotal = Math.max(attendedForMetrics, totalCount - excusedCount);
 
-  const metrics = calculateAttendanceMetrics(attendedCount, totalCount, {
+  const metrics = calculateAttendanceMetrics(attendedForMetrics, effectiveTotal, {
     late: lateCount,
     excused: excusedCount,
     absent: absentCount,
@@ -74,19 +83,9 @@ export default async function AttendancePage() {
     }
   }
 
-  // If no enrollments explicitly found, populate from subjects table or records
-  if (Object.keys(subjectStats).length === 0) {
-    const allSubjs = await db.query.subjects.findMany();
-    for (const s of allSubjs) {
-      subjectStats[s.id] = {
-        id: s.id,
-        name: s.name,
-        code: s.code,
-        total: 0,
-        present: 0,
-      };
-    }
-  }
+  // If no enrollments found, show empty state — never fall back to full catalog
+  // (prevents leaking every subject at 0/0 → 100% SAFE). Records for unenrolled
+  // subjects still surface via the loop below if attendance exists.
 
   for (const record of records) {
     const subj = record.classSession?.subject;
@@ -94,8 +93,10 @@ export default async function AttendancePage() {
       if (!subjectStats[subj.id]) {
         subjectStats[subj.id] = { id: subj.id, name: subj.name, code: subj.code, total: 0, present: 0 };
       }
+      // Excused excluded from denominator; late counts as present
+      if (record.status === "excused") continue;
       subjectStats[subj.id].total++;
-      if (record.status === "present") {
+      if (record.status === "present" || record.status === "late") {
         subjectStats[subj.id].present++;
       }
     }
@@ -177,28 +178,34 @@ export default async function AttendancePage() {
 
             <div className="flex flex-col items-center justify-center py-2 text-center">
               <div className="flex justify-center py-2">
-                <ArcGauge value={metrics.percentage} />
+                <ArcGauge value={metrics.percentage} category={metrics.category} />
               </div>
 
             <div className="w-full bg-muted/30 rounded-xl p-3.5 border border-border/40">
-              <p className="text-xs font-semibold text-foreground">
-                Safety Buffer:{" "}
-                <span
-                  className={
-                    isSafe
-                      ? "text-emerald-600 dark:text-emerald-400 font-bold"
-                      : "text-destructive font-bold"
-                  }
-                >
-                  {isSafe
-                    ? `+${metrics.missableSessions} Missable Session${metrics.missableSessions === 1 ? "" : "s"}`
-                    : `Need ${metrics.classesNeededToRecover} class${metrics.classesNeededToRecover === 1 ? "" : "es"} to recover (At Risk <80%)`}
-                </span>
-              </p>
-              <p className="text-xs text-muted-foreground mt-1 font-medium">
-                {metrics.attendedSessions} attended of {metrics.totalSessions} logged lectures (
-                {metrics.absentSessions} absent, {metrics.lateSessions} late, {metrics.excusedSessions} excused)
-              </p>
+              {totalCount === 0 ? (
+                <p className="text-xs text-muted-foreground font-medium">No lectures logged yet — your TU 80% projection starts after the first session.</p>
+              ) : (
+                <>
+                  <p className="text-xs font-semibold text-foreground">
+                    Safety Buffer:{" "}
+                    <span
+                      className={
+                        isSafe
+                          ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                          : "text-destructive font-bold"
+                      }
+                    >
+                      {isSafe
+                        ? `+${metrics.missableSessions} Missable Session${metrics.missableSessions === 1 ? "" : "s"}`
+                        : `Need ${metrics.classesNeededToRecover} class${metrics.classesNeededToRecover === 1 ? "" : "es"} to recover (At Risk <80%)`}
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 font-medium">
+                    {metrics.attendedSessions} attended of {metrics.totalSessions} logged lectures (
+                    {metrics.absentSessions} absent, {metrics.lateSessions} late, {metrics.excusedSessions} excused)
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -222,68 +229,75 @@ export default async function AttendancePage() {
             {subjectList.length} Enrolled Subject{subjectList.length === 1 ? "" : "s"}
           </span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-muted/10 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <tr>
-                <th className="px-6 py-3 border-b">Module</th>
-                <th className="px-6 py-3 border-b text-right">Attended</th>
-                <th className="px-6 py-3 border-b text-right">Total</th>
-                <th className="px-6 py-3 border-b">Progress</th>
-                <th className="px-6 py-3 border-b text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/30">
-              {subjectList.map((subj) => {
-                const subSafe = subj.metrics.category === "SAFE";
-                const subDanger = subj.metrics.category === "DANGER";
-                return (
-                  <tr key={subj.id} className="hover:bg-muted/20 transition-colors">
-                    <td className="px-6 py-4 font-medium text-foreground">
-                      <div className="flex items-center gap-2">
-                        <span>{subj.name}</span>
-                        <span className="text-xs bg-muted text-foreground px-2 py-0.5 rounded-md font-bold border border-border/40">
-                          {subj.code}
+        {subjectList.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            <p>No enrollments found. Contact administration to get enrolled in subjects.</p>
+            <p className="text-xs mt-1">Once enrolled, your per-subject attendance will appear here.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-muted/10 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="px-6 py-3 border-b">Module</th>
+                  <th className="px-6 py-3 border-b text-right">Attended</th>
+                  <th className="px-6 py-3 border-b text-right">Total</th>
+                  <th className="px-6 py-3 border-b">Progress</th>
+                  <th className="px-6 py-3 border-b text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {subjectList.map((subj) => {
+                  const subSafe = subj.metrics.category === "SAFE";
+                  const subDanger = subj.metrics.category === "DANGER";
+                  return (
+                    <tr key={subj.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-6 py-4 font-medium text-foreground">
+                        <div className="flex items-center gap-2">
+                          <span>{subj.name}</span>
+                          <span className="text-xs bg-muted text-foreground px-2 py-0.5 rounded-md font-bold border border-border/40">
+                            {subj.code}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right tabular-nums text-muted-foreground font-medium">
+                        {subj.present}
+                      </td>
+                      <td className="px-6 py-4 text-right tabular-nums text-muted-foreground font-medium">
+                        {subj.total}
+                      </td>
+                      <td className="px-6 py-4 w-40">
+                        <Progress
+                          value={subj.metrics.percentage}
+                          className={`h-1.5 rounded-full bg-muted ${
+                            subSafe
+                              ? "[&>div]:bg-emerald-500"
+                              : subDanger
+                              ? "[&>div]:bg-destructive"
+                              : "[&>div]:bg-amber-500"
+                          }`}
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums ${
+                            subSafe
+                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                              : subDanger
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                          }`}
+                        >
+                          {subj.metrics.percentage}%
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right tabular-nums text-muted-foreground font-medium">
-                      {subj.present}
-                    </td>
-                    <td className="px-6 py-4 text-right tabular-nums text-muted-foreground font-medium">
-                      {subj.total}
-                    </td>
-                    <td className="px-6 py-4 w-40">
-                      <Progress
-                        value={subj.metrics.percentage}
-                        className={`h-1.5 rounded-full bg-muted ${
-                          subSafe
-                            ? "[&>div]:bg-emerald-500"
-                            : subDanger
-                            ? "[&>div]:bg-destructive"
-                            : "[&>div]:bg-amber-500"
-                        }`}
-                      />
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums ${
-                          subSafe
-                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                            : subDanger
-                            ? "bg-destructive/10 text-destructive"
-                            : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                        }`}
-                      >
-                        {subj.metrics.percentage}%
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

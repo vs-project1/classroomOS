@@ -26,7 +26,7 @@ export const adminNavigation: RoleNavigation = {
     {
       title: "Campus",
       items: [
-        { label: "Notices", href: "/admin/notices", icon: Bell },
+        { label: "Notices", href: "/admin/notices", icon: Bell, badgeKey: "notifications" },
         { label: "Events", href: "/admin/events", icon: CalendarDays },
       ],
     },

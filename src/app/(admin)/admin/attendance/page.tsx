@@ -29,7 +29,8 @@ export default async function AdminAttendancePage() {
     .innerJoin(classSessions, eq(attendance.classSessionId, classSessions.id))
     .innerJoin(subjects, eq(classSessions.subjectId, subjects.id))
     .innerJoin(students, eq(attendanceCorrectionRequests.studentId, students.id))
-    .orderBy(desc(attendanceCorrectionRequests.createdAt));
+    .orderBy(desc(attendanceCorrectionRequests.createdAt))
+    .limit(100);
 
   const [pendingCount] = await db
     .select({ count: count() })

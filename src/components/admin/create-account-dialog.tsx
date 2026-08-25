@@ -34,6 +34,7 @@ export function CreateAccountDialog({
   const [credOpen, setCredOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>("STUDENT");
+  const [resetKey, setResetKey] = useState(0);
 
   const [state, formAction, isPending] = useActionState(
     async (prev: AccountActionState, formData: FormData) => {
@@ -49,6 +50,11 @@ export function CreateAccountDialog({
     },
     { success: false } as AccountActionState
   );
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) setResetKey((k) => k + 1);
+    setOpen(nextOpen);
+  };
 
   const copyToClipboard = async () => {
     if (!state.credentials) return;
@@ -72,7 +78,7 @@ export function CreateAccountDialog({
         Create Account
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog key={resetKey} open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

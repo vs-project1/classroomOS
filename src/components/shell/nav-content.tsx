@@ -7,19 +7,12 @@ import { Book, ChevronDown, GraduationCap, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/actions/auth";
 import type { SidebarSubject } from "@/features/subjects/queries";
-import type { NavBadgeKey, NavBadges, UserRole } from "@/lib/navigation/types";
-import { isNavItemActive } from "@/lib/navigation/types";
+import type { NavBadges, UserRole } from "@/lib/navigation/types";
+import { badgeUnitLabels, isNavItemActive } from "@/lib/navigation/types";
 import { getNavigationForRole } from "@/lib/navigation";
 import { NavBadge } from "./nav-badge";
 
 type NavVariant = "sidebar" | "drawer";
-
-/** sr-only unit label per badge key, e.g. "(3 to grade)". */
-const badgeUnitLabels: Record<NavBadgeKey, string> = {
-  assignmentsDue: "due",
-  pendingGrading: "to grade",
-  notifications: "unread",
-};
 
 type NavContentProps = {
   role: UserRole;
@@ -33,6 +26,8 @@ type NavContentProps = {
   /** Teacher footer shows an assigned-subject count instead of the static subtitle. */
   subjects?: SidebarSubject[];
   variant: NavVariant;
+  /** Called when a nav link is clicked (used to close Sheet drawers). */
+  onNavigate?: () => void;
 };
 
 /**
@@ -85,6 +80,7 @@ function CourseSwitcher({ subjects }: { subjects?: SidebarSubject[] }) {
               <Link
                 key={s.id}
                 href={`/subjects/${s.slug}`}
+                onClick={onNavigate}
                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
@@ -114,6 +110,7 @@ export function NavContent({
   badges,
   subjects,
   variant,
+  onNavigate,
 }: NavContentProps) {
   const livePathname = usePathname();
   const pathname = pathnameProp ?? livePathname;
@@ -127,12 +124,8 @@ export function NavContent({
       ? `${subjects?.length ?? 0} Assigned Subject${(subjects?.length ?? 0) === 1 ? "" : "s"}`
       : navigation.footer.subtitle;
 
-  // The drawer historically omits `cursor-pointer` on links; kept verbatim
-  // so neither surface's DOM changes in this extraction.
   const linkBaseClass =
-    variant === "sidebar"
-      ? "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-medium text-sm cursor-pointer"
-      : "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-medium text-sm";
+    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-medium text-sm cursor-pointer";
 
   return (
     <>
@@ -161,6 +154,7 @@ export function NavContent({
                   <Link
                     key={item.label}
                     href={item.href}
+                    onClick={onNavigate}
                     aria-current={isActive ? "page" : undefined}
                     className={cn(
                       linkBaseClass,

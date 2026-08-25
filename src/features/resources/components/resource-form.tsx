@@ -129,7 +129,14 @@ export function ResourceForm({ subjects }: { subjects: { id: string; name: strin
 
   const fileUrlValue = mode === "upload" ? uploadedFile?.url ?? "" : "";
   const canSubmit =
-    !isPending && (mode === "link" ? true : Boolean(uploadedFile?.url));
+    !isPending && !isUploading && (mode === "link" ? true : Boolean(uploadedFile?.url));
+
+  // Clear uploaded file after successful publish so form resets for next entry
+  useEffect(() => {
+    if (state?.success) {
+      setUploadedFile(null);
+    }
+  }, [state?.success]);
 
   return (
     <form action={formAction} className="space-y-4">
