@@ -43,7 +43,7 @@ export type RoleNavigation = {
  */
 export function isNavActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
-  if (href === "/") return pathname === "/";
+  if (href === "/" || href === "/teacher" || href === "/admin" || href === "/cr") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

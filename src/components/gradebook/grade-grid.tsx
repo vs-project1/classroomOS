@@ -162,7 +162,7 @@ export function GradeGrid({
                     {categoryLabel(exam.category)}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground font-fira-code">
-                    <DateText iso={exam.examDate} />
+                    {exam.examDate ? <DateText iso={exam.examDate} /> : "-"}
                   </td>
                   <td className="px-6 py-3 text-right">
                     {!exam.hasResult || (exam.obtainedMarks === null && !exam.isAbsent) ? (

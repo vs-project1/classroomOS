@@ -14,7 +14,7 @@ export const teacherNavigation: RoleNavigation = {
     {
       title: "Teaching",
       items: [
-        { label: "My Subjects", href: "/subjects", icon: Book },
+        { label: "My Subjects", href: "/teacher/subjects", icon: Book },
         { label: "Attendance", href: "/teacher/attendance", icon: CheckCircle },
         { label: "Class History", href: "/teacher/lecture-logs", icon: FileText },
         { label: "Resources", href: "/teacher/resources", icon: FolderOpen },

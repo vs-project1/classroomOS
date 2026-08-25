@@ -1,284 +1,153 @@
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/db";
-import { resources, subjects, courseUnits, courseChapters } from "@/db/schema";
-import { eq, desc, asc, inArray } from "drizzle-orm";
+import { resources, subjects } from "@/db/schema";
+import { eq, desc, and } from "drizzle-orm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FolderOpen, UploadCloud, Layers, BookOpen, FileText } from "lucide-react";
 import { ResourceForm } from "@/features/resources/components/resource-form";
-import { FileText, Link as LinkIcon, Download, BookOpen, Layers, UploadCloud } from "lucide-react";
-import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { Dropzone } from "@/components/files/dropzone";
 import { FilePreview } from "@/components/files/file-preview";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
-export default async function ResourcesPage() {
+export const dynamic = "force-dynamic";
+
+export default async function TeacherResourcesPage() {
   const user = await requireAuth(["TEACHER", "ADMIN"]);
 
   if (!user.teacherId) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">Resources</h1>
-        <div className="p-4 bg-yellow-50 text-yellow-800 rounded-xl border border-yellow-200">
+      <div className="flex-1 space-y-6 max-w-5xl">
+        <h1 className="text-3xl font-bold font-fira-sans tracking-tight">Class Resources</h1>
+        <div className="p-5 bg-destructive/10 text-destructive-foreground rounded-2xl border border-destructive/20 text-sm font-medium">
           Your account is not linked to a teacher profile.
         </div>
       </div>
     );
   }
 
-  // Fetch subjects assigned to this teacher
-  const assignedSubjects = await db
-    .select({ id: subjects.id, name: subjects.name })
-    .from(subjects)
-    .where(eq(subjects.teacherId, user.teacherId));
-
-  // Fetch resources uploaded by this teacher
-  const teacherResources = await db
-    .select({
-      resource: resources,
-      subject: subjects
-    })
-    .from(resources)
-    .innerJoin(subjects, eq(subjects.id, resources.subjectId))
-    .where(eq(resources.uploadedBy, user.teacherId))
-    .orderBy(desc(resources.createdAt));
-
-  // Course hierarchy: Units → Chapters → resources/courseMaterials
-  // Used for the Units→Chapters accordion browser
-  const subjectIds = assignedSubjects.map((s) => s.id);
-  const teacherUnits = subjectIds.length > 0
-    ? await db.query.courseUnits.findMany({
-        where: inArray(courseUnits.subjectId, subjectIds),
-        orderBy: [asc(courseUnits.order)],
+  const assignedSubjects = await db.query.subjects.findMany({
+    where: eq(subjects.teacherId, user.teacherId),
+    with: {
+      courseUnits: {
+        orderBy: (units, { asc }) => [asc(units.order)],
         with: {
           courseChapters: {
-            orderBy: [asc(courseChapters.order)],
+            orderBy: (chapters, { asc }) => [asc(chapters.order)],
             with: {
-              courseMaterials: true,
-              resources: true,
-            },
-          },
-        },
-      })
-    : [];
+              resources: {
+                where: eq(resources.uploadedBy, user.teacherId),
+                orderBy: (resources, { desc }) => [desc(resources.createdAt)],
+              }
+            }
+          }
+        }
+      },
+    },
+  });
 
-  // Group units by subject for rendering
-  const unitsBySubject = new Map<string, typeof teacherUnits>();
-  for (const unit of teacherUnits) {
-    const arr = unitsBySubject.get(unit.subjectId) ?? [];
-    arr.push(unit);
-    unitsBySubject.set(unit.subjectId, arr);
-  }
+  const myResources = await db.query.resources.findMany({
+    where: eq(resources.uploadedBy, user.teacherId),
+    with: {
+      subject: true,
+      chapter: true,
+    },
+    orderBy: [desc(resources.createdAt)],
+  });
 
-  // Collect general (chapter-less) resources for preview
-  const generalResources = teacherResources.filter(({ resource }) => !resource.chapterId);
+  const generalResources = myResources.filter(r => !r.chapterId);
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Resources</h1>
-          <p className="text-muted-foreground">Manage and upload study materials for your classes.</p>
-        </div>
+    <div className="flex-1 space-y-8 max-w-5xl">
+      <div className="flex flex-col gap-1.5 pb-6 border-b border-border/40">
+        <h1 className="text-3xl md:text-4xl font-bold font-fira-sans tracking-tight text-foreground">
+          Class Resources
+        </h1>
+        <p className="text-muted-foreground text-base max-w-2xl">
+          Upload and organize study materials, slides, and handouts for your subjects.
+        </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-1 h-fit">
-          <CardHeader>
-            <CardTitle>Upload Resource</CardTitle>
-            <CardDescription>Share a new file or link with your students.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {assignedSubjects.length > 0 ? (
-              <>
-                <ResourceForm subjects={assignedSubjects} />
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                    <UploadCloud className="w-3.5 h-3.5" /> Quick Dropzone
-                  </p>
-                  <Dropzone endpoint="courseMaterial" />
-                  <p className="text-xs text-muted-foreground">UploadThing dropzone with progress & drag-drop. Files appear in your chapter browser after saving via the form above.</p>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">You must be assigned to at least one subject to upload resources.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="md:col-span-2 space-y-6">
-          {/* Flat list: Your Resources */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Resources</CardTitle>
-              <CardDescription>Materials you have shared.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {teacherResources.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground border rounded-lg bg-muted/20 border-dashed">
-                  <FileText className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                  <p className="text-sm font-medium">No resources uploaded yet.</p>
-                  <p className="text-xs mt-1">Use the upload form or dropzone to add your first file — it will appear grouped by Units → Chapters below.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {teacherResources.map(({ resource, subject }) => (
-                    <div key={resource.id} className="flex flex-col gap-3 p-4 rounded-xl border bg-card hover:bg-muted/50 transition-colors">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                        <div className="flex items-start gap-3">
-                          <div className="bg-primary/10 p-2 rounded-lg shrink-0 mt-1">
-                            {resource.fileType === "link" ? (
-                              <LinkIcon className="w-5 h-5 text-primary" />
-                            ) : (
-                              <FileText className="w-5 h-5 text-primary" />
-                            )}
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-sm">{resource.title}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {subject.name} • {resource.fileType.toUpperCase()}
-                            </p>
-                            {resource.description && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{resource.description}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex shrink-0">
-                          <Link
-                            href={resource.fileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                          >
-                            <Download className="w-4 h-4 mr-2" />
-                            {resource.fileType === "link" ? "Visit" : "View"}
-                          </Link>
-                        </div>
-                      </div>
-                      <FilePreview fileUrl={resource.fileUrl} fileType={resource.fileType} title={resource.title} />
-                    </div>
-                  ))}
-                </div>
-              )}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1 space-y-6">
+          <Card className="rounded-3xl border-border/50 shadow-sm overflow-hidden">
+            <div className="bg-primary/5 p-6 border-b border-border/40 flex flex-col gap-2">
+              <UploadCloud className="w-8 h-8 text-primary" />
+              <CardTitle className="text-xl">Upload Material</CardTitle>
+              <CardDescription>Share files with your students</CardDescription>
+            </div>
+            <CardContent className="p-6">
+              <ResourceForm subjects={assignedSubjects} />
             </CardContent>
           </Card>
+        </div>
 
-          {/* Units → Chapters accordion browser */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Layers className="w-5 h-5 text-primary" /> Course Browser
-              </CardTitle>
-              <CardDescription>
-                Units → Chapters accordion with grouped materials. Uses relations courseUnits → courseChapters → resources / courseMaterials.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {assignedSubjects.length === 0 ? (
-                <div className="py-8 text-center text-sm text-muted-foreground border rounded-lg border-dashed">
-                  No subjects assigned — ask admin to assign subjects to enable the course browser.
-                </div>
-              ) : teacherUnits.length === 0 ? (
-                <div className="space-y-4">
-                  <div className="py-8 text-center text-sm text-muted-foreground border rounded-lg border-dashed">
-                    No units or chapters yet. Create syllabus structure to organize resources by chapter.
-                  </div>
-                  {generalResources.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                        <BookOpen className="w-4 h-4 text-primary" /> General (Unchaptered)
-                      </h4>
-                      <div className="space-y-2">
-                        {generalResources.map(({ resource }) => (
-                          <div key={resource.id} className="p-3 rounded-lg border bg-muted/20">
-                            <p className="text-sm font-medium">{resource.title}</p>
-                            <p className="text-xs text-muted-foreground">{resource.fileType} • {resource.fileUrl.slice(0, 48)}</p>
-                            <div className="mt-2">
-                              <FilePreview fileUrl={resource.fileUrl} fileType={resource.fileType} title={resource.title} />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+        <div className="lg:col-span-2">
+          <Tabs defaultValue="structured" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <TabsList className="grid w-full max-w-sm grid-cols-2 rounded-xl p-1 bg-muted/50 border border-border/50">
+                <TabsTrigger value="structured" className="rounded-lg">Structured View</TabsTrigger>
+                <TabsTrigger value="list" className="rounded-lg">All My Files</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="structured" className="space-y-6 mt-0">
+              <Card className="rounded-3xl border-border/50 shadow-sm">
+                <CardContent className="p-6">
+                  {assignedSubjects.length === 0 ? (
+                    <div className="py-12 text-center text-muted-foreground">
+                      <FolderOpen className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                      <p>You have no assigned subjects.</p>
                     </div>
-                  )}
-                  <div className="pt-2">
-                    <p className="text-xs font-semibold text-muted-foreground mb-2">Dropzone preview (interactive upload)</p>
-                    <Dropzone endpoint="courseMaterial" />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {assignedSubjects.map((subject) => {
-                    const subjectUnits = unitsBySubject.get(subject.id) ?? [];
-                    if (subjectUnits.length === 0) {
-                      return (
-                        <div key={subject.id} className="space-y-2">
-                          <h3 className="font-semibold text-sm flex items-center gap-2">
-                            <BookOpen className="w-4 h-4 text-primary" /> {subject.name}
+                  ) : (
+                    <div className="space-y-8">
+                      {assignedSubjects.map((subject) => (
+                        <div key={subject.id} className="space-y-4">
+                          <h3 className="font-fira-sans text-xl font-bold text-foreground flex items-center gap-2">
+                            <span className="inline-flex h-6 items-center rounded-full bg-primary/10 px-2 text-[10px] font-bold uppercase tracking-wider text-primary">
+                              {subject.code}
+                            </span>
+                            {subject.name}
                           </h3>
-                          <p className="text-xs text-muted-foreground border rounded-lg border-dashed p-4 text-center">No units for this subject yet.</p>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div key={subject.id} className="space-y-3">
-                        <h3 className="font-semibold text-sm flex items-center gap-2">
-                          <BookOpen className="w-4 h-4 text-primary" /> {subject.name}
-                        </h3>
-                        <Accordion className="rounded-lg border bg-card divide-y">
-                          {subjectUnits.map((unit) => (
-                            <AccordionItem key={unit.id} value={unit.id} className="px-3">
-                              <AccordionTrigger className="hover:no-underline py-3">
-                                <span className="flex items-center gap-2 text-left">
-                                  <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-primary text-xs font-bold">
-                                    {unit.order}
-                                  </span>
-                                  <span className="font-semibold text-sm">{unit.title}</span>
-                                  <span className="text-xs text-muted-foreground">({unit.courseChapters.length} chapters)</span>
-                                </span>
-                              </AccordionTrigger>
-                              <AccordionContent className="pb-3">
-                                {unit.courseChapters.length === 0 ? (
-                                  <p className="text-xs text-muted-foreground py-2">No chapters in this unit.</p>
-                                ) : (
-                                  <div className="space-y-4 pl-1">
-                                    {unit.courseChapters.map((chapter) => {
-                                      const chapterResources = chapter.resources ?? [];
-                                      const chapterMaterials = chapter.courseMaterials ?? [];
-                                      const combined = [
-                                        ...chapterResources.map((r) => ({
-                                          id: r.id,
-                                          title: r.title,
-                                          fileUrl: r.fileUrl,
-                                          fileType: r.fileType,
-                                          description: r.description,
-                                        })),
-                                        ...chapterMaterials.map((m) => ({
-                                          id: m.id,
-                                          title: m.title,
-                                          fileUrl: m.fileUrl,
-                                          fileType: m.fileType,
-                                          description: null as string | null,
-                                        })),
-                                      ];
-                                      return (
-                                        <div key={chapter.id} className="rounded-lg border bg-muted/20 p-3 space-y-2">
+                          
+                          {subject.courseUnits.length === 0 ? (
+                            <p className="text-sm text-muted-foreground italic bg-muted/30 p-4 rounded-xl border border-dashed">No units configured for this subject.</p>
+                          ) : (
+                            <Accordion className="rounded-2xl border border-border/40 bg-card overflow-hidden">
+                              {subject.courseUnits.map((unit) => (
+                                <AccordionItem key={unit.id} value={unit.id} className="border-b-0 px-4">
+                                  <AccordionTrigger className="hover:no-underline py-4">
+                                    <span className="flex items-center gap-3 text-left">
+                                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">
+                                        {unit.order}
+                                      </span>
+                                      <span className="font-semibold text-sm">{unit.title}</span>
+                                    </span>
+                                  </AccordionTrigger>
+                                  <AccordionContent className="pb-4">
+                                    <div className="space-y-3 pl-10 pr-2">
+                                      {unit.courseChapters.map((chapter) => (
+                                        <div key={chapter.id} className="rounded-xl border border-border/40 bg-muted/20 p-4 space-y-3">
                                           <div className="flex items-center justify-between">
-                                            <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                                              <Layers className="w-3.5 h-3.5 text-muted-foreground" />
+                                            <h4 className="text-sm font-semibold flex items-center gap-2">
+                                              <Layers className="w-4 h-4 text-muted-foreground" />
                                               {chapter.title}
                                             </h4>
-                                            <span className="text-xs text-muted-foreground">{combined.length} file{combined.length === 1 ? "" : "s"}</span>
+                                            <span className="text-xs font-medium px-2 py-1 bg-background rounded-md text-muted-foreground border">
+                                              {chapter.resources.length} files
+                                            </span>
                                           </div>
-                                          {combined.length === 0 ? (
-                                            <p className="text-xs text-muted-foreground italic">No materials in this chapter yet.</p>
+                                          
+                                          {chapter.resources.length === 0 ? (
+                                            <p className="text-xs text-muted-foreground italic pt-1">No materials uploaded.</p>
                                           ) : (
-                                            <div className="space-y-2">
-                                              {combined.map((item) => (
-                                                <div key={item.id} className="space-y-1">
-                                                  <div className="flex items-center justify-between gap-2">
+                                            <div className="space-y-2 pt-2 border-t border-border/40">
+                                              {chapter.resources.map((item) => (
+                                                <div key={item.id} className="bg-background rounded-lg border border-border/40 p-2">
+                                                  <div className="flex items-center justify-between gap-2 mb-2 px-1">
                                                     <span className="text-xs font-medium truncate">{item.title}</span>
-                                                    <span className="shrink-0 rounded bg-background border px-1.5 py-0.5 text-[11px] font-bold uppercase text-muted-foreground">{item.fileType}</span>
+                                                    <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
+                                                      {item.fileType}
+                                                    </span>
                                                   </div>
                                                   <FilePreview fileUrl={item.fileUrl} fileType={item.fileType} title={item.title} />
                                                 </div>
@@ -286,38 +155,56 @@ export default async function ResourcesPage() {
                                             </div>
                                           )}
                                         </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                              </AccordionContent>
-                            </AccordionItem>
-                          ))}
-                        </Accordion>
-                      </div>
-                    );
-                  })}
-                  {/* General bucket if any */}
-                  {generalResources.length > 0 && (
-                    <div className="space-y-2 pt-2 border-t">
-                      <h4 className="text-sm font-semibold">General (Unchaptered)</h4>
-                      <div className="space-y-2">
-                        {generalResources.map(({ resource }) => (
-                          <div key={resource.id} className="rounded-lg border bg-muted/20 p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">{resource.title}</span>
-                              <span className="text-xs text-muted-foreground">{resource.fileType}</span>
-                            </div>
-                            <FilePreview fileUrl={resource.fileUrl} fileType={resource.fileType} title={resource.title} />
-                          </div>
-                        ))}
-                      </div>
+                                      ))}
+                                    </div>
+                                  </AccordionContent>
+                                </AccordionItem>
+                              ))}
+                            </Accordion>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="list" className="mt-0">
+              <Card className="rounded-3xl border-border/50 shadow-sm">
+                <CardContent className="p-6">
+                  {myResources.length === 0 ? (
+                    <div className="py-12 text-center text-muted-foreground flex flex-col items-center">
+                      <FileText className="w-12 h-12 mb-4 opacity-20" />
+                      <p>You haven't uploaded any files yet.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {myResources.map((resource) => (
+                        <div key={resource.id} className="flex flex-col rounded-xl border border-border/40 bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h4 className="font-semibold text-sm line-clamp-1">{resource.title}</h4>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {resource.subject?.name || "General"} 
+                                {resource.chapter ? ` • ${resource.chapter.title}` : ""}
+                              </p>
+                            </div>
+                            <span className="shrink-0 rounded bg-primary/10 px-2 py-1 text-[10px] font-bold uppercase text-primary">
+                              {resource.fileType}
+                            </span>
+                          </div>
+                          <div className="mt-auto pt-3 border-t border-border/40">
+                            <FilePreview fileUrl={resource.fileUrl} fileType={resource.fileType} title={resource.title} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
