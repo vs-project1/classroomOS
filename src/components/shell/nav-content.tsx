@@ -52,7 +52,7 @@ function BrandHeader({ portalLabel }: { portalLabel: string }) {
   );
 }
 
-function CourseSwitcher({ subjects }: { subjects?: SidebarSubject[] }) {
+function CourseSwitcher({ subjects, onNavigate }: { subjects?: SidebarSubject[]; onNavigate?: () => void }) {
   const [open, setOpen] = React.useState(true);
   return (
     <div data-testid="course-switcher" className="px-3 py-3 border-b border-sidebar-border/40">
@@ -133,7 +133,7 @@ export function NavContent({
       <BrandHeader portalLabel={navigation.portalLabel} />
 
       {/* Collapsible Course Switcher */}
-      {(role === "STUDENT" || role === "CR") && <CourseSwitcher subjects={subjects} />}
+      {(role === "STUDENT" || role === "CR") && <CourseSwitcher subjects={subjects} onNavigate={onNavigate} />}
 
       {/* Sectioned Navigation — grouped: ACADEMICS / Work / Class / Campus */}
       <nav
