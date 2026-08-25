@@ -132,8 +132,8 @@ export function NavContent({
       {/* Brand Header */}
       <BrandHeader portalLabel={navigation.portalLabel} />
 
-      {/* Collapsible Course Switcher — visible for all roles, role filtered via subjects */}
-      <CourseSwitcher subjects={subjects} />
+      {/* Collapsible Course Switcher */}
+      {(role === "STUDENT" || role === "CR") && <CourseSwitcher subjects={subjects} />}
 
       {/* Sectioned Navigation — grouped: ACADEMICS / Work / Class / Campus */}
       <nav

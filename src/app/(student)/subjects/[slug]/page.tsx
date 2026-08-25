@@ -39,7 +39,6 @@ import {
 import { formatTime12h } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { Dropzone } from "@/components/files/dropzone";
 import { FilePreview } from "@/components/files/file-preview";
 
 export const dynamic = "force-dynamic";
@@ -621,7 +620,7 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
         </div>
       )}
 
-      {/* Resources — Units→Chapters accordion + ResourceList + Dropzone + FilePreview (read-only browser) */}
+      {/* Resources — Units→Chapters accordion + ResourceList + FilePreview (read-only browser) */}
       {activeTab === "resources" && (
         <div className="space-y-4">
           <div className="rounded-xl border bg-card p-6 shadow-sm">
@@ -637,12 +636,6 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
               <span className="text-xs text-muted-foreground font-medium">
                 {allMaterials.length} File{allMaterials.length === 1 ? "" : "s"}
               </span>
-            </div>
-
-            {/* Read-only Dropzone hint — same component as teacher side, disabled */}
-            <div className="mb-6">
-              <Dropzone endpoint="courseMaterial" readOnly />
-              <p className="text-xs text-muted-foreground mt-1.5 text-center">Dropzone is read-only for students — faculty uploads appear here.</p>
             </div>
 
             {units.length === 0 && allMaterials.length === 0 ? (

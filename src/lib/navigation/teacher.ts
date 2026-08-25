@@ -1,4 +1,4 @@
-import { CheckCircle, ClipboardCheck, FileText, FolderOpen, GraduationCap, Home, Inbox, Clock } from "lucide-react";
+import { Book, CheckCircle, ClipboardCheck, FileText, FolderOpen, Home, Inbox, Clock } from "lucide-react";
 import type { RoleNavigation } from "./types";
 
 export const teacherNavigation: RoleNavigation = {
@@ -14,7 +14,7 @@ export const teacherNavigation: RoleNavigation = {
     {
       title: "Teaching",
       items: [
-        { label: "My Subjects", href: "/subjects", icon: GraduationCap },
+        { label: "My Subjects", href: "/teacher/subjects", icon: Book },
         { label: "Attendance", href: "/teacher/attendance", icon: CheckCircle },
         { label: "Class History", href: "/teacher/lecture-logs", icon: FileText },
         { label: "Resources", href: "/teacher/resources", icon: FolderOpen },
