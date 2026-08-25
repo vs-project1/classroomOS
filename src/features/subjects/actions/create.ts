@@ -14,12 +14,14 @@ export type SubjectActionState = {
   fieldErrors?: {
     name?: string[];
     code?: string[];
+    semester?: string[];
   };
 };
 
 const SubjectSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
   code: z.string().trim().min(1, "Code is required"),
+  semester: z.string().trim().min(1, "Semester is required"),
   teacherId: z.string().optional().or(z.literal("")),
 });
 
@@ -29,6 +31,7 @@ export async function createSubject(prevState: SubjectActionState, formData: For
   const validatedFields = SubjectSchema.safeParse({
     name: formData.get("name"),
     code: formData.get("code"),
+    semester: formData.get("semester"),
     teacherId: formData.get("teacherId"),
   });
 
@@ -39,7 +42,7 @@ export async function createSubject(prevState: SubjectActionState, formData: For
     };
   }
 
-  const { name, code, teacherId } = validatedFields.data;
+  const { name, code, semester, teacherId } = validatedFields.data;
 
   const baseSlug = slugify(name);
   const existingSubjects = await db.select({ slug: subjects.slug }).from(subjects);
@@ -49,8 +52,9 @@ export async function createSubject(prevState: SubjectActionState, formData: For
     await db.insert(subjects).values({
       id: crypto.randomUUID(),
       name,
-      slug,
       code,
+      semester,
+      slug,
       teacherId: teacherId || null,
     });
 

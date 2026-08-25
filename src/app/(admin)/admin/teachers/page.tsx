@@ -1,19 +1,46 @@
 import { db } from "@/db";
 import { teachers } from "@/db/schema";
-import { asc } from "drizzle-orm";
+import { asc, like, or, eq, and } from "drizzle-orm";
 import { TeacherForm } from "./teacher-form";
 import { DeleteTeacherButton } from "./delete-button";
 import { EditTeacherDialog } from "./edit-teacher-dialog";
 import { Users, GraduationCap, Mail, Phone, Calendar } from "lucide-react";
 import { getPermissions } from "@/lib/auth";
+import { SearchFilterBar } from "@/components/admin/search-filter-bar";
 
 export const dynamic = "force-dynamic";
 
-export default async function TeachersPage() {
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function TeachersPage({ searchParams }: Props) {
   const permissions = await getPermissions();
-  const allTeachers = await db.select().from(teachers).orderBy(asc(teachers.name));
+  const resolvedParams = await searchParams;
   
-  const hasTeachers = allTeachers.length > 0;
+  const search = typeof resolvedParams.search === "string" ? resolvedParams.search : "";
+  const semester = typeof resolvedParams.semester === "string" ? resolvedParams.semester : "";
+
+  const conditions = [];
+  if (search) {
+    conditions.push(
+      or(
+        like(teachers.name, `%${search}%`),
+        like(teachers.email, `%${search}%`)
+      )
+    );
+  }
+  if (semester) {
+    conditions.push(like(teachers.semesters, `%${semester}%`));
+  }
+
+  const allTeachers = await db
+    .select()
+    .from(teachers)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(asc(teachers.name));
+  
+  const hasTeachers = allTeachers.length > 0 || search !== "" || semester !== "";
 
   return (
     <div className="flex-1 space-y-8 max-w-6xl mx-auto w-full">
@@ -32,6 +59,8 @@ export default async function TeachersPage() {
           )}
         </div>
       </div>
+      
+      {hasTeachers && <SearchFilterBar />}
 
       {!hasTeachers ? (
         <div className="flex flex-col items-center justify-center h-[50vh] space-y-4 max-w-md mx-auto text-center">
@@ -45,8 +74,13 @@ export default async function TeachersPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {allTeachers.map((teacher) => (
-            <div key={teacher.id} className="group flex flex-col justify-between rounded-xl border bg-card hover:bg-muted/10 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden relative">
+          {allTeachers.length === 0 ? (
+            <div className="col-span-full py-12 text-center text-muted-foreground">
+              No teachers found matching your search criteria.
+            </div>
+          ) : (
+            allTeachers.map((teacher) => (
+              <div key={teacher.id} className="group flex flex-col justify-between rounded-xl border bg-card hover:bg-muted/10 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden relative">
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
@@ -98,8 +132,9 @@ export default async function TeachersPage() {
                   ))
                 )}
               </div>
-            </div>
-          ))}
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

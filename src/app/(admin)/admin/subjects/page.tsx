@@ -2,16 +2,24 @@ import { db } from "@/db";
 import { subjects, teachers } from "@/db/schema";
 import Link from "next/link";
 import { SubjectForm } from "./subject-form";
-import { asc } from "drizzle-orm";
-import { BookOpen, Search, ArrowRight, LibraryBig, BookCopy, Fingerprint } from "lucide-react";
+import { asc, eq } from "drizzle-orm";
+import { BookOpen, Search, ArrowRight, LibraryBig, BookCopy, Fingerprint, ArrowLeft } from "lucide-react";
 import { getPermissions } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export default async function SubjectsPage() {
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function SubjectsPage({ searchParams }: Props) {
   const permissions = await getPermissions();
+  const resolvedParams = await searchParams;
+  const semester = typeof resolvedParams.semester === "string" ? resolvedParams.semester : null;
+
   const [allSubjects, allTeachers] = await Promise.all([
     db.query.subjects.findMany({
+      where: semester ? eq(subjects.semester, semester) : undefined,
       orderBy: [asc(subjects.name)],
       with: { teacher: true }
     }),
@@ -19,20 +27,32 @@ export default async function SubjectsPage() {
   ]);
 
   const hasSubjects = allSubjects.length > 0;
+  const SEMESTERS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
 
   return (
     <div className="flex-1 space-y-8 max-w-6xl mx-auto w-full">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-border/40">
         <div className="flex flex-col gap-1.5">
-          <h2 className="text-3xl font-bold font-fira-sans tracking-tight text-foreground">Subjects</h2>
+          <div className="flex items-center gap-3">
+            {semester && (
+              <Link href="/admin/subjects" className="text-muted-foreground hover:text-foreground transition-colors">
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+            )}
+            <h2 className="text-3xl font-bold font-fira-sans tracking-tight text-foreground">
+              {semester ? `Semester ${semester} Subjects` : "Subjects"}
+            </h2>
+          </div>
           <p className="text-muted-foreground text-sm max-w-2xl">
-            Manage your enrolled BCA course units, credit distribution, syllabus breakdowns, and faculty contacts.
+            {semester 
+              ? `Manage your enrolled BCA course units, credit distribution, and faculty contacts for Semester ${semester}.`
+              : "Select a semester to view and manage its subjects and course units."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {hasSubjects && (
-            <button className="text-xs font-medium px-3 py-1.5 bg-muted text-muted-foreground hover:bg-muted/80 rounded-md transition-colors flex items-center gap-1" title="Total registered academic workload across theory modules and mandatory lab courses for Semester 4.">
-              <LibraryBig className="w-3.5 h-3.5" /> 22 Credit Hours
+          {hasSubjects && semester && (
+            <button className="text-xs font-medium px-3 py-1.5 bg-muted text-muted-foreground hover:bg-muted/80 rounded-md transition-colors flex items-center gap-1">
+              <LibraryBig className="w-3.5 h-3.5" /> {allSubjects.length} Subjects
             </button>
           )}
           {permissions.canManageSubjects && (
@@ -43,71 +63,76 @@ export default async function SubjectsPage() {
         </div>
       </div>
 
-      {!hasSubjects ? (
+      {!semester ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {SEMESTERS.map((sem) => (
+            <Link
+              key={sem}
+              href={`/admin/subjects?semester=${sem}`}
+              className="group flex flex-col justify-between rounded-xl border bg-card hover:bg-muted/10 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden relative p-6 h-32"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold font-fira-sans text-foreground">Semester {sem}</h3>
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 text-primary" />
+                </div>
+              </div>
+              <div className="text-sm text-primary font-medium flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                View Subjects <ArrowRight className="w-4 h-4" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : !hasSubjects ? (
         <div className="flex flex-col items-center justify-center h-[50vh] space-y-4 max-w-md mx-auto text-center">
           <div className="h-16 w-16 bg-muted/30 rounded-full flex items-center justify-center mb-4">
             <BookCopy className="w-8 h-8 text-muted-foreground" />
           </div>
-          <h2 className="text-2xl font-semibold font-fira-sans tracking-tight">No Subjects Assigned</h2>
+          <h2 className="text-2xl font-semibold font-fira-sans tracking-tight">No Subjects Found</h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            You are not currently registered in any course modules for this term. Select your current semester core subjects and practical lab electives to launch your workspace.
+            No academic modules have been registered for Semester {semester}. Create a new subject to populate this term's syllabus.
           </p>
-          <div className="flex gap-3 mt-6">
-            <button className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors shadow-sm">
-              Browse Course Catalog
-            </button>
-            <button className="px-4 py-2 bg-secondary text-secondary-foreground text-sm font-medium rounded-md hover:bg-secondary/80 transition-colors">
-              Contact Academic Advisor
-            </button>
-          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {allSubjects.map((subject) => {
-            const hasLab = subject.name.toLowerCase().includes('lab') || subject.name.toLowerCase().includes('practical');
-            
-            return (
-              <div key={subject.id} className="group flex flex-col justify-between rounded-xl border bg-card hover:bg-muted/10 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden relative">
-                {/* Accent border top */}
-                <div className="h-1 w-full bg-primary/20 group-hover:bg-primary transition-colors absolute top-0 left-0" />
-                
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="font-fira-code text-xs font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded">
+          {allSubjects.map((subject) => (
+            <Link key={subject.id} href={`/admin/subjects/${subject.slug}`} className="group flex flex-col justify-between rounded-xl border bg-card hover:bg-muted/10 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden relative">
+              <div className="p-6 pb-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <BookOpen className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-md border border-border">
                       {subject.code}
                     </span>
-                    {hasLab && (
-                      <span className="text-xs uppercase tracking-wider font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20" title="This course features mandatory weekly hands-on programming assignments and practical viva evaluations.">
-                        Lab Included
-                      </span>
-                    )}
-                  </div>
-                  
-                  <Link href={`/admin/subjects/${subject.id}`} className="block mb-2 cursor-pointer">
-                    <h3 className="text-lg font-bold font-fira-sans text-foreground group-hover:text-primary transition-colors leading-tight">
-                      {subject.name}
-                    </h3>
-                  </Link>
-                  
-                  <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground font-medium">
-                    <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center shrink-0 border border-secondary-foreground/10">
-                      <span className="text-xs font-bold text-secondary-foreground">{subject.teacher?.name?.[0] || "?"}</span>
-                    </div>
-                    <span className="truncate">{subject.teacher?.name || "Faculty Unassigned"}</span>
                   </div>
                 </div>
                 
-                <div className="px-6 py-4 border-t border-border/50 bg-muted/5 flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5" title="View module-by-module topic breakdown, prescribed textbooks, and internal evaluation weightages.">
-                    <Fingerprint className="w-3.5 h-3.5" /> Inspect Syllabus Breakdown
+                <h3 className="text-xl font-bold text-foreground mb-2 leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                  {subject.name}
+                </h3>
+              </div>
+
+              <div className="px-6 py-4 bg-muted/30 border-t border-border/40 mt-auto flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-background border flex items-center justify-center shadow-sm">
+                    {subject.teacher ? (
+                      <span className="text-[10px] font-bold text-primary">{subject.teacher.name[0]}</span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-muted-foreground">?</span>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium text-muted-foreground truncate max-w-[120px]">
+                    {subject.teacher ? subject.teacher.name.split(' ')[0] : "Unassigned"}
                   </span>
-                  <Link href={`/admin/subjects/${subject.id}`} className="w-8 h-8 rounded-full bg-background border flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:border-primary group-hover:text-primary-foreground transition-all duration-300 cursor-pointer shadow-sm">
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
+                </div>
+                <div className="flex items-center text-primary text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity -translate-x-2 group-hover:translate-x-0 duration-300">
+                  Manage <ArrowRight className="ml-1 w-4 h-4" />
                 </div>
               </div>
-            );
-          })}
+            </Link>
+          ))}
         </div>
       )}
     </div>

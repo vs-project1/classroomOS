@@ -24,6 +24,7 @@ export const subjects = sqliteTable("subjects", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   code: text("code").notNull().unique(),
+  semester: text("semester").notNull().default("I"), // Added semester field for filtering
   teacherId: text("teacher_id")
     .references(() => teachers.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp" })

@@ -1,0 +1,1 @@
+ALTER TABLE `subjects` ADD `semester` text DEFAULT 'I' NOT NULL;

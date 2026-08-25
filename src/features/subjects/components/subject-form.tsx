@@ -64,6 +64,28 @@ export function SubjectForm({ teachers }: { teachers: { id: string; name: string
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="semester">Semester</Label>
+            <select
+              id="semester"
+              name="semester"
+              defaultValue="I"
+              className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="I">Semester I</option>
+              <option value="II">Semester II</option>
+              <option value="III">Semester III</option>
+              <option value="IV">Semester IV</option>
+              <option value="V">Semester V</option>
+              <option value="VI">Semester VI</option>
+              <option value="VII">Semester VII</option>
+              <option value="VIII">Semester VIII</option>
+            </select>
+            {state.fieldErrors?.semester && (
+              <p className="text-sm font-medium text-destructive">{state.fieldErrors.semester[0]}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="teacherId">Assigned Teacher</Label>
             <select
               id="teacherId"

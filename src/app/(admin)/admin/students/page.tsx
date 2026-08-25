@@ -2,17 +2,45 @@ import { db } from "@/db";
 import { students } from "@/db/schema";
 import { StudentForm } from "./student-form";
 import { EditStudentDialog } from "./edit-student-dialog";
-import { asc } from "drizzle-orm";
+import { asc, like, or, eq, and } from "drizzle-orm";
 import { Users, GraduationCap, Search, FileDown } from "lucide-react";
 import { getPermissions } from "@/lib/auth";
+import { SearchFilterBar } from "@/components/admin/search-filter-bar";
 
 export const dynamic = "force-dynamic";
 
-export default async function StudentsPage() {
-  const permissions = await getPermissions();
-  const allStudents = await db.select().from(students).orderBy(asc(students.rollNumber));
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
 
-  const hasStudents = allStudents.length > 0;
+export default async function StudentsPage({ searchParams }: Props) {
+  const permissions = await getPermissions();
+  const resolvedParams = await searchParams;
+  
+  const search = typeof resolvedParams.search === "string" ? resolvedParams.search : "";
+  const semester = typeof resolvedParams.semester === "string" ? resolvedParams.semester : "";
+
+  const conditions = [];
+  if (search) {
+    conditions.push(
+      or(
+        like(students.name, `%${search}%`),
+        like(students.email, `%${search}%`),
+        like(students.rollNumber, `%${search}%`)
+      )
+    );
+  }
+  if (semester) {
+    conditions.push(eq(students.semester, semester));
+  }
+
+  const allStudents = await db
+    .select()
+    .from(students)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(asc(students.rollNumber));
+
+  const hasStudents = allStudents.length > 0 || search !== "" || semester !== "";
 
   return (
     <div className="flex-1 space-y-8 max-w-6xl mx-auto w-full">
@@ -36,6 +64,8 @@ export default async function StudentsPage() {
           )}
         </div>
       </div>
+      
+      {hasStudents && <SearchFilterBar />}
 
       {!hasStudents ? (
         <div className="flex flex-col items-center justify-center h-[50vh] space-y-4 max-w-md mx-auto text-center">
@@ -68,8 +98,15 @@ export default async function StudentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
-                {allStudents.map((student) => (
-                  <tr key={student.id} className="hover:bg-muted/30 transition-colors group">
+                {allStudents.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                      No students found matching your search criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  allStudents.map((student) => (
+                    <tr key={student.id} className="hover:bg-muted/30 transition-colors group">
                     <td className="px-6 py-4 align-top">
                       <span className="font-fira-code text-xs font-bold text-muted-foreground bg-muted/50 px-2 py-1 rounded">
                         {student.rollNumber}
@@ -113,7 +150,8 @@ export default async function StudentsPage() {
                       )}
                     </td>
                   </tr>
-                ))}
+                ))
+                )}
               </tbody>
             </table>
           </div>

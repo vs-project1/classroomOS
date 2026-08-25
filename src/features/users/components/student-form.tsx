@@ -86,11 +86,6 @@ export function StudentForm() {
               >
                 <option value="" disabled>Select</option>
                 <option value="BCA">BCA</option>
-                <option value="BIM">BIM</option>
-                <option value="BBM">BBM</option>
-                <option value="BBA">BBA</option>
-                <option value="BBS">BBS</option>
-                <option value="BSc.CSIT">BSc.CSIT</option>
               </select>
               {state.fieldErrors?.faculty && (
                 <p className="text-xs font-medium text-destructive">{state.fieldErrors.faculty[0]}</p>
