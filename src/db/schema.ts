@@ -914,3 +914,23 @@ export type NewFileRecord = typeof files.$inferInsert;
 
 export type SubjectGradeWeight = typeof subjectGradeWeights.$inferSelect;
 export type NewSubjectGradeWeight = typeof subjectGradeWeights.$inferInsert;
+
+export const dailySessions = sqliteTable("daily_sessions", {
+  id: text("id").primaryKey(),
+  date: integer("date", { mode: "timestamp" }).notNull(),
+  semester: text("semester").notNull(),
+  markedBy: text("marked_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  unique("unq_daily_session_date_sem").on(table.date, table.semester),
+]);
+
+export const dailyAttendance = sqliteTable("daily_attendance", {
+  id: text("id").primaryKey(),
+  dailySessionId: text("daily_session_id").notNull().references(() => dailySessions.id, { onDelete: "cascade" }),
+  studentId: text("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
+  status: text("status").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  unique("unq_daily_attendance_session_student").on(table.dailySessionId, table.studentId),
+]);
