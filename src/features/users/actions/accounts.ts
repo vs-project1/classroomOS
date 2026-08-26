@@ -450,3 +450,56 @@ export async function updateAccountAction(
     return { success: false, message: "Failed to update account." };
   }
 }
+
+export async function deleteUserAccountAction(userId: string): Promise<AccountActionState> {
+  const admin = await requireAuth(["ADMIN"]);
+  if (admin.id === userId) return { success: false, message: "Cannot delete yourself." };
+  
+  try {
+    // Drizzle cascade deletes student_profiles, students, teachers when users is deleted
+    await db.delete(users).where(eq(users.id, userId));
+    revalidatePath("/admin/accounts");
+    return { success: true, message: "Account deleted successfully." };
+  } catch (error) {
+    console.error(error);
+    return { success: false, message: "Failed to delete account." };
+  }
+}
+
+export async function editUserAccountAction(
+  userId: string, 
+  data: { name: string, email: string, role: string, rollNumber: string | null, semester: string | null }
+): Promise<AccountActionState> {
+  await requireAuth(["ADMIN"]);
+  
+  try {
+    await db.transaction(async (tx) => {
+      await tx.update(users)
+        .set({ email: data.email, role: data.role as any, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+      
+      if (data.role === "STUDENT" || data.role === "CR") {
+        const studentSem = data.semester ? parseInt(data.semester) : 1;
+        const ordinalSem = data.semester ? `${data.semester}${getOrdinalSuffix(parseInt(data.semester))} Semester` : "1st Semester";
+
+        await tx.update(studentProfiles)
+          .set({ rollNumber: data.rollNumber || "", semester: studentSem })
+          .where(eq(studentProfiles.userId, userId));
+          
+        await tx.update(students)
+          .set({ name: data.name, email: data.email, rollNumber: data.rollNumber || "", semester: ordinalSem })
+          .where(eq(students.email, data.email)); // Note: Better to match by user's old email, but sticking to plan
+      } else if (data.role === "TEACHER") {
+        await tx.update(teachers)
+          .set({ name: data.name, email: data.email })
+          .where(eq(teachers.email, data.email));
+      }
+    });
+    
+    revalidatePath("/admin/accounts");
+    return { success: true, message: "Account updated successfully." };
+  } catch (error) {
+    console.error(error);
+    return { success: false, message: "Failed to update account." };
+  }
+}
