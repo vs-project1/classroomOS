@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, FormEvent } from "react";
 import {
   toggleAccountStatusAction,
   resetPasswordAction,
+  editUserAccountAction,
+  deleteUserAccountAction,
   AccountActionState,
 } from "@/app/actions/accounts";
 import { CreateAccountDialog } from "@/components/admin/create-account-dialog";
@@ -30,8 +32,8 @@ import {
   Copy,
   Check,
   AlertCircle,
-  Loader2,
-  RefreshCw,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { KPISummaryCards, KPICardsProps } from "./kpi-summary-cards";
 
@@ -70,6 +72,7 @@ export function AccountsClientConsole({
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [semesterFilter, setSemesterFilter] = useState("ALL");
   const [isPending, startTransition] = useTransition();
   const [actionMessage, setActionMessage] = useState<{
     type: "success" | "error";
@@ -81,11 +84,28 @@ export function AccountsClientConsole({
   const [resetCredentials, setResetCredentials] = useState<NonNullable<AccountActionState["credentials"]> | null>(null);
   const [copiedReset, setCopiedReset] = useState(false);
 
+  // Edit Modal state
+  const [editingUser, setEditingUser] = useState<EnrichedAccount | null>(null);
+  const [isConfirmingEdit, setIsConfirmingEdit] = useState(false);
+  const [editFormData, setEditFormData] = useState({ name: "", email: "", role: "", rollNumber: "", semester: "" });
+
+  // Delete Modal state
+  const [deletingUser, setDeletingUser] = useState<EnrichedAccount | null>(null);
+
+  const SEMESTERS = ["1", "2", "3", "4", "5", "6", "7", "8"];
+
   // Filter accounts
   const filteredAccounts = accounts.filter((acc) => {
-    if (roleFilter !== "ALL" && acc.role !== roleFilter) return false;
+    if (roleFilter !== "ALL") {
+      if (roleFilter === "STUDENT" && acc.role !== "STUDENT" && acc.role !== "CR") return false;
+      if (roleFilter !== "STUDENT" && acc.role !== roleFilter) return false;
+    }
     if (statusFilter === "ACTIVE" && !acc.isActive) return false;
     if (statusFilter === "DEACTIVATED" && acc.isActive) return false;
+
+    if (semesterFilter !== "ALL") {
+      if (acc.semester?.toString() !== semesterFilter) return false;
+    }
 
     if (search.trim()) {
       const q = search.toLowerCase().trim();
@@ -131,6 +151,51 @@ export function AccountsClientConsole({
     } catch (err) {
       console.error("Copy failed:", err);
     }
+  };
+
+  const handleOpenEdit = (user: EnrichedAccount) => {
+    setEditingUser(user);
+    setEditFormData({
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      rollNumber: user.rollNumber || "",
+      semester: user.semester?.toString() || "",
+    });
+  };
+
+  const handleEditSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    setIsConfirmingEdit(true);
+  };
+
+  const confirmEdit = () => {
+    if (!editingUser) return;
+    startTransition(async () => {
+      const res = await editUserAccountAction(editingUser.id, editFormData);
+      setIsConfirmingEdit(false);
+      setEditingUser(null);
+      if (res.success) {
+        setActionMessage({ type: "success", text: res.message || "Account updated." });
+      } else {
+        setActionMessage({ type: "error", text: res.message || "Update failed." });
+      }
+      setTimeout(() => setActionMessage(null), 4000);
+    });
+  };
+
+  const confirmDelete = () => {
+    if (!deletingUser) return;
+    startTransition(async () => {
+      const res = await deleteUserAccountAction(deletingUser.id);
+      setDeletingUser(null);
+      if (res.success) {
+        setActionMessage({ type: "success", text: res.message || "Account deleted." });
+      } else {
+        setActionMessage({ type: "error", text: res.message || "Delete failed." });
+      }
+      setTimeout(() => setActionMessage(null), 4000);
+    });
   };
 
   const getRoleBadge = (role: EnrichedAccount["role"]) => {
@@ -215,6 +280,18 @@ export function AccountsClientConsole({
 
         {/* Filters */}
         <div className="flex w-full sm:w-auto items-center gap-2">
+          {/* Semester Filter */}
+          <select
+            name="semesterFilter"
+            aria-label="Filter by Semester"
+            value={semesterFilter}
+            onChange={(e) => setSemesterFilter(e.target.value)}
+            className="h-10 px-3 py-2 text-sm rounded-lg border border-input bg-background text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value="ALL">All Semesters</option>
+            {SEMESTERS.map(s => <option key={s} value={s}>Semester {s}</option>)}
+          </select>
+
           {/* Role Filter */}
           <select
             name="roleFilter"
@@ -224,8 +301,7 @@ export function AccountsClientConsole({
             className="h-10 px-3 py-2 text-sm rounded-lg border border-input bg-background text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <option value="ALL">All Roles</option>
-            <option value="STUDENT">Students</option>
-            <option value="CR">Class Representatives</option>
+            <option value="STUDENT">Students (incl. CR)</option>
             <option value="TEACHER">Teachers</option>
             <option value="ADMIN">Administrators</option>
           </select>
@@ -251,10 +327,11 @@ export function AccountsClientConsole({
           <table className="w-full text-sm text-left">
             <thead className="text-xs uppercase bg-muted/50 border-b border-border text-muted-foreground font-semibold">
               <tr>
-                <th scope="col" className="px-4 py-3.5">User Identity</th>
+                <th scope="col" className="px-4 py-3.5">Name</th>
+                <th scope="col" className="px-4 py-3.5">Email</th>
                 <th scope="col" className="px-4 py-3.5">Role</th>
-                <th scope="col" className="px-4 py-3.5">Academic Metadata</th>
-                <th scope="col" className="px-4 py-3.5">Security & Quarantine</th>
+                <th scope="col" className="px-4 py-3.5">Roll Number</th>
+                <th scope="col" className="px-4 py-3.5">Semester</th>
                 <th scope="col" className="px-4 py-3.5">Status</th>
                 <th scope="col" className="px-4 py-3.5 text-right">Actions</th>
               </tr>
@@ -262,7 +339,7 @@ export function AccountsClientConsole({
             <tbody className="divide-y divide-border">
               {filteredAccounts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                     No accounts matching the search and filter criteria.
                   </td>
                 </tr>
@@ -271,22 +348,21 @@ export function AccountsClientConsole({
                   const isSelf = account.id === currentUserId;
                   return (
                     <tr key={account.id} className="hover:bg-muted/30 transition-colors">
-                      {/* Identity */}
+                      {/* Name */}
                       <td className="px-4 py-3.5">
-                        <div>
-                          <div className="font-semibold text-foreground flex items-center gap-2">
-                            {account.name}
-                            {isSelf && (
-                              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-md font-bold">
-                                You
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground">{account.email}</div>
-                          {account.phone && (
-                            <div className="text-xs text-muted-foreground font-medium">{account.phone}</div>
+                        <div className="font-semibold text-foreground flex items-center gap-2">
+                          {account.name}
+                          {isSelf && (
+                            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-md font-bold">
+                              You
+                            </span>
                           )}
                         </div>
+                      </td>
+
+                      {/* Email */}
+                      <td className="px-4 py-3.5">
+                        <div className="text-xs text-muted-foreground">{account.email}</div>
                       </td>
 
                       {/* Role */}
@@ -294,41 +370,18 @@ export function AccountsClientConsole({
                         {getRoleBadge(account.role)}
                       </td>
 
-                      {/* Academic Metadata */}
+                      {/* Roll Number */}
                       <td className="px-4 py-3.5">
-                        {account.role === "STUDENT" || account.role === "CR" ? (
-                          <div className="text-xs space-y-0.5">
-                            <span className="font-mono font-medium text-foreground block">
-                              {account.rollNumber || "No Roll #"}
-                            </span>
-                            <span className="text-muted-foreground">
-                              {account.faculty || "BCA"} • Sem {account.semester || "4"} {account.section ? `(${account.section})` : ""}
-                            </span>
-                          </div>
-                        ) : account.role === "TEACHER" ? (
-                          <div className="text-xs text-muted-foreground">
-                            Faculty Department
-                          </div>
-                        ) : (
-                          <div className="text-xs text-muted-foreground">
-                            Full Console Access
-                          </div>
-                        )}
+                        <span className="font-mono font-medium text-foreground">
+                          {account.rollNumber || "-"}
+                        </span>
                       </td>
-
-                      {/* Quarantine / Security */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        {account.mustChangePassword ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                            <ShieldAlert className="w-3.5 h-3.5" />
-                            Quarantined
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                            <Check className="w-3.5 h-3.5" />
-                            Verified
-                          </span>
-                        )}
+                      
+                      {/* Semester */}
+                      <td className="px-4 py-3.5">
+                        <span className="text-muted-foreground">
+                          {account.semester ? `Sem ${account.semester}` : "-"}
+                        </span>
                       </td>
 
                       {/* Status */}
@@ -348,20 +401,28 @@ export function AccountsClientConsole({
 
                       {/* Actions */}
                       <td className="px-4 py-3.5 whitespace-nowrap text-right space-x-1">
-                        {/* Reset Password */}
                         <Button
                           variant="ghost"
                           size="sm"
                           disabled={isPending}
                           onClick={() => handleResetPassword(account)}
                           className="h-8 px-2.5 text-xs gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
-                          title="Reset temporary password"
+                          title="Reset Password"
                         >
-                          <KeyRound className="w-3.5 h-3.5 text-primary" />
-                          Reset
+                          <KeyRound className="w-3.5 h-3.5" />
+                        </Button>
+                        
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isPending}
+                          onClick={() => handleOpenEdit(account)}
+                          className="h-8 px-2.5 text-xs gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                          title="Edit Account"
+                        >
+                          <Pencil className="w-3.5 h-3.5 text-sky-500" />
                         </Button>
 
-                        {/* Toggle Active Status */}
                         {!isSelf && (
                           <Button
                             variant="ghost"
@@ -370,22 +431,25 @@ export function AccountsClientConsole({
                             onClick={() => handleToggleStatus(account.id, account.email)}
                             className={`h-8 px-2.5 text-xs gap-1 cursor-pointer ${
                               account.isActive
-                                ? "text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                                : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                                ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                             }`}
-                            title={account.isActive ? "Deactivate Account" : "Activate Account"}
+                            title={account.isActive ? "Deactivate" : "Activate"}
                           >
-                            {account.isActive ? (
-                              <>
-                                <UserX className="w-3.5 h-3.5" />
-                                Deactivate
-                              </>
-                            ) : (
-                              <>
-                                <UserCheck className="w-3.5 h-3.5" />
-                                Activate
-                              </>
-                            )}
+                            {account.isActive ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+                          </Button>
+                        )}
+                        
+                        {!isSelf && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={isPending}
+                            onClick={() => setDeletingUser(account)}
+                            className="h-8 px-2.5 text-xs gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
+                            title="Delete Account"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         )}
                       </td>
@@ -397,6 +461,102 @@ export function AccountsClientConsole({
           </table>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      <Dialog open={Boolean(editingUser)} onOpenChange={(open) => {
+        if (!open) {
+          setEditingUser(null);
+          setIsConfirmingEdit(false);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User Account</DialogTitle>
+            <DialogDescription>
+              Update user details and access roles.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {!isConfirmingEdit ? (
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Name</label>
+                <Input required value={editFormData.name} onChange={e => setEditFormData({...editFormData, name: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Email</label>
+                <Input type="email" required value={editFormData.email} onChange={e => setEditFormData({...editFormData, email: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Role</label>
+                <select 
+                  required
+                  value={editFormData.role} 
+                  onChange={e => setEditFormData({...editFormData, role: e.target.value})}
+                  className="w-full h-10 px-3 py-2 text-sm rounded-lg border border-input bg-background"
+                >
+                  <option value="STUDENT">Student</option>
+                  <option value="CR">Class Representative</option>
+                  <option value="TEACHER">Teacher</option>
+                  <option value="ADMIN">Administrator</option>
+                </select>
+              </div>
+              {(editFormData.role === "STUDENT" || editFormData.role === "CR") && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Roll Number</label>
+                    <Input required value={editFormData.rollNumber} onChange={e => setEditFormData({...editFormData, rollNumber: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Semester</label>
+                    <select 
+                      required
+                      value={editFormData.semester} 
+                      onChange={e => setEditFormData({...editFormData, semester: e.target.value})}
+                      className="w-full h-10 px-3 py-2 text-sm rounded-lg border border-input bg-background"
+                    >
+                      <option value="">Select</option>
+                      {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end pt-4">
+                <Button type="submit">Save Changes</Button>
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 rounded-lg text-sm">
+                <strong>Confirm Changes</strong>
+                <p className="mt-1">Are you sure you want to save these changes to {editFormData.email}?</p>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setIsConfirmingEdit(false)}>Back</Button>
+                <Button onClick={confirmEdit} disabled={isPending}>Confirm Update</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={Boolean(deletingUser)} onOpenChange={(open) => !open && setDeletingUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-rose-600 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" /> Delete Account
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the account for <strong>{deletingUser?.email}</strong> and remove all associated data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setDeletingUser(null)} disabled={isPending}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={isPending}>Delete Account</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Reset Password Result Dialog */}
       <Dialog
