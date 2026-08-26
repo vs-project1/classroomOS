@@ -1,30 +1,52 @@
 import { db } from "@/db";
 import { weeklyRoutine } from "@/db/schema";
-import { asc } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
-import { Plus, Edit, CalendarDays } from "lucide-react";
-import { DeleteRoutineButton } from "./delete-button";
-import { getPermissions } from "@/lib/auth";
+import { CalendarDays, Edit, Plus } from "lucide-react";
+import { requireAuth, getPermissions } from "@/lib/auth";
 import { TimelineRiver, type TimelineRiverSlot } from "@/components/timetable/timeline-river";
+import { buttonVariants } from "@/components/ui/button";
+import { DeleteRoutineButton } from "@/app/(student)/routine/delete-button";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-export default async function RoutinePage() {
-  const [permissions, allRoutine] = await Promise.all([
-    getPermissions(),
-    db.query.weeklyRoutine.findMany({
+export default async function TeacherRoutinePage() {
+  const user = await requireAuth(["TEACHER", "ADMIN"]);
+  const permissions = await getPermissions();
+
+  if (!user.teacherId) {
+    return (
+      <div className="flex-1 space-y-6 max-w-5xl">
+        <h1 className="text-3xl md:text-4xl font-bold font-fira-sans tracking-tight text-foreground">My Routine</h1>
+        <div className="p-5 bg-destructive/10 text-destructive-foreground rounded-2xl border border-destructive/20 text-sm font-medium">
+          Your account is not linked to a teacher profile. Please contact an administrator.
+        </div>
+      </div>
+    );
+  }
+
+  // Find all subjects this teacher teaches
+  const teacherSubjects = await db.query.subjects.findMany({
+    where: (subjects, { eq }) => eq(subjects.teacherId, user.teacherId!),
+  });
+
+  const subjectIds = teacherSubjects.map(s => s.id);
+
+  let allRoutine: any[] = [];
+  if (subjectIds.length > 0) {
+    allRoutine = await db.query.weeklyRoutine.findMany({
+      where: inArray(weeklyRoutine.subjectId, subjectIds),
       orderBy: [asc(weeklyRoutine.dayOfWeek), asc(weeklyRoutine.startTime)],
       with: {
         subject: {
           with: { teacher: true }
         }
       }
-    })
-  ]);
+    });
+  }
 
   const hasRoutine = allRoutine.length > 0;
 
@@ -49,39 +71,25 @@ export default async function RoutinePage() {
   const todayIndex = new Date(nptY, nptM, nptD).getDay();
 
   return (
-    <div className="flex-1 max-w-6xl mx-auto w-full space-y-8">
+    <div className="flex-1 space-y-8 max-w-6xl mx-auto w-full">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-border/40">
         <div className="flex flex-col gap-1.5">
-          <h2 className="text-2xl md:text-3xl font-bold font-fira-sans tracking-tight text-foreground">Weekly Routine</h2>
+          <h2 className="text-3xl font-bold font-fira-sans tracking-tight text-foreground">My Weekly Routine</h2>
           <p className="text-muted-foreground text-sm max-w-2xl">
-            View your scheduled theory lectures, laboratory practicals, and module timings.
+            Your personalized teaching schedule across all assigned semesters.
           </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {permissions.canManageRoutine && (
-            <Link className={`text-xs font-semibold px-4 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-1 shadow-sm cursor-pointer`} href="/routine/new">
-              <Plus className="h-3.5 w-3.5" /> Add Slot
-            </Link>
-          )}
         </div>
       </div>
 
       {!hasRoutine ? (
-        <div className="flex flex-col items-center justify-center py-16 space-y-4 max-w-md mx-auto text-center border rounded-xl border-dashed bg-muted/5">
-          <div className="h-16 w-16 bg-muted/30 rounded-full flex items-center justify-center mb-2">
+        <div className="flex flex-col items-center justify-center h-[50vh] space-y-4 max-w-md mx-auto text-center">
+          <div className="h-16 w-16 bg-muted/30 rounded-full flex items-center justify-center mb-4">
             <CalendarDays className="w-8 h-8 text-muted-foreground" />
           </div>
-          <h3 className="text-xl font-semibold font-fira-sans tracking-tight">No Classes Scheduled</h3>
+          <h2 className="text-2xl font-semibold font-fira-sans tracking-tight">No Classes Scheduled</h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            There are no classes scheduled in the weekly routine. New time slots added by faculty or CRs will appear here automatically.
+            You don't have any classes scheduled in the system yet.
           </p>
-          {permissions.canManageRoutine && (
-            <div className="pt-2">
-              <Link href="/routine/new" className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm inline-flex items-center gap-1.5 cursor-pointer">
-                <Plus className="w-4 h-4" /> Add First Slot
-              </Link>
-            </div>
-          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -95,9 +103,7 @@ export default async function RoutinePage() {
                 else if (nptTime >= routine.startTime && nptTime <= routine.endTime) status = "ongoing";
                 else status = "upcoming";
               } else {
-                // Past days desaturate when compared to today index
                 const dayIdx = DAYS.indexOf(group.dayName);
-                // If weekly view and day is before today in week order, mark completed (visual hint)
                 if (dayIdx < todayIndex) status = "completed";
               }
               return {
@@ -107,9 +113,9 @@ export default async function RoutinePage() {
                 startTime: routine.startTime,
                 endTime: routine.endTime,
                 room: routine.room,
-                teacherName: routine.subject.teacher?.name || routine.teacherName,
-                notes: routine.notes,
+                teacherName: routine.subject.teacher?.name,
                 status,
+                notes: `Semester ${routine.subject.semester}`,
               };
             });
 

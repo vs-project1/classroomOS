@@ -5,6 +5,7 @@ import Link from "next/link";
 import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
 import { formatTime12h } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 import {
   CalendarDays,
   ClipboardList,
@@ -35,26 +36,14 @@ export default async function CRDashboard() {
 
   // Nepal Time
   const now = new Date();
-  const nptDateString = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Kathmandu",
-    dateStyle: "short",
-  }).format(now);
+  const nptDateString = formatNepaliDate(now);
   const nptDate = new Date(nptDateString);
   const dayOfWeek = nptDate.getDay();
-  const nptTime = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kathmandu",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(now);
+  const nptTime = formatNepaliDateTime(now);
   const nptHour = parseInt(nptTime.split(":")[0], 10);
   const greeting =
     nptHour < 12 ? "Good morning" : nptHour < 17 ? "Good afternoon" : "Good evening";
-  const formattedDate = new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).format(nptDate);
+  const formattedDate = formatNepaliDate(nptDate);
 
   // CR's enrolled subject IDs
   const crEnrollments = await db.query.enrollments.findMany({
@@ -389,10 +378,7 @@ export default async function CRDashboard() {
               <div className="space-y-3">
                 {recentSessionsWithLogs.map((session) => {
                   const log = session.lectureLog;
-                  const dateStr = new Intl.DateTimeFormat("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  }).format(new Date(session.sessionDate));
+                  const dateStr = formatNepaliDate(new Date(session.sessionDate));
 
                   return (
                     <div

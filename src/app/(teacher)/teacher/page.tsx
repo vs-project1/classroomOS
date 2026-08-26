@@ -5,6 +5,7 @@ import { eq, and, inArray, count } from "drizzle-orm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarRange, BookOpen, Clock, ClipboardCheck } from "lucide-react";
 import Link from "next/link";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export default async function TeacherDashboard() {
   const user = await requireAuth(["TEACHER", "ADMIN"]);
@@ -44,7 +45,7 @@ export default async function TeacherDashboard() {
   // Timezone standardization: NPT day of week
   const today = new Date();
   const options = { timeZone: 'Asia/Kathmandu', weekday: 'long' } as const;
-  const todayString = new Intl.DateTimeFormat('en-US', options).format(today);
+  const todayString = formatNepaliDate(today);
   
   // Convert day string to integer matching our DB (0 = Sunday, 1 = Monday, etc.)
   const daysMap: Record<string, number> = {

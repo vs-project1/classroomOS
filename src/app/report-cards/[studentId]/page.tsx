@@ -17,6 +17,7 @@ import { asc, eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
 import "./print.css";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
@@ -134,7 +135,7 @@ export default async function ReportCardPage({ params }: Props) {
           />
           <InfoItem
             label="Issued On"
-            value={new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kathmandu" }).format(new Date())}
+            value={formatNepaliDate(new Date())}
             mono
           />
         </section>

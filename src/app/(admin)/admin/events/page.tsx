@@ -9,6 +9,7 @@ import { getPermissions } from "@/lib/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { formatTime12h } from "@/lib/time";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +22,11 @@ export default async function EventsPage() {
   // Determine current time in Nepal
   const now = new Date();
   const options = { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'numeric', day: 'numeric' } as const;
-  const nptDateString = new Intl.DateTimeFormat('en-CA', options).format(now);
+  const nptDateString = formatNepaliDate(now);
   const currentNptTime = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kathmandu', hour12: false, hour: '2-digit', minute: '2-digit' });
 
   const upcomingEvents = allEvents.filter(e => {
-    const eDate = new Intl.DateTimeFormat('en-CA', options).format(e.eventDate);
+    const eDate = formatNepaliDate(e.eventDate);
     if (eDate > nptDateString) return true;
     if (eDate === nptDateString) {
       if (e.endTime) return e.endTime > currentNptTime;
@@ -35,7 +36,7 @@ export default async function EventsPage() {
   });
 
   const pastEvents = allEvents.filter(e => {
-    const eDate = new Intl.DateTimeFormat('en-CA', options).format(e.eventDate);
+    const eDate = formatNepaliDate(e.eventDate);
     if (eDate < nptDateString) return true;
     if (eDate === nptDateString) {
       if (e.endTime) return e.endTime <= currentNptTime;
@@ -81,7 +82,7 @@ export default async function EventsPage() {
               <div className="space-y-2 mt-auto text-xs text-muted-foreground font-fira-code">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 opacity-60 shrink-0" />
-                  <span>{new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'full' }).format(event.eventDate)}</span>
+                  <span>{formatNepaliDate(event.eventDate)}</span>
                 </div>
                 {(event.startTime || event.endTime) && (
                   <div className="flex items-center gap-2">

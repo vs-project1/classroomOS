@@ -4,6 +4,7 @@ import { attendanceCorrectionRequests, attendance, classSessions, subjects, stud
 import { eq, desc, count } from "drizzle-orm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DisputeActions } from "./dispute-actions";
+import { formatNepaliDate } from "@/lib/nepali-date";
 
 export default async function AdminAttendancePage() {
   await requireAuth(["ADMIN"]);
@@ -143,7 +144,7 @@ function DisputeCard({
   };
 
   const sessionDate = req.sessionDate instanceof Date
-    ? req.sessionDate.toLocaleDateString("en-NP", { year: "numeric", month: "short", day: "numeric" })
+    ? formatNepaliDate(req.sessionDate)
     : String(req.sessionDate);
 
   return (

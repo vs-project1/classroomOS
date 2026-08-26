@@ -4,6 +4,7 @@ import { desc, eq, gte, asc } from "drizzle-orm";
 import Link from "next/link";
 import { Clock, Book, Bell, CalendarDays, Calendar, ArrowRight, PenTool, Megaphone, ClipboardList, Lock, CheckCircle } from "lucide-react";
 import { formatTime12h } from "@/lib/time";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
@@ -172,7 +173,7 @@ export default async function Dashboard() {
                   <div>
                     <div className="text-sm font-medium text-foreground">Session Logged: {recentSession.subject.name}</div>
                     <div className="text-sm text-muted-foreground mt-1">
-                      {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'medium' }).format(recentSession.sessionDate)} at {formatTime12h(recentSession.startTime)}
+                      {formatNepaliDate(recentSession.sessionDate)} at {formatTime12h(recentSession.startTime)}
                     </div>
                   </div>
                 </div>
@@ -184,7 +185,7 @@ export default async function Dashboard() {
                   <div>
                     <div className="text-sm font-medium text-foreground">Assignment Created: {latestHomework.title}</div>
                     <div className="text-sm text-muted-foreground mt-1">
-                      {latestHomework.subject.name} • Due {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'medium' }).format(latestHomework.dueDate)}
+                      {latestHomework.subject.name} • Due {formatNepaliDate(latestHomework.dueDate)}
                     </div>
                   </div>
                 </div>
@@ -233,7 +234,7 @@ export default async function Dashboard() {
                 <div className="text-lg font-medium text-foreground mb-2">{upcomingEvent.title}</div>
                 <p className="text-sm text-muted-foreground flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
-                  {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'medium' }).format(upcomingEvent.eventDate)}
+                  {formatNepaliDate(upcomingEvent.eventDate)}
                   {upcomingEvent.startTime && ` at ${formatTime12h(upcomingEvent.startTime)}`}
                 </p>
               </div>

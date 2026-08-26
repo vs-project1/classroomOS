@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, ChevronDown, ChevronUp, FileText, PenLine, AlertCircle, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { FilePreview } from "@/components/files/file-preview";
+import { formatNepaliDate } from "@/lib/nepali-date";
 
 function inferFileType(url: string): string {
   const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
@@ -233,7 +234,7 @@ export function GradingSubmissionList({ submissions }: { submissions: Submission
                   </p>
                   {submission.submittedAt && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Submitted: {new Date(submission.submittedAt).toLocaleDateString()}
+                      Submitted: {formatNepaliDate(submission.submittedAt)}
                     </p>
                   )}
                   {isGraded && submission.feedback && (

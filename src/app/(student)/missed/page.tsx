@@ -6,6 +6,7 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { formatTime12h } from "@/lib/time";
 import { Calendar, Clock, Book, FileText, FolderOpen } from "lucide-react";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +89,7 @@ export default async function MissedPage() {
                   <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-2">
                     <div className="flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5" />
-                      {new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kathmandu", dateStyle: "medium" }).format(new Date(session.sessionDate))}
+                      {formatNepaliDate(new Date(session.sessionDate))}
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5" />
@@ -130,7 +131,7 @@ export default async function MissedPage() {
                             </Link>
                             <span className="shrink-0 text-xs whitespace-nowrap">
                               Due{" "}
-                              {new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kathmandu", dateStyle: "medium" }).format(new Date(hw.dueDate))}
+                              {formatNepaliDate(new Date(hw.dueDate))}
                             </span>
                           </li>
                         ))}

@@ -11,6 +11,7 @@ import { getTodayDeadlines } from "./queries";
 import { getPermissions, requireAuth } from "@/lib/auth";
 import { getNavBadges } from "@/lib/navigation/badges";
 import { TimelineRiver, type TimelineRiverSlot } from "@/components/timetable/timeline-river";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
@@ -88,12 +89,7 @@ export default async function TodayPage({ searchParams }: Props) {
   const dayEnd = new Date(`${selectedDateStr}T23:59:59.999Z`);
 
   // Current NPT time (only used if selectedDate is today)
-  const currentNptTime = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kathmandu",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date());
+  const currentNptTime = formatNepaliDateTime(new Date());
 
   // Command-center context: session role drives the extra sections.
   // Self-enforced guard: the shared layout admits all four roles, but this
@@ -164,11 +160,7 @@ export default async function TodayPage({ searchParams }: Props) {
   const deadlineRows = deadlines.map((item) => ({
     ...item,
     dueSoon: item.dueDate.getTime() - nowMs < 2 * 24 * 60 * 60 * 1000,
-    dueLabel: new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      timeZone: "Asia/Kathmandu",
-    }).format(item.dueDate),
+    dueLabel: formatNepaliDate(item.dueDate),
   }));
 
   const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -184,7 +176,7 @@ export default async function TodayPage({ searchParams }: Props) {
           {greeting}, {firstName}!
         </p>
         <p className="text-sm text-muted-foreground mt-0.5">
-          {new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(selectedDate)}
+          {formatNepaliDate(selectedDate)}
           {selectedDateStr === todayNptStr && (
             <span className="ml-2 text-primary font-semibold inline-flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> Today
@@ -250,7 +242,7 @@ export default async function TodayPage({ searchParams }: Props) {
             Today&apos;s Schedule
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            {new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(selectedDate)}
+            {formatNepaliDate(selectedDate)}
             {selectedDateStr === todayNptStr && (
               <span className="ml-2 text-primary font-semibold inline-flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> Today
@@ -288,10 +280,11 @@ export default async function TodayPage({ searchParams }: Props) {
       <DayStripSelector
         days={weekDays.map((d) => {
           const dStr = formatDateISO(d);
+          const nepaliDateObj = new NepaliDate(d);
           return {
             dateStr: dStr,
-            dayNum: d.getDate(),
-            weekdayName: d.toLocaleDateString("en-US", { weekday: "short" }),
+            dayNum: parseInt(nepaliDateObj.format('D'), 10),
+            weekdayName: nepaliDateObj.format('dd'),
             isActive: dStr === selectedDateStr,
             isToday: dStr === todayNptStr,
           };

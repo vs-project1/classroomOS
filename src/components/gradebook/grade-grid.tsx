@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { GradebookSubject, GradeCell, StudentGradeRow } from "./types";
 import { categoryLabel } from "@/components/grades/labels";
+import { formatNepaliDate } from "@/lib/nepali-date";
 
 /**
  * Students × subjects grade matrix. Cells are precomputed server-side;
@@ -266,11 +267,7 @@ function GradeCellButton({
 function DateText({ iso }: { iso: string }) {
   return (
     <>
-      {new Date(iso).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })}
+      {formatNepaliDate(iso)}
     </>
   );
 }

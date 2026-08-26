@@ -6,6 +6,7 @@ import { asc, like, or, eq, and } from "drizzle-orm";
 import { Users, GraduationCap, Search, FileDown } from "lucide-react";
 import { getPermissions } from "@/lib/auth";
 import { SearchFilterBar } from "@/components/admin/search-filter-bar";
+import { formatNepaliDate } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
@@ -140,7 +141,7 @@ export default async function StudentsPage({ searchParams }: Props) {
                       </div>
                     </td>
                     <td className="px-6 py-4 align-top text-right text-xs text-muted-foreground font-fira-code">
-                      {new Date(student.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                      {formatNepaliDate(student.createdAt)}
                     </td>
                     <td className="px-6 py-4 align-top text-right">
                       {permissions.canManageSubjects && (

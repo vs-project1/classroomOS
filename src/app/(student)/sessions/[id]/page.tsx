@@ -9,6 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft, BookOpen, Clock, Users } from "lucide-react";
 import { formatTime12h } from "@/lib/time";
 import { getCurrentUser, resolveCurrentStudent } from "@/lib/auth";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
@@ -83,7 +84,7 @@ export default async function SessionDetailsPage({ params }: { params: Promise<{
           <h2 className="text-2xl font-semibold tracking-tight">{session.subject.name}</h2>
           <p className="text-muted-foreground mt-1 flex items-center gap-2 text-sm">
             <Clock className="h-4 w-4" />
-            {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'full' }).format(session.sessionDate)} | {formatTime12h(session.startTime)} - {formatTime12h(session.endTime)}
+            {formatNepaliDate(session.sessionDate)} | {formatTime12h(session.startTime)} - {formatTime12h(session.endTime)}
           </p>
         </div>
       </div>

@@ -10,6 +10,7 @@ import { ArcGauge } from "@/components/attendance/arc-gauge";
 import { Book, Bell, CalendarDays, CheckCircle2, AlertCircle, ArrowRight, Laptop, Lock, AlertTriangle } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export default async function StudentDashboard() {
   const user = await getCurrentUser();
@@ -87,7 +88,7 @@ export default async function StudentDashboard() {
   const firstName = student.name.split(' ')[0];
   const nptHour = parseInt(nptTime.split(":")[0], 10);
   const greeting = nptHour < 12 ? "Good morning" : nptHour < 17 ? "Good afternoon" : "Good evening";
-  const formattedDate = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).format(nptDate);
+  const formattedDate = formatNepaliDate(nptDate, 'dddd, YYYY MMMM DD');
 
   const getRelativePostedTime = (date: Date) => {
     const diffMs = timestampNow - date.getTime();
@@ -98,7 +99,7 @@ export default async function StudentDashboard() {
     if (hrs < 24) return `${hrs}h ago`;
     const days = Math.floor(hrs / 24);
     if (days < 7) return `${days}d ago`;
-    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+    return formatNepaliDate(date);
   };
 
   const getRelativeClassTime = (startTime: string, npt: string) => {

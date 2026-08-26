@@ -29,6 +29,7 @@ import {
   FileCheck,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 interface SubmissionInfo {
   id: string;
@@ -237,13 +238,7 @@ export function HomeworkClientWorkspace({
     const isSubmitted = sub?.status === "submitted" || sub?.status === "late";
     const isGraded = sub?.status === "graded" || sub?.score != null;
 
-    const dueDateFormatted = new Intl.DateTimeFormat("en-US", {
-      timeZone: "Asia/Kathmandu",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(dueDate);
+    const dueDateFormatted = formatNepaliDateTime(dueDate);
 
     return (
       <div

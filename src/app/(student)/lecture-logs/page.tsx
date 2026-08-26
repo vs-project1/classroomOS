@@ -7,6 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatTime12h } from "@/lib/time";
 import { FileText, Calendar, Clock, Search, X } from "lucide-react";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
@@ -270,7 +271,7 @@ export default async function LectureLogsPage({ searchParams }: Props) {
                   <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-2">
                     <div className="flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5" />
-                      {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'medium' }).format(new Date(session.sessionDate))}
+                      {formatNepaliDate(new Date(session.sessionDate))}
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5" />

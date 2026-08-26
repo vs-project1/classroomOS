@@ -8,6 +8,7 @@ import { HomeworkStatusActions } from "./status-actions";
 import { StatusChip } from "@/components/student/status-chip";
 import { getPermissions } from "@/lib/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
@@ -74,12 +75,12 @@ export default async function HomeworkPage() {
               <div className="px-6 py-4 border-t border-border/50 bg-muted/5 flex flex-col gap-2">
                 <div className="flex justify-between items-center text-xs font-fira-code">
                   <span className="text-muted-foreground uppercase tracking-wider text-xs font-semibold">Assigned</span>
-                  <span className="text-foreground font-medium">{new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'medium' }).format(hw.assignedDate)}</span>
+                  <span className="text-foreground font-medium">{formatNepaliDate(hw.assignedDate)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs font-fira-code">
                   <span className="text-muted-foreground uppercase tracking-wider text-xs font-semibold">Deadline</span>
                   <span className={`${isOverdue ? 'text-destructive font-bold' : 'text-foreground font-medium'}`}>
-                    {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'medium' }).format(hw.dueDate)}
+                    {formatNepaliDate(hw.dueDate)}
                   </span>
                 </div>
               </div>

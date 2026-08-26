@@ -40,6 +40,7 @@ import { formatTime12h } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { FilePreview } from "@/components/files/file-preview";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
@@ -560,13 +561,7 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
             {assignments.length > 0 ? (
               <div className="space-y-3">
                 {assignments.map((hw) => {
-                  const dueDateFormatted = new Intl.DateTimeFormat("en-US", {
-                    timeZone: "Asia/Kathmandu",
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }).format(new Date(hw.dueDate));
+                  const dueDateFormatted = formatNepaliDateTime(new Date(hw.dueDate));
 
                   const isCompleted = hw.status === "completed";
 

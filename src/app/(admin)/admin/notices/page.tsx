@@ -7,6 +7,7 @@ import { Plus, Pin, Clock, BellRing, Megaphone, AlertCircle } from "lucide-react
 import { NoticeActions } from "./notice-actions";
 import { getPermissions } from "@/lib/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ export default async function NoticesPage() {
             
             <div className="w-full md:w-48 shrink-0 space-y-3">
               <div className="text-xs font-bold font-fira-code text-muted-foreground uppercase tracking-widest bg-muted px-2 py-1 rounded w-fit">
-                {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'medium' }).format(notice.createdAt)}
+                {formatNepaliDate(notice.createdAt)}
               </div>
               
               <div className="flex flex-col gap-1.5">
@@ -74,7 +75,7 @@ export default async function NoticesPage() {
               {notice.expiresAt && !isPast && (
                 <div className="mt-4 flex items-center gap-1.5 text-xs font-medium text-muted-foreground font-fira-code">
                   <span className="text-xs uppercase tracking-wider font-semibold">Valid Until:</span>
-                  {new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'medium', timeStyle: 'short' }).format(notice.expiresAt)}
+                  {formatNepaliDateTime(notice.expiresAt)}
                 </div>
               )}
             </div>
