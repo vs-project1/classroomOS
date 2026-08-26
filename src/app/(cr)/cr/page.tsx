@@ -16,6 +16,7 @@ import {
   Users,
   BookOpen,
   FileText,
+  ClipboardEdit,
 } from "lucide-react";
 
 export default async function CRDashboard() {
