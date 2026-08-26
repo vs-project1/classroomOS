@@ -194,19 +194,25 @@ export default async function CRDashboard() {
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Link
-            href="/cr/log-session"
+            href="/cr/take-attendance"
             className={cn(
               "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all",
               "bg-primary text-primary-foreground shadow-sm shadow-primary/30 hover:opacity-90"
             )}
           >
-            <ClipboardList className="w-4 h-4" /> Log Session
+            <Users className="w-4 h-4" /> Morning Roll Call
+          </Link>
+          <Link
+            href="/cr/log-session"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border border-border/60 bg-background hover:bg-muted transition-all"
+          >
+            <ClipboardEdit className="w-4 h-4" /> Log Session
           </Link>
           <Link
             href="/attendance"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border border-border/60 bg-background hover:bg-muted transition-all"
           >
-            <Users className="w-4 h-4" /> Take Attendance
+            <CheckCircle2 className="w-4 h-4" /> My Attendance
           </Link>
           <Link
             href="/lecture-logs"
