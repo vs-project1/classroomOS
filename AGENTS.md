@@ -1,15 +1,17 @@
-<!-- BEGIN:nextjs-agent-rules -->
+﻿<!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
 <!-- BEGIN:user-defined-rules -->
-# User Defined Rules
+# User Defined Rules & Self-Improving Protocols
 
 1. **Role Synchronization:** Whenever you make changes that affect a specific user role (e.g., CR, Teacher, Student, Admin), always consider and sync how those changes affect other roles and what should be shown to them in their respective dashboards.
 2. **Schema Verification:** Always check the database schema (src/db/schema.ts) to verify your assumptions before writing queries, to ensure the build won't break.
 3. **Subagent Verification:** Whenever modifying logic that applies to multiple roles (or updating a core flow), invoke the `TeacherVerifier`, `CRVerifier`, and `StudentVerifier` subagents to independently verify that their respective roles have not been broken or desynced.
+4. **Self-Improving Learnings Protocol:** You MUST read and follow the architectural invariants and mistake countermeasures in `LEARNINGS.md`. Every time a bug, design oversight, or edge case is resolved, you are REQUIRED to append the root cause and permanent countermeasure into `LEARNINGS.md`.
+5. **Zero-Regression Typecheck Verification:** Never claim work is done or fixed without executing `npx tsc --noEmit` and verifying a 0-error exit code.
 <!-- END:user-defined-rules -->
 
 # Codebase Best Practices & Engineering Guidelines
@@ -60,5 +62,3 @@ Cross-cutting primitives belong in:
 ### 7. Performance & Caching
 - **Eliminate N+1 Queries:** Use relational `with:` joins or batched queries (`Promise.all`) instead of querying sequentially in loops.
 - **Smart Caching:** Use React `cache()` for per-request deduplication and `unstable_cache` with tag-based revalidation for slowly changing master data (routine, subjects, syllabus).
-
-
