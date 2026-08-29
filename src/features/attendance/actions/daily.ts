@@ -1,6 +1,6 @@
-"use server";
+﻿"use server";
 import { db } from "@/db";
-import { dailySessions, dailyAttendance, students } from "@/db/schema";
+import { dailySessions, dailyAttendance, students, users } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/session";
 import crypto from "node:crypto";
 import { eq, and } from "drizzle-orm";
@@ -9,20 +9,44 @@ import { revalidatePath } from "next/cache";
 /**
  * Coerce a Date to start-of-day in NPT (Asia/Kathmandu). The `daily_sessions`
  * unique constraint is on (date, semester), and the date column should mean
- * "this calendar day", not "this moment in time". Without normalization, two
- * submits 5 seconds apart produce two distinct `date` epoch values and
- * silently bypass the uniqueness guard.
+ * "this calendar day", not "this moment in time".
  */
-function nptStartOfDay(d: Date): Date {
-  // Build the NPT Y-M-D string, then re-parse as UTC midnight. This avoids
-  // the host-timezone surprise where `new Date()` truncates in local TZ.
+export function nptStartOfDay(d: Date): Date {
   const ymd = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kathmandu",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(d); // "2026-08-26"
+  }).format(d);
   return new Date(`${ymd}T00:00:00Z`);
+}
+
+export async function getDailyAttendanceForDateAction(semester: string, date: Date | string) {
+  await requireAuth(["CR", "ADMIN", "TEACHER"]);
+  const targetDate = nptStartOfDay(typeof date === "string" ? new Date(date) : date);
+
+  const session = await db.query.dailySessions.findFirst({
+    where: and(
+      eq(dailySessions.semester, semester),
+      eq(dailySessions.date, targetDate)
+    ),
+  });
+
+  if (!session) return null;
+
+  const records = await db.select().from(dailyAttendance)
+    .where(eq(dailyAttendance.dailySessionId, session.id));
+
+  return {
+    id: session.id,
+    date: session.date,
+    semester: session.semester,
+    markedByName: "CR",
+    records: records.map((a) => ({
+      studentId: a.studentId,
+      status: a.status as "present" | "absent" | "late" | "excused",
+    })),
+  };
 }
 
 export async function submitDailyAttendanceAction(
@@ -31,72 +55,65 @@ export async function submitDailyAttendanceAction(
   records: { studentId: string; status: "present" | "absent" | "late" | "excused" }[]
 ) {
   const user = await requireAuth(["CR", "ADMIN"]);
-
-  // Normalize the date to NPT start-of-day so the unique constraint actually
-  // means "one roll call per (day, semester)".
   const normalizedDate = nptStartOfDay(date);
 
   try {
-    await db.transaction(async (tx) => {
-      const sessionId = `ds_${crypto.randomUUID()}`;
+    let isUpdate = false;
 
-      await tx.insert(dailySessions).values({
-        id: sessionId,
-        date: normalizedDate,
-        semester,
-        markedBy: user.id
+    await db.transaction(async (tx) => {
+      // Check if session already exists for this date + semester
+      const existingSession = await tx.query.dailySessions.findFirst({
+        where: and(
+          eq(dailySessions.semester, semester),
+          eq(dailySessions.date, normalizedDate)
+        ),
       });
-      
-      const attRecords = records.map(r => ({
+
+      let sessionId: string;
+
+      if (existingSession) {
+        isUpdate = true;
+        sessionId = existingSession.id;
+        // Delete previous records for clean update
+        await tx.delete(dailyAttendance).where(eq(dailyAttendance.dailySessionId, sessionId));
+      } else {
+        sessionId = `ds_${crypto.randomUUID()}`;
+        await tx.insert(dailySessions).values({
+          id: sessionId,
+          date: normalizedDate,
+          semester,
+          markedBy: user.id,
+        });
+      }
+
+      const attRecords = records.map((r) => ({
         id: `da_${crypto.randomUUID()}`,
         dailySessionId: sessionId,
         studentId: r.studentId,
-        status: r.status
+        status: r.status,
       }));
 
-      // Drizzle's .values() throws on an empty array. The roster may be
-      // empty when the CR's semester doesn't match any seeded students
-      // (semester string mismatch between seed and page). Allow the
-      // session row to persist in that case — re-submitting with a real
-      // roster should overwrite via the uniqueness constraint, not error.
       if (attRecords.length > 0) {
         await tx.insert(dailyAttendance).values(attRecords);
       }
     });
-    
+
     revalidatePath("/cr/take-attendance");
     revalidatePath("/attendance/monthly");
     revalidatePath("/attendance");
-    return { success: true, message: "Daily attendance logged successfully." };
-  } catch (err: any) {
-    // Drizzle wraps libSQL errors: the top-level message is the generic
-    // "Failed query: ..." string, while the actual SQLITE_CONSTRAINT_UNIQUE
-    // reason lives on `err.cause.message`. Walk the cause chain so we
-    // reliably detect the unique-constraint violation.
-    const flat = (e: any): string => {
-      const parts: string[] = [];
-      let cur = e;
-      let depth = 0;
-      while (cur && depth < 5) {
-        if (cur.message) parts.push(String(cur.message));
-        if (cur.code) parts.push(String(cur.code));
-        cur = cur.cause;
-        depth++;
-      }
-      return parts.join(" | ");
+    revalidatePath("/cr");
+
+    return {
+      success: true,
+      message: isUpdate
+        ? "Daily attendance updated successfully."
+        : "Daily attendance logged successfully.",
     };
-    const flatMessage = flat(err);
-    if (
-      flatMessage.includes("UNIQUE constraint failed") ||
-      flatMessage.includes("unq_daily_session_date_sem") ||
-      flatMessage.includes("SQLITE_CONSTRAINT_UNIQUE")
-    ) {
-      return { success: false, message: "Daily attendance has already been taken for this semester today." };
-    }
-    // Surface the real error in dev so failures aren't masked behind a
-    // generic banner. The user-flow spec asserts on the *visible* message,
-    // so a useful string matters more than a clean one.
+  } catch (err: any) {
     console.error("[submitDailyAttendanceAction]", err);
-    return { success: false, message: `Failed to log daily attendance. (${err?.message ?? String(err)})` };
+    return {
+      success: false,
+      message: `Failed to save attendance. (${err?.message ?? String(err)})`,
+    };
   }
 }

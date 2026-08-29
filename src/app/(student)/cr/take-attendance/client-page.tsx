@@ -1,7 +1,10 @@
-"use client";
+﻿"use client";
 
-import { useState, useTransition, useMemo } from "react";
-import { submitDailyAttendanceAction } from "@/app/actions/daily-attendance";
+import { useState, useTransition, useMemo, useEffect } from "react";
+import { 
+  submitDailyAttendanceAction, 
+  getDailyAttendanceForDateAction 
+} from "@/features/attendance/actions/daily";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -15,11 +18,15 @@ import {
   HelpCircle,
   Users, 
   ArrowLeft,
-  Sparkles,
-  RotateCcw
+  RotateCcw,
+  CalendarDays,
+  ShieldCheck,
+  FileEdit
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import NepaliDate from "nepali-datetime";
+import { formatNepaliDate } from "@/lib/nepali-date";
 
 interface Student {
   id: string;
@@ -30,21 +37,91 @@ interface Student {
 interface Props {
   roster: Student[];
   semester: string;
-  nepaliDate: string;
-  gregorianDate: string;
+  initialNepaliDate: string;
+  initialGregorianDate: string;
 }
 
 type Status = "present" | "absent" | "late" | "excused";
 
-export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianDate }: Props) {
+export function DailyAttendanceClient({ roster, semester, initialNepaliDate, initialGregorianDate }: Props) {
+  // ISO date string "YYYY-MM-DD" for the HTML date picker
+  const [selectedIsoDate, setSelectedIsoDate] = useState(() => {
+    const d = new Date();
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kathmandu",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(d);
+  });
+
   const [attendance, setAttendance] = useState<Record<string, Status>>(
     roster.reduce((acc, s) => ({ ...acc, [s.id]: "present" }), {})
   );
+
+  const [existingSessionInfo, setExistingSessionInfo] = useState<{
+    id: string;
+    markedByName: string;
+  } | null>(null);
+
   const [isPending, startTransition] = useTransition();
+  const [loadingDate, setLoadingDate] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | Status>("all");
+
+  // Format the currently selected date into Nepali and Gregorian
+  const formattedDates = useMemo(() => {
+    try {
+      const [y, m, d] = selectedIsoDate.split("-").map(Number);
+      const jsDate = new Date(y, m - 1, d, 12, 0, 0);
+      const ndStr = formatNepaliDate(jsDate, "dddd, YYYY MMMM DD");
+      const engStr = new Intl.DateTimeFormat("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }).format(jsDate);
+      return { nepali: ndStr, gregorian: engStr, jsDate };
+    } catch {
+      return { nepali: initialNepaliDate, gregorian: initialGregorianDate, jsDate: new Date() };
+    }
+  }, [selectedIsoDate, initialNepaliDate, initialGregorianDate]);
+
+  // When selected date changes, fetch if attendance is already saved for that date
+  const loadDateAttendance = async (dateStr: string) => {
+    setLoadingDate(true);
+    setMessage(null);
+    try {
+      const existing = await getDailyAttendanceForDateAction(semester, dateStr);
+      if (existing && existing.records.length > 0) {
+        setExistingSessionInfo({
+          id: existing.id,
+          markedByName: existing.markedByName,
+        });
+        const map: Record<string, Status> = {};
+        for (const s of roster) {
+          map[s.id] = "present";
+        }
+        for (const r of existing.records) {
+          map[r.studentId] = r.status;
+        }
+        setAttendance(map);
+      } else {
+        setExistingSessionInfo(null);
+        setAttendance(roster.reduce((acc, s) => ({ ...acc, [s.id]: "present" }), {}));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingDate(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDateAttendance(selectedIsoDate);
+  }, [selectedIsoDate, semester]);
 
   const counts = useMemo(() => {
     let present = 0;
@@ -90,9 +167,16 @@ export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianD
         studentId,
         status,
       }));
-      const res = await submitDailyAttendanceAction(semester, new Date(), records);
+      const [y, m, d] = selectedIsoDate.split("-").map(Number);
+      const targetDate = new Date(Date.UTC(y, m - 1, d, 6, 0, 0));
+
+      const res = await submitDailyAttendanceAction(semester, targetDate, records);
       setMessage({ type: res.success ? "success" : "error", text: res.message });
       if (res.success) {
+        setExistingSessionInfo({
+          id: "saved",
+          markedByName: "You",
+        });
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     });
@@ -100,7 +184,7 @@ export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianD
 
   return (
     <div className="space-y-6">
-      {/* Top Breadcrumb & Header */}
+      {/* Top Navigation & Context Header */}
       <div className="flex flex-col gap-4">
         <Link 
           href="/cr" 
@@ -109,7 +193,7 @@ export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianD
           <ArrowLeft className="w-4 h-4" /> Back to CR Dashboard
         </Link>
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card border rounded-2xl p-6 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-card border rounded-2xl p-6 shadow-xs">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
@@ -118,25 +202,47 @@ export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianD
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                 <Clock className="w-3.5 h-3.5" />
-                Morning Session
+                Morning Roll Call
               </span>
+              {existingSessionInfo ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Saved in Database ({existingSessionInfo.markedByName})
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                  <FileEdit className="w-3.5 h-3.5" />
+                  New Roll Call (Not Submitted)
+                </span>
+              )}
             </div>
+
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Morning Roll Call
             </h1>
             <p className="text-sm text-muted-foreground">
-              Mark overall daily attendance for the morning session. All students default to present.
+              Taking general daily roll call for <strong className="text-foreground">{formattedDates.nepali}</strong>.
             </p>
           </div>
 
-          {/* Date Info Box */}
-          <div className="flex flex-col sm:flex-row md:flex-col gap-2 bg-muted/40 border rounded-xl p-3.5 text-right md:min-w-[240px]">
-            <div className="flex items-center md:justify-end gap-2 text-primary font-semibold text-sm">
-              <Calendar className="w-4 h-4 text-primary" />
-              <span>{nepaliDate}</span>
+          {/* Interactive Date Picker Box */}
+          <div className="flex flex-col sm:flex-row lg:flex-col gap-3 bg-muted/40 border rounded-2xl p-4 lg:min-w-[280px]">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                Change Attendance Date:
+              </label>
+              <input
+                type="date"
+                value={selectedIsoDate}
+                onChange={(e) => setSelectedIsoDate(e.target.value)}
+                className="w-full h-9 rounded-lg border border-input bg-card px-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
+              />
             </div>
-            <div className="text-xs text-muted-foreground md:text-right">
-              {gregorianDate}
+
+            <div className="border-t pt-2 space-y-0.5 text-xs text-muted-foreground">
+              <p className="font-semibold text-primary">{formattedDates.nepali}</p>
+              <p>{formattedDates.gregorian}</p>
             </div>
           </div>
         </div>
@@ -174,7 +280,7 @@ export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianD
         </div>
 
         <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3.5 flex flex-col justify-between shadow-xs">
-          <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Present</span>
+          <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Marked Present</span>
           <div className="flex items-baseline justify-between mt-2">
             <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{counts.present}</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -182,7 +288,7 @@ export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianD
         </div>
 
         <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-3.5 flex flex-col justify-between shadow-xs">
-          <span className="text-xs font-medium text-rose-700 dark:text-rose-400">Absent</span>
+          <span className="text-xs font-medium text-rose-700 dark:text-rose-400">Marked Absent</span>
           <div className="flex items-baseline justify-between mt-2">
             <span className="text-2xl font-bold text-rose-600 dark:text-rose-400">{counts.absent}</span>
             <XCircle className="w-4 h-4 text-rose-500" />
@@ -190,7 +296,7 @@ export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianD
         </div>
 
         <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3.5 flex flex-col justify-between shadow-xs">
-          <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Late</span>
+          <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Marked Late</span>
           <div className="flex items-baseline justify-between mt-2">
             <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">{counts.late}</span>
             <Clock className="w-4 h-4 text-amber-500" />
@@ -198,7 +304,7 @@ export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianD
         </div>
 
         <div className="col-span-2 sm:col-span-1 bg-indigo-500/5 border border-indigo-500/20 rounded-xl p-3.5 flex flex-col justify-between shadow-xs">
-          <span className="text-xs font-medium text-indigo-700 dark:text-indigo-400">Excused</span>
+          <span className="text-xs font-medium text-indigo-700 dark:text-indigo-400">Marked Excused</span>
           <div className="flex items-baseline justify-between mt-2">
             <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{counts.excused}</span>
             <HelpCircle className="w-4 h-4 text-indigo-500" />
@@ -208,7 +314,6 @@ export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianD
 
       {/* Toolbar & Filters */}
       <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
-        {/* Search */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -293,13 +398,21 @@ export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianD
             className="h-8 text-xs gap-1.5 ml-auto border-border/80"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            Reset to Present
+            Reset All to Present
           </Button>
         </div>
       </div>
 
       {/* Roster Table */}
-      <div className="bg-card border rounded-2xl overflow-hidden shadow-xs">
+      <div className="bg-card border rounded-2xl overflow-hidden shadow-xs relative">
+        {loadingDate && (
+          <div className="absolute inset-0 bg-background/60 backdrop-blur-xs flex items-center justify-center z-30">
+            <div className="flex items-center gap-2 font-medium text-sm text-primary">
+              <Clock className="w-4 h-4 animate-spin" /> Checking Date Records...
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse">
             <thead>
@@ -307,7 +420,7 @@ export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianD
                 <th className="py-3.5 px-4 sm:px-6 w-16">#</th>
                 <th className="py-3.5 px-4 sm:px-6">Student</th>
                 <th className="py-3.5 px-4 sm:px-6">Roll Number</th>
-                <th className="py-3.5 px-4 sm:px-6 text-right">Attendance Status</th>
+                <th className="py-3.5 px-4 sm:px-6 text-right">Status for {selectedIsoDate}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
@@ -418,10 +531,10 @@ export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianD
         </div>
       </div>
 
-      {/* Sticky / Floating Action Bar */}
+      {/* Sticky Bottom Action Bar */}
       <div className="sticky bottom-4 z-20 bg-card/95 backdrop-blur-md border rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-semibold text-foreground">Summary:</span>
+        <div className="flex items-center gap-2 text-sm flex-wrap">
+          <span className="font-semibold text-foreground">{formattedDates.nepali}:</span>
           <span className="text-emerald-600 font-medium">{counts.present} Present</span>
           <span>•</span>
           <span className="text-rose-600 font-medium">{counts.absent} Absent</span>
@@ -448,10 +561,12 @@ export function DailyAttendanceClient({ roster, semester, nepaliDate, gregorianD
           {isPending ? (
             <span className="flex items-center gap-2">
               <Clock className="w-4 h-4 animate-spin" />
-              Submitting Attendance...
+              Saving Attendance...
             </span>
+          ) : existingSessionInfo ? (
+            `Update Attendance for ${selectedIsoDate}`
           ) : (
-            `Submit Morning Roll Call (${counts.present}/${counts.total} Present)`
+            `Submit Roll Call for ${selectedIsoDate}`
           )}
         </Button>
       </div>

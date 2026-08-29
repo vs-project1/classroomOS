@@ -1,9 +1,9 @@
-import { requireAuth } from "@/lib/auth/session";
+﻿import { requireAuth } from "@/lib/auth/session";
 import { db } from "@/db";
-import { studentProfiles, students, dailySessions, dailyAttendance } from "@/db/schema";
-import { eq, asc, and } from "drizzle-orm";
+import { studentProfiles, students } from "@/db/schema";
+import { eq, asc } from "drizzle-orm";
 import { DailyAttendanceClient } from "./client-page";
-import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
+import { formatNepaliDate } from "@/lib/nepali-date";
 
 export default async function TakeDailyAttendancePage() {
   const user = await requireAuth(["CR"]);
@@ -38,8 +38,8 @@ export default async function TakeDailyAttendancePage() {
       <DailyAttendanceClient 
         roster={roster} 
         semester={semesterStr}
-        nepaliDate={nepaliDateStr}
-        gregorianDate={gregorianDateStr}
+        initialNepaliDate={nepaliDateStr}
+        initialGregorianDate={gregorianDateStr}
       />
     </div>
   );
