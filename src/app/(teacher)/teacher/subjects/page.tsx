@@ -98,7 +98,7 @@ export default async function TeacherSubjectsPage({ searchParams }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {teacherSubjects.map((subject) => (
             <Link 
-              href={`/teacher/subjects/${subject.slug}`} 
+              href={`/subjects/${subject.slug}`} 
               key={subject.id}
               className="group flex flex-col bg-card border rounded-3xl overflow-hidden hover:border-primary/30 hover:shadow-xl transition-all duration-300"
             >

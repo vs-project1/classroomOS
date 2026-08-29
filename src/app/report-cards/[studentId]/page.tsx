@@ -6,6 +6,7 @@ import {
   exams,
   subjectGradeWeights,
   students,
+  studentProfiles,
   subjects,
 } from "@/db/schema";
 import type { ExamType } from "@/db/schema";
@@ -17,6 +18,7 @@ import { asc, eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
 import "./print.css";
+import { toRoman } from "@/lib/utils/roman";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";

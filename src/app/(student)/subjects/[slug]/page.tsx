@@ -41,6 +41,8 @@ import { cn } from "@/lib/utils";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { FilePreview } from "@/components/files/file-preview";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
+import { toRoman } from "@/lib/utils/roman";
+import { studentProfiles } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -181,7 +183,20 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
         })
       : null;
 
-    if (!enrollment) {
+    let isAllowedBySemester = false;
+    if (!enrollment && user.studentProfileId) {
+      const profile = await db.query.studentProfiles.findFirst({
+        where: eq(studentProfiles.id, user.studentProfileId),
+      });
+      if (profile && profile.semester != null) {
+        const semesterRoman = toRoman(profile.semester);
+        if (subject.semester === semesterRoman) {
+          isAllowedBySemester = true;
+        }
+      }
+    }
+
+    if (!enrollment && !isAllowedBySemester) {
       return (
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-8 border border-destructive/20 rounded-2xl bg-destructive/5 max-w-lg mx-auto my-12">
           <div className="w-16 h-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mb-4">

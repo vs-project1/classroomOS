@@ -1,7 +1,8 @@
 "use server";
 
 import { db } from "@/db";
-import { classSessions, lectureLogs, attendance, subjects, students, homework, enrollments } from "@/db/schema";
+import { classSessions, lectureLogs, attendance, subjects, students, homework, enrollments, studentProfiles } from "@/db/schema";
+import { toRoman } from "@/lib/utils/roman";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";

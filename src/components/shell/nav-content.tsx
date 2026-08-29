@@ -132,9 +132,6 @@ export function NavContent({
       {/* Brand Header */}
       <BrandHeader portalLabel={navigation.portalLabel} />
 
-      {/* Collapsible Course Switcher */}
-      {(role === "STUDENT" || role === "CR") && <CourseSwitcher subjects={subjects} onNavigate={onNavigate} />}
-
       {/* Sectioned Navigation — grouped: ACADEMICS / Work / Class / Campus */}
       <nav
         aria-label={variant === "sidebar" ? "Primary" : "Menu"}

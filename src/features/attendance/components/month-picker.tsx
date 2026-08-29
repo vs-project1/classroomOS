@@ -35,7 +35,8 @@ export function MonthPicker() {
 
   const options = getMonthOptions();
 
-  const handleValueChange = (val: string) => {
+  const handleValueChange = (val: string | null) => {
+    if (!val) return;
     const params = new URLSearchParams(searchParams.toString());
     if (val === "all") {
       params.delete("month");

@@ -12,6 +12,9 @@ import { getPermissions, requireAuth } from "@/lib/auth";
 import { getNavBadges } from "@/lib/navigation/badges";
 import { TimelineRiver, type TimelineRiverSlot } from "@/components/timetable/timeline-river";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
+import NepaliDate from "nepali-datetime";
+import { toRoman } from "@/lib/utils/roman";
+import { studentProfiles } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -101,7 +104,15 @@ export default async function TodayPage({ searchParams }: Props) {
   const greeting = nptHour < 12 ? "Good morning" : nptHour < 17 ? "Good afternoon" : "Good evening";
   const firstName = (user?.name ?? "").split(/\s+/)[0];
 
-  const [dayRoutines, loggedSessions, permissions, deadlines, navBadges] = await Promise.all([
+  // Fetch student profile for fallback
+  let profile = null;
+  if (isClassMember && user.studentProfileId) {
+    profile = await db.query.studentProfiles.findFirst({
+      where: eq(studentProfiles.id, user.studentProfileId),
+    });
+  }
+
+  const [dayRoutinesRaw, loggedSessions, permissions, deadlines, navBadges] = await Promise.all([
     db.query.weeklyRoutine.findMany({
       where: eq(weeklyRoutine.dayOfWeek, dayOfWeek),
       orderBy: [asc(weeklyRoutine.startTime)],
@@ -121,6 +132,16 @@ export default async function TodayPage({ searchParams }: Props) {
     getTodayDeadlines(),
     getNavBadges(),
   ]);
+
+  let dayRoutines = dayRoutinesRaw;
+  if (isClassMember && profile && profile.semester != null) {
+    const semesterRoman = toRoman(profile.semester);
+    dayRoutines = dayRoutinesRaw.filter((r) => r.subject?.semester === semesterRoman);
+  } else if (role === "TEACHER" && user.teacherId) {
+    dayRoutines = dayRoutinesRaw.filter(
+      (r) => r.subject?.teacherId === user.teacherId || r.teacherName === user.name
+    );
+  }
 
   const routinesWithStatus = dayRoutines.map((routine) => {
     const session = loggedSessions.find((s) => s.routineId === routine.id);

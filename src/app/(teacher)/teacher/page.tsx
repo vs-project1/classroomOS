@@ -45,7 +45,7 @@ export default async function TeacherDashboard() {
   // Timezone standardization: NPT day of week
   const today = new Date();
   const options = { timeZone: 'Asia/Kathmandu', weekday: 'long' } as const;
-  const todayString = formatNepaliDate(today);
+  const todayString = new Intl.DateTimeFormat("en-US", options).format(today);
   
   // Convert day string to integer matching our DB (0 = Sunday, 1 = Monday, etc.)
   const daysMap: Record<string, number> = {
@@ -117,7 +117,7 @@ export default async function TeacherDashboard() {
           <span className="text-xs text-muted-foreground">Lecture logs</span>
         </Link>
         <Link
-          href="/subjects"
+          href="/teacher/subjects"
           className="flex flex-col items-start gap-2 rounded-2xl border border-border/40 bg-card p-4 hover:border-primary/50 transition-all"
         >
           <BookOpen className="w-5 h-5 text-primary" />

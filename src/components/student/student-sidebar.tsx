@@ -82,8 +82,6 @@ export function StudentSidebar({ role = "STUDENT", badges, subjects }: StudentSi
         </Link>
       </div>
 
-      <CourseSwitcher subjects={subjects} />
-
       <nav aria-label="Primary" className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
         {navigation.sections.map((section, idx) => (
           <div key={section.title ?? `top-${idx}`}>

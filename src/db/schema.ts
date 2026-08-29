@@ -933,4 +933,5 @@ export const dailyAttendance = sqliteTable("daily_attendance", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
   unique("unq_daily_attendance_session_student").on(table.dailySessionId, table.studentId),
+  check("chk_daily_attendance_status", sql`${table.status} IN ('present', 'absent', 'late', 'excused')`),
 ]);

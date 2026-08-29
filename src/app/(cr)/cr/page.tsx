@@ -35,16 +35,19 @@ export default async function CRDashboard() {
     );
   }
 
-  // Nepal Time
+  // Nepal Time — compute dayOfWeek from the JS Date directly.
+  // (formatNepaliDate returns a Bikram Sambat display string like
+  // "2083 Bhadra 10" which is NOT ISO-parseable; re-parsing it with
+  // `new Date()` gives Invalid Date and .getDay() returns NaN, which
+  // then breaks the weekly_routine query at the SQLite layer.)
   const now = new Date();
+  const dayOfWeek = now.getDay();
   const nptDateString = formatNepaliDate(now);
-  const nptDate = new Date(nptDateString);
-  const dayOfWeek = nptDate.getDay();
   const nptTime = formatNepaliDateTime(now);
   const nptHour = parseInt(nptTime.split(":")[0], 10);
   const greeting =
     nptHour < 12 ? "Good morning" : nptHour < 17 ? "Good afternoon" : "Good evening";
-  const formattedDate = formatNepaliDate(nptDate);
+  const formattedDate = formatNepaliDate(now);
 
   // CR's enrolled subject IDs
   const crEnrollments = await db.query.enrollments.findMany({
@@ -53,7 +56,7 @@ export default async function CRDashboard() {
   const enrolledSubjectIds = crEnrollments.map((e) => e.subjectId);
 
   // Sessions logged this week (Mon=1..Sun=0 in JS, but we use 0-6)
-  const startOfWeek = new Date(nptDate);
+  const startOfWeek = new Date(now);
   const dayOffset = startOfWeek.getDay() === 0 ? 6 : startOfWeek.getDay() - 1; // Monday-based
   startOfWeek.setDate(startOfWeek.getDate() - dayOffset);
   startOfWeek.setHours(0, 0, 0, 0);
@@ -111,9 +114,9 @@ export default async function CRDashboard() {
   const recentSessionsCount = sessionsThisWeek.length;
 
   // Today's logging status: how many of today's classes have a session row
-  const todayStart = new Date(nptDate);
+  const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(nptDate);
+  const todayEnd = new Date(now);
   todayEnd.setHours(23, 59, 59, 999);
   const loggedToday = allSessions.filter((s) => {
     const d = new Date(s.sessionDate);

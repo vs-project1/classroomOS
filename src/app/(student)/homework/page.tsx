@@ -1,5 +1,6 @@
 import { db } from "@/db";
-import { homework, assignmentSubmissions, studentProfiles, students, enrollments } from "@/db/schema";
+import { homework, assignmentSubmissions, studentProfiles, students, enrollments, subjects } from "@/db/schema";
+import { toRoman } from "@/lib/utils/roman";
 import { getCurrentUser } from "@/lib/auth/session";
 import { desc, eq, inArray } from "drizzle-orm";
 import { HomeworkClientWorkspace } from "./homework-client-workspace";
@@ -53,6 +54,17 @@ export default async function HomeworkPage() {
       where: eq(enrollments.studentId, studentId),
     });
     enrolledSubjectIds = userEnrollments.map((e) => e.subjectId);
+
+    if (enrolledSubjectIds.length === 0 && user?.studentProfileId) {
+      const profile = await db.query.studentProfiles.findFirst({
+        where: eq(studentProfiles.id, user.studentProfileId),
+      });
+      if (profile && profile.semester != null) {
+        const semesterRoman = toRoman(profile.semester);
+        const mappedSubjects = await db.select({ id: subjects.id }).from(subjects).where(eq(subjects.semester, semesterRoman));
+        enrolledSubjectIds = mappedSubjects.map((s) => s.id);
+      }
+    }
   }
 
   const scopedHomework =

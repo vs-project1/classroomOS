@@ -1,5 +1,6 @@
 import { db } from "@/db";
-import { courseChapters, courseUnits, enrollments, subjects } from "@/db/schema";
+import { courseChapters, courseUnits, enrollments, subjects, studentProfiles } from "@/db/schema";
+import { toRoman } from "@/lib/utils/roman";
 import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { getCurrentUser, resolveCurrentStudent } from "@/lib/auth";
 
@@ -44,12 +45,32 @@ export async function getSubjectsForSidebar(): Promise<SidebarSubject[]> {
       return [];
     }
 
-    return db
+    const enrolled = await db
       .select({ id: subjects.id, name: subjects.name, slug: subjects.slug })
       .from(enrollments)
       .innerJoin(subjects, eq(enrollments.subjectId, subjects.id))
       .where(eq(enrollments.studentId, student.id))
       .orderBy(asc(subjects.name));
+
+    if (enrolled.length > 0) {
+      return enrolled;
+    }
+
+    if (user.studentProfileId) {
+      const profile = await db.query.studentProfiles.findFirst({
+        where: eq(studentProfiles.id, user.studentProfileId),
+      });
+      if (profile && profile.semester != null) {
+        const semesterRoman = toRoman(profile.semester);
+        return db
+          .select({ id: subjects.id, name: subjects.name, slug: subjects.slug })
+          .from(subjects)
+          .where(eq(subjects.semester, semesterRoman))
+          .orderBy(asc(subjects.name));
+      }
+    }
+
+    return [];
   }
 
   // ADMIN sees everything.

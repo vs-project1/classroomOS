@@ -47,7 +47,7 @@ export default async function TeacherRosterPage({ searchParams }: { searchParams
   const sessionIds = sessions.map(s => s.id);
 
   // Get enrolled students
-  const enrolled = await db
+  let enrolled = await db
     .select({
       student: students,
     })
@@ -55,6 +55,14 @@ export default async function TeacherRosterPage({ searchParams }: { searchParams
     .innerJoin(students, eq(enrollments.studentId, students.id))
     .where(eq(enrollments.subjectId, subjectId))
     .orderBy(students.rollNumber);
+
+  if (enrolled.length === 0) {
+    const allStds = await db
+      .select()
+      .from(students)
+      .orderBy(students.rollNumber);
+    enrolled = allStds.map((s) => ({ student: s }));
+  }
 
   // Get all attendance for these sessions
   let allAttendance: (typeof attendance.$inferSelect)[] = [];

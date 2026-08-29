@@ -32,7 +32,17 @@ export default async function StudentsPage({ searchParams }: Props) {
     );
   }
   if (semester) {
-    conditions.push(eq(students.semester, semester));
+    const romanToOrdinal: Record<string, string> = {
+      "I": "1st Semester",
+      "II": "2nd Semester",
+      "III": "3rd Semester",
+      "IV": "4th Semester",
+      "V": "5th Semester",
+      "VI": "6th Semester",
+      "VII": "7th Semester",
+      "VIII": "8th Semester"
+    };
+    conditions.push(eq(students.semester, romanToOrdinal[semester] || semester));
   }
 
   const allStudents = await db

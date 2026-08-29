@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useEffect, useCallback } from "react";
+import { useActionState, useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { createSession, getStudentsBySubject, type SessionActionState } from "@/features/sessions/actions/session-actions";
 import { Button } from "@/components/ui/button";
@@ -135,6 +135,10 @@ export function SessionForm({ subjects, defaultValues }: Props) {
     }).format(new Date());
   };
 
+  const defaultDate = useMemo(() => defaultValues?.sessionDate || getNepalDateString(), []);
+  const defaultStartTime = useMemo(() => defaultValues?.startTime || getNepalTimeString(), []);
+  const defaultEndTime = useMemo(() => defaultValues?.endTime || "", []);
+
   return (
     <div className="mb-8 max-w-2xl">
       <div className="mb-6">
@@ -172,7 +176,7 @@ export function SessionForm({ subjects, defaultValues }: Props) {
 
           <div className="space-y-2">
             <Label htmlFor="sessionDate" className="text-sm font-medium">Session Date</Label>
-            <Input type="date" id="sessionDate" name="sessionDate" required min="2000-01-01" max={getNepalDateString()} defaultValue={defaultValues?.sessionDate || getNepalDateString()} className="h-10" />
+            <Input type="date" id="sessionDate" name="sessionDate" required min="2000-01-01" max={getNepalDateString()} defaultValue={defaultDate} className="h-10" />
             {state.fieldErrors?.sessionDate && (
               <p className="text-sm font-medium text-destructive">{state.fieldErrors.sessionDate[0]}</p>
             )}
@@ -180,7 +184,7 @@ export function SessionForm({ subjects, defaultValues }: Props) {
           
           <div className="space-y-2">
             <Label htmlFor="startTime" className="text-sm font-medium">Start Time</Label>
-            <Input type="time" id="startTime" name="startTime" required defaultValue={defaultValues?.startTime || getNepalTimeString()} className="h-10" />
+            <Input type="time" id="startTime" name="startTime" required defaultValue={defaultStartTime} className="h-10" />
             {state.fieldErrors?.startTime && (
               <p className="text-sm font-medium text-destructive">{state.fieldErrors.startTime[0]}</p>
             )}
@@ -188,7 +192,7 @@ export function SessionForm({ subjects, defaultValues }: Props) {
           
           <div className="space-y-2">
             <Label htmlFor="endTime" className="text-sm font-medium">End Time</Label>
-            <Input type="time" id="endTime" name="endTime" required defaultValue={defaultValues?.endTime || ""} className="h-10" />
+            <Input type="time" id="endTime" name="endTime" required defaultValue={defaultEndTime} className="h-10" />
             {state.fieldErrors?.endTime && (
               <p className="text-sm font-medium text-destructive">{state.fieldErrors.endTime[0]}</p>
             )}

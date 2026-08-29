@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { PhoneForm, PasswordForm } from "./profile-forms";
 
+import { toRoman } from "@/lib/utils/roman";
+
 export const dynamic = "force-dynamic";
 
 export const metadata = {
@@ -63,7 +65,7 @@ export default async function ProfilePage() {
       academicRows = [
         ["Roll number", profile.rollNumber],
         ["Faculty", profile.faculty],
-        ["Semester", profile.semester != null ? String(profile.semester) : null],
+        ["Semester", profile.semester != null ? `${profile.semester}th Semester (${toRoman(profile.semester)})`.replace("1th", "1st").replace("2th", "2nd").replace("3th", "3rd") : null],
         ["Section", profile.section],
         ["Batch year", profile.batchYear != null ? String(profile.batchYear) : null],
         ["Registry name", legacy?.name ?? null],

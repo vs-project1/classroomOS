@@ -1,7 +1,8 @@
 import { db } from "@/db";
-import { classSessions, courseUnits, enrollments } from "@/db/schema";
+import { classSessions, courseUnits, enrollments, studentProfiles, subjects } from "@/db/schema";
 import { desc, eq, inArray } from "drizzle-orm";
 import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
+import { toRoman } from "@/lib/utils/roman";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,17 @@ export default async function LectureLogsPage({ searchParams }: Props) {
       const semesters = semestersBySubjectId.get(enrollment.subjectId) ?? new Set<number>();
       semesters.add(enrollment.semester);
       semestersBySubjectId.set(enrollment.subjectId, semesters);
+    }
+
+    if (enrolledSubjectIds.length === 0 && user?.studentProfileId) {
+      const profile = await db.query.studentProfiles.findFirst({
+        where: eq(studentProfiles.id, user.studentProfileId),
+      });
+      if (profile && profile.semester != null) {
+        const semesterRoman = toRoman(profile.semester);
+        const mappedSubjects = await db.select({ id: subjects.id }).from(subjects).where(eq(subjects.semester, semesterRoman));
+        enrolledSubjectIds = mappedSubjects.map((s) => s.id);
+      }
     }
   } else {
     // Teachers/admins have no student profile: derive semester options from every enrollment.

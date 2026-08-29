@@ -1,8 +1,9 @@
 import { requireAuth } from "@/lib/auth/session";
 import { db } from "@/db";
-import { studentProfiles, students, users } from "@/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { studentProfiles, students, dailySessions, dailyAttendance } from "@/db/schema";
+import { eq, asc, and } from "drizzle-orm";
 import { DailyAttendanceClient } from "./client-page";
+import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export default async function TakeDailyAttendancePage() {
   const user = await requireAuth(["CR"]);
@@ -22,11 +23,24 @@ export default async function TakeDailyAttendancePage() {
   }).from(students)
     .where(eq(students.semester, semesterStr))
     .orderBy(asc(students.rollNumber));
-  
+
+  const now = new Date();
+  const nepaliDateStr = formatNepaliDate(now, 'dddd, YYYY MMMM DD');
+  const gregorianDateStr = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(now);
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Morning Roll Call</h1>
-      <DailyAttendanceClient roster={roster} semester={semesterStr} />
+    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+      <DailyAttendanceClient 
+        roster={roster} 
+        semester={semesterStr}
+        nepaliDate={nepaliDateStr}
+        gregorianDate={gregorianDateStr}
+      />
     </div>
   );
 }
