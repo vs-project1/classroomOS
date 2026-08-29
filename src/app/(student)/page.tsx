@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { weeklyRoutine, homework, notices, attendance } from "@/db/schema";
+import { weeklyRoutine, homework, notices, attendance, dailyAttendance } from "@/db/schema";
 import { desc, eq, asc } from "drizzle-orm";
 import Link from "next/link";
 import { resolveCurrentStudent } from "@/lib/auth";

@@ -935,3 +935,22 @@ export const dailyAttendance = sqliteTable("daily_attendance", {
   unique("unq_daily_attendance_session_student").on(table.dailySessionId, table.studentId),
   check("chk_daily_attendance_status", sql`${table.status} IN ('present', 'absent', 'late', 'excused')`),
 ]);
+
+export const dailySessionsRelations = relations(dailySessions, ({ many, one }) => ({
+  attendance: many(dailyAttendance),
+  marker: one(users, {
+    fields: [dailySessions.markedBy],
+    references: [users.id],
+  }),
+}));
+
+export const dailyAttendanceRelations = relations(dailyAttendance, ({ one }) => ({
+  dailySession: one(dailySessions, {
+    fields: [dailyAttendance.dailySessionId],
+    references: [dailySessions.id],
+  }),
+  student: one(students, {
+    fields: [dailyAttendance.studentId],
+    references: [students.id],
+  }),
+}));
