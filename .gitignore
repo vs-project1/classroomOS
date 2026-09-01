@@ -54,12 +54,12 @@ playwright-report/
 test-results/
 scratch/
 
-# agent workspace archives are tracked intentionally; see .agents/README.md
-
-# agent runtime state, skills, and tools
+# agent runtime state, skills, tools, instructions, and archives
 /.runtime/
 .opencode/
 .claude/
 .impeccable/
+.agents/
+AGENTS.md
 
 .worktrees/
