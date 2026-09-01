@@ -59,15 +59,9 @@ async function seed() {
     process.exit(1);
   }
 
-  // --- ATOMICITY (audit C8): one failure mid-run must not leave the DB
-  // truncated and half-populated. Single connection => explicit transaction.
-  await db.run(sql`BEGIN IMMEDIATE`);
-
   try {
     await seedAll();
-    await db.run(sql`COMMIT`);
   } catch (err) {
-    await db.run(sql`ROLLBACK`);
     throw err;
   }
 
@@ -293,9 +287,13 @@ async function seedAll() {
     { id: "std_035", name: "Ang Dawa Sherpa", roll: "2025-BCA-035", email: "angdawa.sherpa@classroom.os", phone: "+977-9851000035" },
   ];
 
+  const studentUsersToInsert: Array<typeof users.$inferInsert> = [];
+  const studentsToInsert: Array<typeof students.$inferInsert> = [];
+  const studentProfilesToInsert: Array<typeof studentProfiles.$inferInsert> = [];
+
   for (const s of rawStudents) {
     const userId = `usr_${s.id}`;
-    await db.insert(users).values({
+    studentUsersToInsert.push({
       id: userId,
       email: s.email,
       passwordHash: defaultStudentPass,
@@ -304,7 +302,7 @@ async function seedAll() {
       isActive: true,
     });
 
-    await db.insert(students).values({
+    studentsToInsert.push({
       id: s.id,
       name: s.name,
       rollNumber: s.roll,
@@ -314,7 +312,7 @@ async function seedAll() {
       semester: "2nd Semester",
     });
 
-    await db.insert(studentProfiles).values({
+    studentProfilesToInsert.push({
       id: `sp_${s.id}`,
       userId,
       rollNumber: s.roll,
@@ -325,6 +323,10 @@ async function seedAll() {
       phone: s.phone,
     });
   }
+
+  await db.insert(users).values(studentUsersToInsert);
+  await db.insert(students).values(studentsToInsert);
+  await db.insert(studentProfiles).values(studentProfilesToInsert);
 
   // 5. Seed Subjects (Complete 8-Semester BCA Curriculum)
   console.log("📚 Seeding Subjects...");
@@ -393,16 +395,16 @@ async function seedAll() {
     { id: "subj_bca454", name: "Elective IV", slug: slugify("Elective IV"), code: "BCA 454", semester: "VIII", teacherId: "tch_mohit_07" },
   ];
 
-  for (const subj of subjectsData) {
-    await db.insert(subjects).values(subj);
-  }
+  await db.insert(subjects).values(subjectsData);
 
   // 5. Seed Enrollments (35 Real 2nd Semester Students x 6 Core Subjects)
   console.log("📝 Seeding Enrollments (35 Students x 6 Core 2nd Sem Subjects)...");
   const secondSemSubjects = subjectsData.filter((s) => s.semester === "II");
+  const enrollmentsToInsert: Array<typeof enrollments.$inferInsert> = [];
+
   for (const s of rawStudents) {
     for (const subj of secondSemSubjects) {
-      await db.insert(enrollments).values({
+      enrollmentsToInsert.push({
         id: `enr_${s.id}_${subj.id}`,
         studentId: s.id,
         subjectId: subj.id,
@@ -411,6 +413,8 @@ async function seedAll() {
       });
     }
   }
+
+  await db.insert(enrollments).values(enrollmentsToInsert);
 
   // 6. Seed Weekly Routine (2nd Semester - 30 periods)
   console.log("⏰ Seeding Weekly Routine (2nd Semester)...");
