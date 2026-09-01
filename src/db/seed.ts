@@ -174,70 +174,6 @@ async function seedAll() {
       mustChangePassword: false,
       isActive: true,
     },
-    {
-      id: "usr_student_aarav",
-      email: "aarav.joshi@classroom.os",
-      passwordHash: defaultTempPass,
-      role: "CR" as const,
-      mustChangePassword: true,
-      isActive: true,
-    },
-    {
-      id: "usr_student_bipana",
-      email: "bipana.adhikari@classroom.os",
-      passwordHash: defaultStudentPass,
-      role: "STUDENT" as const,
-      mustChangePassword: false,
-      isActive: true,
-    },
-    {
-      id: "usr_student_rohan",
-      email: "rohan.shrestha@classroom.os",
-      passwordHash: defaultStudentPass,
-      role: "STUDENT" as const,
-      mustChangePassword: false,
-      isActive: true,
-    },
-    {
-      id: "usr_student_sneha",
-      email: "sneha.sharma@classroom.os",
-      passwordHash: defaultStudentPass,
-      role: "STUDENT" as const,
-      mustChangePassword: false,
-      isActive: true,
-    },
-    {
-      id: "usr_student_niraj",
-      email: "niraj.karki@classroom.os",
-      passwordHash: defaultStudentPass,
-      role: "STUDENT" as const,
-      mustChangePassword: false,
-      isActive: true,
-    },
-    {
-      id: "usr_student_puja",
-      email: "puja.kc@classroom.os",
-      passwordHash: defaultStudentPass,
-      role: "STUDENT" as const,
-      mustChangePassword: false,
-      isActive: true,
-    },
-    {
-      id: "usr_student_dipen",
-      email: "dipen.tamang@classroom.os",
-      passwordHash: defaultStudentPass,
-      role: "STUDENT" as const,
-      mustChangePassword: false,
-      isActive: true,
-    },
-    {
-      id: "usr_student_kriti",
-      email: "kriti.maharjan@classroom.os",
-      passwordHash: defaultStudentPass,
-      role: "STUDENT" as const,
-      mustChangePassword: false,
-      isActive: true,
-    },
   ];
 
   for (const u of usersData) {
@@ -325,43 +261,7 @@ async function seedAll() {
     await db.insert(teachers).values(t);
   }
 
-  // 4. Seed Students & Student Profiles
-  console.log("🎓 Seeding Students & Academic Profiles...");
-  const rawStudents = [
-    { id: "std_aarav_cr", profileId: "sp_aarav_cr", userId: "usr_student_aarav", name: "Aarav Joshi", roll: "2024-BCA-001", email: "aarav.joshi@classroom.os", phone: "+977-9851000001" },
-    { id: "std_bipana_02", profileId: "sp_bipana_02", userId: "usr_student_bipana", name: "Bipana Adhikari", roll: "2024-BCA-002", email: "bipana.adhikari@classroom.os", phone: "+977-9851000002" },
-    { id: "std_rohan_03", profileId: "sp_rohan_03", userId: "usr_student_rohan", name: "Rohan Shrestha", roll: "2024-BCA-003", email: "rohan.shrestha@classroom.os", phone: "+977-9851000003" },
-    { id: "std_sneha_04", profileId: "sp_sneha_04", userId: "usr_student_sneha", name: "Sneha Sharma", roll: "2024-BCA-004", email: "sneha.sharma@classroom.os", phone: "+977-9851000004" },
-    { id: "std_niraj_05", profileId: "sp_niraj_05", userId: "usr_student_niraj", name: "Niraj Karki", roll: "2024-BCA-005", email: "niraj.karki@classroom.os", phone: "+977-9851000005" },
-    { id: "std_puja_06", profileId: "sp_puja_06", userId: "usr_student_puja", name: "Puja KC", roll: "2024-BCA-006", email: "puja.kc@classroom.os", phone: "+977-9851000006" },
-    { id: "std_dipen_07", profileId: "sp_dipen_07", userId: "usr_student_dipen", name: "Dipen Tamang", roll: "2024-BCA-007", email: "dipen.tamang@classroom.os", phone: "+977-9851000007" },
-    { id: "std_kriti_08", profileId: "sp_kriti_08", userId: "usr_student_kriti", name: "Kriti Maharjan", roll: "2024-BCA-008", email: "kriti.maharjan@classroom.os", phone: "+977-9851000008" },
-  ];
-
-  for (const s of rawStudents) {
-    await db.insert(students).values({
-      id: s.id,
-      name: s.name,
-      rollNumber: s.roll,
-      email: s.email,
-      phone: s.phone,
-      faculty: "BCA",
-      semester: "2nd Semester",
-    });
-
-    await db.insert(studentProfiles).values({
-      id: s.profileId,
-      userId: s.userId,
-      rollNumber: s.roll,
-      faculty: "BCA",
-      semester: 2,
-      section: "A",
-      batchYear: 2025,
-      phone: s.phone,
-    });
-  }
-
-  // 5. Seed Subjects (Complete 8-Semester BCA Curriculum)
+  // 4. Seed Subjects (Complete 8-Semester BCA Curriculum)
   console.log("📚 Seeding Subjects...");
   const subjectsData = [
     // --- First Semester (I) ---
@@ -432,22 +332,7 @@ async function seedAll() {
     await db.insert(subjects).values(subj);
   }
 
-  // 6. Seed Enrollments (All students to 2nd semester core subjects)
-  console.log("📝 Seeding Enrollments (2nd Semester)...");
-  const secondSemSubjects = subjectsData.filter((s) => s.semester === "II");
-  for (const s of rawStudents) {
-    for (const subj of secondSemSubjects) {
-      await db.insert(enrollments).values({
-        id: `enr_${s.id}_${subj.id}`,
-        studentId: s.id,
-        subjectId: subj.id,
-        semester: 2,
-        enrolledAt: new Date("2026-07-20T00:00:00.000Z"),
-      });
-    }
-  }
-
-  // 7. Seed Weekly Routine (2nd Semester - 30 periods)
+  // 5. Seed Weekly Routine (2nd Semester - 30 periods)
   console.log("⏰ Seeding Weekly Routine (2nd Semester)...");
   const routineData = [
     // --- Second Semester Routine ---
