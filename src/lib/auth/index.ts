@@ -42,7 +42,18 @@ export async function getPermissions(): Promise<RolePermissions> {
  */
 export const resolveCurrentStudent = cache(async function resolveCurrentStudent() {
   const user = await getCurrentUser();
-  if (user && user.studentProfileId) {
+  if (user) {
+    if (user.studentProfileId) {
+      const profile = await db.query.studentProfiles.findFirst({
+        where: (sp, { eq }) => eq(sp.id, user.studentProfileId!),
+      });
+      if (profile) {
+        const student = await db.query.students.findFirst({
+          where: (s, { eq }) => eq(s.rollNumber, profile.rollNumber),
+        });
+        if (student) return student;
+      }
+    }
     const student = await db.query.students.findFirst({
       where: (s, { eq }) => eq(s.email, user.email),
     });
