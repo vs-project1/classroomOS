@@ -97,7 +97,10 @@ async function seedAll() {
 
   // 2. Seed Users
   console.log("👤 Seeding Users & Auth Accounts...");
-  const defaultAdminPass = hashPassword("AdminPassword123!");
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@classroom.edu.np";
+  const adminPassword = process.env.ADMIN_PASSWORD || "AdminPassword123!";
+
+  const defaultAdminPass = hashPassword(adminPassword);
   const defaultTeacherPass = hashPassword("TeacherPassword123!");
   const defaultTempPass = hashPassword("TempPassword123!");
   const defaultStudentPass = hashPassword("StudentPassword123!");
@@ -105,11 +108,10 @@ async function seedAll() {
   const usersData = [
     {
       id: "usr_admin_01",
-      email: "admin@classroom.edu.np",
+      email: adminEmail,
       passwordHash: defaultAdminPass,
       role: "ADMIN" as const,
-      // Known public credential in a demo seed — force rotation at first login.
-      mustChangePassword: true,
+      mustChangePassword: false,
       isActive: true,
     },
     {
@@ -117,7 +119,7 @@ async function seedAll() {
       email: "admin@classroom.os",
       passwordHash: defaultAdminPass,
       role: "ADMIN" as const,
-      mustChangePassword: true,
+      mustChangePassword: false,
       isActive: true,
     },
     {
