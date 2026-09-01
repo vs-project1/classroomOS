@@ -19,6 +19,15 @@ export function getCurrentNptDate(): Date {
   return new Date(`${year}-${month}-${day}T${timePart}+05:45`);
 }
 
+export function getNptTimeString(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 export function formatNptDateOnly(date: Date | number | string): string {
   const d = new Date(date);
   if (isNaN(d.getTime())) return "";

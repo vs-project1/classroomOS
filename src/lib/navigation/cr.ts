@@ -1,4 +1,4 @@
-﻿import { Book, CalendarRange, CalendarDays, CheckCircle, ClipboardEdit, Clock, FileText, Home, Inbox, Users } from "lucide-react";
+import { Book, CalendarRange, CalendarDays, CheckCircle, ClipboardEdit, Clock, FileText, FolderDown, Home, Inbox, Users } from "lucide-react";
 import type { RoleNavigation } from "./types";
 
 export const crNavigation: RoleNavigation = {
@@ -25,6 +25,7 @@ export const crNavigation: RoleNavigation = {
       title: "My Class",
       items: [
         { label: "Subjects", href: "/subjects", icon: Book },
+        { label: "Study Materials", href: "/cr/resources", icon: FolderDown },
         { label: "Routine", href: "/routine", icon: CalendarRange },
         { label: "Notifications", href: "/notifications", icon: Inbox, badgeKey: "notifications" },
       ],

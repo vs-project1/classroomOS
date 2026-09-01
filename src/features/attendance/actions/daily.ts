@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 import { db } from "@/db";
 import { dailySessions, dailyAttendance, students, users } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/session";
@@ -11,7 +11,7 @@ import { revalidatePath } from "next/cache";
  * unique constraint is on (date, semester), and the date column should mean
  * "this calendar day", not "this moment in time".
  */
-export function nptStartOfDay(d: Date): Date {
+function nptStartOfDay(d: Date): Date {
   const ymd = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kathmandu",
     year: "numeric",

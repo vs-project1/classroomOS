@@ -321,24 +321,82 @@ async function seedAll() {
     });
   }
 
-  // 5. Seed Subjects
+  // 5. Seed Subjects (Complete 8-Semester BCA Curriculum)
   console.log("📚 Seeding Subjects...");
   const subjectsData = [
-    { id: "subj_dbms", name: "Database Management System", slug: slugify("Database Management System"), code: "CACS251", teacherId: "tch_rajesh_01" },
-    { id: "subj_os", name: "Operating Systems", slug: slugify("Operating Systems"), code: "CACS252", teacherId: "tch_sunita_02" },
-    { id: "subj_web2", name: "Web Technology II", slug: slugify("Web Technology II"), code: "CACS253", teacherId: "tch_bishal_03" },
-    { id: "subj_nm", name: "Numerical Methods", slug: slugify("Numerical Methods"), code: "CACS254", teacherId: "tch_anjali_04" },
-    { id: "subj_se", name: "Software Engineering", slug: slugify("Software Engineering"), code: "CACS255", teacherId: "tch_rajesh_01" },
+    // --- First Semester (I) ---
+    { id: "subj_bca101", name: "Computer Fundamentals and Applications", slug: slugify("Computer Fundamentals and Applications"), code: "BCA 101", semester: "I", teacherId: "tch_rajesh_01" },
+    { id: "subj_bca102", name: "Programming in C", slug: slugify("Programming in C"), code: "BCA 102", semester: "I", teacherId: "tch_sunita_02" },
+    { id: "subj_bca103", name: "Digital Logic", slug: slugify("Digital Logic"), code: "BCA 103", semester: "I", teacherId: "tch_bishal_03" },
+    { id: "subj_bca104", name: "Mathematics I", slug: slugify("Mathematics I"), code: "BCA 104", semester: "I", teacherId: "tch_anjali_04" },
+    { id: "subj_bca105", name: "Professional Communication and Ethics", slug: slugify("Professional Communication and Ethics"), code: "BCA 105", semester: "I", teacherId: "tch_rajesh_01" },
+    { id: "subj_bca106", name: "Hardware Workshop", slug: slugify("Hardware Workshop"), code: "BCA 106", semester: "I", teacherId: "tch_sunita_02" },
+
+    // --- Second Semester (II) ---
+    { id: "subj_bca151", name: "Discrete Structure", slug: slugify("Discrete Structure"), code: "BCA 151", semester: "II", teacherId: "tch_anjali_04" },
+    { id: "subj_bca152", name: "Microprocessor and Computer Architecture", slug: slugify("Microprocessor and Computer Architecture"), code: "BCA 152", semester: "II", teacherId: "tch_sunita_02" },
+    { id: "subj_bca153", name: "OOP in Java", slug: slugify("OOP in Java"), code: "BCA 153", semester: "II", teacherId: "tch_bishal_03" },
+    { id: "subj_bca154", name: "Mathematics II", slug: slugify("Mathematics II"), code: "BCA 154", semester: "II", teacherId: "tch_anjali_04" },
+    { id: "subj_bca155", name: "UX/UI Design", slug: slugify("UX/UI Design"), code: "BCA 155", semester: "II", teacherId: "tch_rajesh_01" },
+    { id: "subj_bca156", name: "Principles of Management", slug: slugify("Principles of Management"), code: "BCA 156", semester: "II", teacherId: "tch_rajesh_01" },
+
+    // --- Third Semester (III) ---
+    { id: "subj_bca201", name: "Data Structure and Algorithms", slug: slugify("Data Structure and Algorithms"), code: "BCA 201", semester: "III", teacherId: "tch_bishal_03" },
+    { id: "subj_bca202", name: "Database Management System (3rd)", slug: slugify("Database Management System 3rd"), code: "BCA 202", semester: "III", teacherId: "tch_rajesh_01" },
+    { id: "subj_bca203", name: "Web Technology I", slug: slugify("Web Technology I"), code: "BCA 203", semester: "III", teacherId: "tch_bishal_03" },
+    { id: "subj_bca204", name: "System Analysis and Design", slug: slugify("System Analysis and Design"), code: "BCA 204", semester: "III", teacherId: "tch_sunita_02" },
+    { id: "subj_bca205", name: "Probability and Statistics", slug: slugify("Probability and Statistics"), code: "BCA 205", semester: "III", teacherId: "tch_anjali_04" },
+    { id: "subj_bca206", name: "Applied Economics", slug: slugify("Applied Economics"), code: "BCA 206", semester: "III", teacherId: "tch_rajesh_01" },
+
+    // --- Fourth Semester (IV) ---
+    { id: "subj_dbms", name: "Database Management System", slug: slugify("Database Management System"), code: "CACS251", semester: "IV", teacherId: "tch_rajesh_01" },
+    { id: "subj_os", name: "Operating Systems", slug: slugify("Operating Systems"), code: "CACS252", semester: "IV", teacherId: "tch_sunita_02" },
+    { id: "subj_web2", name: "Web Technology II", slug: slugify("Web Technology II"), code: "CACS253", semester: "IV", teacherId: "tch_bishal_03" },
+    { id: "subj_nm", name: "Numerical Methods", slug: slugify("Numerical Methods"), code: "CACS254", semester: "IV", teacherId: "tch_anjali_04" },
+    { id: "subj_se", name: "Software Engineering", slug: slugify("Software Engineering"), code: "CACS255", semester: "IV", teacherId: "tch_rajesh_01" },
+    { id: "subj_bca254", name: "Python Programming", slug: slugify("Python Programming"), code: "BCA 254", semester: "IV", teacherId: "tch_bishal_03" },
+    { id: "subj_bca256", name: "Project I", slug: slugify("Project I"), code: "BCA 256", semester: "IV", teacherId: "tch_rajesh_01" },
+
+    // --- Fifth Semester (V) ---
+    { id: "subj_bca301", name: "Computer Network", slug: slugify("Computer Network"), code: "BCA 301", semester: "V", teacherId: "tch_sunita_02" },
+    { id: "subj_bca302", name: "Artificial Intelligence", slug: slugify("Artificial Intelligence"), code: "BCA 302", semester: "V", teacherId: "tch_bishal_03" },
+    { id: "subj_bca303", name: "Advance Java Programming", slug: slugify("Advance Java Programming"), code: "BCA 303", semester: "V", teacherId: "tch_bishal_03" },
+    { id: "subj_bca304", name: "MIS and e-Business", slug: slugify("MIS and e-Business"), code: "BCA 304", semester: "V", teacherId: "tch_rajesh_01" },
+    { id: "subj_bca305", name: "Society and Technology", slug: slugify("Society and Technology"), code: "BCA 305", semester: "V", teacherId: "tch_anjali_04" },
+    { id: "subj_bca306", name: "Project II", slug: slugify("Project II"), code: "BCA 306", semester: "V", teacherId: "tch_rajesh_01" },
+
+    // --- Sixth Semester (VI) ---
+    { id: "subj_bca351", name: "Computer Graphics and Animation", slug: slugify("Computer Graphics and Animation"), code: "BCA 351", semester: "VI", teacherId: "tch_bishal_03" },
+    { id: "subj_bca352", name: "Mobile Programming", slug: slugify("Mobile Programming"), code: "BCA 352", semester: "VI", teacherId: "tch_bishal_03" },
+    { id: "subj_bca353", name: "Cryptography and Network Security", slug: slugify("Cryptography and Network Security"), code: "BCA 353", semester: "VI", teacherId: "tch_sunita_02" },
+    { id: "subj_bca354", name: "Technical Writing", slug: slugify("Technical Writing"), code: "BCA 354", semester: "VI", teacherId: "tch_anjali_04" },
+    { id: "subj_bca355", name: "Distributed System", slug: slugify("Distributed System"), code: "BCA 355", semester: "VI", teacherId: "tch_sunita_02" },
+    { id: "subj_bca356", name: "Project III", slug: slugify("Project III"), code: "BCA 356", semester: "VI", teacherId: "tch_rajesh_01" },
+
+    // --- Seventh Semester (VII) ---
+    { id: "subj_bca401", name: "Cyber Security and Ethical Hacking", slug: slugify("Cyber Security and Ethical Hacking"), code: "BCA 401", semester: "VII", teacherId: "tch_sunita_02" },
+    { id: "subj_bca402", name: "Software Project Management", slug: slugify("Software Project Management"), code: "BCA 402", semester: "VII", teacherId: "tch_rajesh_01" },
+    { id: "subj_bca403", name: "Financial Accounting", slug: slugify("Financial Accounting"), code: "BCA 403", semester: "VII", teacherId: "tch_anjali_04" },
+    { id: "subj_bca404", name: "Project IV", slug: slugify("Project IV"), code: "BCA 404", semester: "VII", teacherId: "tch_rajesh_01" },
+    { id: "subj_bca405", name: "Elective I", slug: slugify("Elective I"), code: "BCA 405", semester: "VII", teacherId: "tch_bishal_03" },
+    { id: "subj_bca406", name: "Elective II", slug: slugify("Elective II"), code: "BCA 406", semester: "VII", teacherId: "tch_bishal_03" },
+
+    // --- Eighth Semester (VIII) ---
+    { id: "subj_bca451", name: "Cloud Computing", slug: slugify("Cloud Computing"), code: "BCA 451", semester: "VIII", teacherId: "tch_bishal_03" },
+    { id: "subj_bca452", name: "Internship", slug: slugify("Internship"), code: "BCA 452", semester: "VIII", teacherId: "tch_rajesh_01" },
+    { id: "subj_bca453", name: "Elective III", slug: slugify("Elective III"), code: "BCA 453", semester: "VIII", teacherId: "tch_sunita_02" },
+    { id: "subj_bca454", name: "Elective IV", slug: slugify("Elective IV"), code: "BCA 454", semester: "VIII", teacherId: "tch_anjali_04" },
   ];
 
   for (const subj of subjectsData) {
     await db.insert(subjects).values(subj);
   }
 
-  // 6. Seed Enrollments
-  console.log("📝 Seeding Enrollments (All students to all 5 subjects)...");
+  // 6. Seed Enrollments (All students to 4th semester core subjects)
+  console.log("📝 Seeding Enrollments...");
+  const demoEnrolledSubjects = subjectsData.filter((s) => s.semester === "IV" && ["subj_dbms", "subj_os", "subj_web2", "subj_nm", "subj_se"].includes(s.id));
   for (const s of rawStudents) {
-    for (const subj of subjectsData) {
+    for (const subj of demoEnrolledSubjects) {
       await db.insert(enrollments).values({
         id: `enr_${s.id}_${subj.id}`,
         studentId: s.id,
@@ -372,6 +430,47 @@ async function seedAll() {
     { id: "rt_thu_1", subjectId: "subj_web2", dayOfWeek: 4, startTime: "07:00", endTime: "08:30", teacherName: "Dr. Bishal Thapa", room: "Lab 2", notes: "Lab Session" },
     { id: "rt_thu_2", subjectId: "subj_nm", dayOfWeek: 4, startTime: "08:45", endTime: "10:15", teacherName: "Ms. Anjali Adhikari", room: "Room 301", notes: "Theory" },
     { id: "rt_thu_3", subjectId: "subj_se", dayOfWeek: 4, startTime: "10:30", endTime: "12:00", teacherName: "Prof. Rajesh Shrestha", room: "Room 301", notes: "Theory" },
+
+    // --- Second Semester Routine ---
+    // Monday (1)
+    { id: "rt_sem2_mon_1", subjectId: "subj_bca151", dayOfWeek: 1, startTime: "06:25", endTime: "07:15", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Discrete Structure" },
+    { id: "rt_sem2_mon_2", subjectId: "subj_bca151", dayOfWeek: 1, startTime: "07:15", endTime: "08:05", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Discrete Structure" },
+    { id: "rt_sem2_mon_3", subjectId: "subj_bca153", dayOfWeek: 1, startTime: "08:05", endTime: "08:55", teacherName: "Dr. Bishal Thapa", room: "Lab 1", notes: "OOP in Java" },
+    { id: "rt_sem2_mon_4", subjectId: "subj_bca153", dayOfWeek: 1, startTime: "08:55", endTime: "09:45", teacherName: "Dr. Bishal Thapa", room: "Lab 1", notes: "OOP in Java" },
+    { id: "rt_sem2_mon_5", subjectId: "subj_bca152", dayOfWeek: 1, startTime: "10:10", endTime: "11:00", teacherName: "Er. Sunita Sharma", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
+    { id: "rt_sem2_mon_6", subjectId: "subj_bca156", dayOfWeek: 1, startTime: "11:00", endTime: "11:50", teacherName: "Prof. Rajesh Shrestha", room: "Seminar Hall", notes: "Weekly Presentation" },
+
+    // Tuesday (2)
+    { id: "rt_sem2_tue_1", subjectId: "subj_bca151", dayOfWeek: 2, startTime: "06:25", endTime: "07:15", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Discrete Structure" },
+    { id: "rt_sem2_tue_2", subjectId: "subj_bca151", dayOfWeek: 2, startTime: "07:15", endTime: "08:05", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Discrete Structure" },
+    { id: "rt_sem2_tue_3", subjectId: "subj_bca153", dayOfWeek: 2, startTime: "08:05", endTime: "08:55", teacherName: "Dr. Bishal Thapa", room: "Lab 1", notes: "OOP in Java" },
+    { id: "rt_sem2_tue_4", subjectId: "subj_bca153", dayOfWeek: 2, startTime: "08:55", endTime: "09:45", teacherName: "Dr. Bishal Thapa", room: "Lab 1", notes: "OOP in Java" },
+    { id: "rt_sem2_tue_5", subjectId: "subj_bca152", dayOfWeek: 2, startTime: "10:10", endTime: "11:00", teacherName: "Er. Sunita Sharma", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
+    { id: "rt_sem2_tue_6", subjectId: "subj_bca152", dayOfWeek: 2, startTime: "11:00", endTime: "11:50", teacherName: "Er. Sunita Sharma", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
+
+    // Wednesday (3)
+    { id: "rt_sem2_wed_1", subjectId: "subj_bca154", dayOfWeek: 3, startTime: "06:25", endTime: "07:15", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Mathematics-II" },
+    { id: "rt_sem2_wed_2", subjectId: "subj_bca151", dayOfWeek: 3, startTime: "07:15", endTime: "08:05", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Discrete Structure" },
+    { id: "rt_sem2_wed_3", subjectId: "subj_bca153", dayOfWeek: 3, startTime: "08:05", endTime: "08:55", teacherName: "Dr. Bishal Thapa", room: "Lab 1", notes: "OOP in Java" },
+    { id: "rt_sem2_wed_4", subjectId: "subj_bca155", dayOfWeek: 3, startTime: "08:55", endTime: "09:45", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "UX/UI Design" },
+    { id: "rt_sem2_wed_5", subjectId: "subj_bca152", dayOfWeek: 3, startTime: "10:10", endTime: "11:00", teacherName: "Er. Sunita Sharma", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
+    { id: "rt_sem2_wed_6", subjectId: "subj_bca152", dayOfWeek: 3, startTime: "11:00", endTime: "11:50", teacherName: "Er. Sunita Sharma", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
+
+    // Thursday (4)
+    { id: "rt_sem2_thu_1", subjectId: "subj_bca154", dayOfWeek: 4, startTime: "06:25", endTime: "07:15", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Mathematics-II" },
+    { id: "rt_sem2_thu_2", subjectId: "subj_bca154", dayOfWeek: 4, startTime: "07:15", endTime: "08:05", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Mathematics-II" },
+    { id: "rt_sem2_thu_3", subjectId: "subj_bca155", dayOfWeek: 4, startTime: "08:05", endTime: "08:55", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "UX/UI Design" },
+    { id: "rt_sem2_thu_4", subjectId: "subj_bca155", dayOfWeek: 4, startTime: "08:55", endTime: "09:45", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "UX/UI Design" },
+    { id: "rt_sem2_thu_5", subjectId: "subj_bca156", dayOfWeek: 4, startTime: "10:10", endTime: "11:00", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "Principle of Management" },
+    { id: "rt_sem2_thu_6", subjectId: "subj_bca156", dayOfWeek: 4, startTime: "11:00", endTime: "11:50", teacherName: "Prof. Rajesh Shrestha", room: "Seminar Hall", notes: "Weekly Presentation" },
+
+    // Friday (5)
+    { id: "rt_sem2_fri_1", subjectId: "subj_bca154", dayOfWeek: 5, startTime: "06:25", endTime: "07:15", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Mathematics-II" },
+    { id: "rt_sem2_fri_2", subjectId: "subj_bca154", dayOfWeek: 5, startTime: "07:15", endTime: "08:05", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Mathematics-II" },
+    { id: "rt_sem2_fri_3", subjectId: "subj_bca155", dayOfWeek: 5, startTime: "08:05", endTime: "08:55", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "UX/UI Design" },
+    { id: "rt_sem2_fri_4", subjectId: "subj_bca155", dayOfWeek: 5, startTime: "08:55", endTime: "09:45", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "UX/UI Design" },
+    { id: "rt_sem2_fri_5", subjectId: "subj_bca156", dayOfWeek: 5, startTime: "10:10", endTime: "11:00", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "Principle of Management" },
+    { id: "rt_sem2_fri_6", subjectId: "subj_bca155", dayOfWeek: 5, startTime: "11:00", endTime: "11:50", teacherName: "Faculty Member", room: "Auditorium", notes: "Extracurricular Activities (ECA)" },
   ];
 
   for (const r of routineData) {
@@ -385,6 +484,60 @@ async function seedAll() {
     { id: "unit_dbms_2", subjectId: "subj_dbms", title: "Unit 2: Relational Model & SQL", order: 2 },
     { id: "unit_os_1", subjectId: "subj_os", title: "Unit 1: Process & Thread Management", order: 1 },
     { id: "unit_web_1", subjectId: "subj_web2", title: "Unit 1: React 19 & Next.js App Router", order: 1 },
+
+    // OOP in Java (subj_bca153) Units
+    { id: "unit_java_1", subjectId: "subj_bca153", title: "Unit 1: Introduction to Java and OOP Concepts (4 Hrs)", order: 1 },
+    { id: "unit_java_2", subjectId: "subj_bca153", title: "Unit 2: Basics of Java Programming (8 Hrs)", order: 2 },
+    { id: "unit_java_3", subjectId: "subj_bca153", title: "Unit 3: Class and Objects in Java (8 Hrs)", order: 3 },
+    { id: "unit_java_4", subjectId: "subj_bca153", title: "Unit 4: Inheritance and Polymorphism (6 Hrs)", order: 4 },
+    { id: "unit_java_5", subjectId: "subj_bca153", title: "Unit 5: Exception Handling and Multithreading (6 Hrs)", order: 5 },
+    { id: "unit_java_6", subjectId: "subj_bca153", title: "Unit 6: File Handling in Java (6 Hrs)", order: 6 },
+    { id: "unit_java_7", subjectId: "subj_bca153", title: "Unit 7: Collections and Generics (6 Hrs)", order: 7 },
+    { id: "unit_java_8", subjectId: "subj_bca153", title: "Unit 8: Advanced OOP Concepts in Java (4 Hrs)", order: 8 },
+
+    // Discrete Structure (subj_bca151) Units
+    { id: "unit_ds_1", subjectId: "subj_bca151", title: "Unit 1: Set Theory (6 Hrs)", order: 1 },
+    { id: "unit_ds_2", subjectId: "subj_bca151", title: "Unit 2: Logic and Propositional Calculus (8 Hrs)", order: 2 },
+    { id: "unit_ds_3", subjectId: "subj_bca151", title: "Unit 3: Relations and Functions (8 Hrs)", order: 3 },
+    { id: "unit_ds_4", subjectId: "subj_bca151", title: "Unit 4: Mathematical Reasoning and Proof Techniques (6 Hrs)", order: 4 },
+    { id: "unit_ds_5", subjectId: "subj_bca151", title: "Unit 5: Combinatorics and Counting Principles (5 Hrs)", order: 5 },
+    { id: "unit_ds_6", subjectId: "subj_bca151", title: "Unit 6: Graph Theory and Trees (12 Hrs)", order: 6 },
+    { id: "unit_ds_7", subjectId: "subj_bca151", title: "Unit 7: Algebraic Structures (3 Hrs)", order: 7 },
+
+    // Microprocessor and Computer Architecture (subj_bca152) Units
+    { id: "unit_mp_1", subjectId: "subj_bca152", title: "Unit 1: Introduction to Microprocessor (3 Hrs)", order: 1 },
+    { id: "unit_mp_2", subjectId: "subj_bca152", title: "Unit 2: 8085 Microprocessor (12 Hrs)", order: 2 },
+    { id: "unit_mp_3", subjectId: "subj_bca152", title: "Unit 3: 8086 Microprocessor (4 Hrs)", order: 3 },
+    { id: "unit_mp_4", subjectId: "subj_bca152", title: "Unit 4: Basic Computer Architecture and Design (6 Hrs)", order: 4 },
+    { id: "unit_mp_5", subjectId: "subj_bca152", title: "Unit 5: Microprogrammed Control Unit (5 Hrs)", order: 5 },
+    { id: "unit_mp_6", subjectId: "subj_bca152", title: "Unit 6: Central Processing Unit (6 Hrs)", order: 6 },
+    { id: "unit_mp_7", subjectId: "subj_bca152", title: "Unit 7: Computer Arithmetic (3 Hrs)", order: 7 },
+    { id: "unit_mp_8", subjectId: "subj_bca152", title: "Unit 8: Input and Output Organization and Memory Organization (5 Hrs)", order: 8 },
+    { id: "unit_mp_9", subjectId: "subj_bca152", title: "Unit 9: Pipelining (4 Hrs)", order: 9 },
+
+    // Mathematics II (subj_bca154) Units
+    { id: "unit_math2_1", subjectId: "subj_bca154", title: "Unit 1: Limit and Continuity (7 Hrs)", order: 1 },
+    { id: "unit_math2_2", subjectId: "subj_bca154", title: "Unit 2: Derivatives (7 Hrs)", order: 2 },
+    { id: "unit_math2_3", subjectId: "subj_bca154", title: "Unit 3: Applications of Derivatives (8 Hrs)", order: 3 },
+    { id: "unit_math2_4", subjectId: "subj_bca154", title: "Unit 4: Anti-derivative and its Applications (8 Hrs)", order: 4 },
+    { id: "unit_math2_5", subjectId: "subj_bca154", title: "Unit 5: Differential Equations (8 Hrs)", order: 5 },
+    { id: "unit_math2_6", subjectId: "subj_bca154", title: "Unit 6: Computational Methods (10 Hrs)", order: 6 },
+
+    // UX/UI Design (subj_bca155) Units
+    { id: "unit_uiux_1", subjectId: "subj_bca155", title: "Unit 1: Introduction (4 Hrs)", order: 1 },
+    { id: "unit_uiux_2", subjectId: "subj_bca155", title: "Unit 2: User interaction design (4 Hrs)", order: 2 },
+    { id: "unit_uiux_3", subjectId: "subj_bca155", title: "Unit 3: User Interface design (6 Hrs)", order: 3 },
+    { id: "unit_uiux_4", subjectId: "subj_bca155", title: "Unit 4: UI components (12 Hrs)", order: 4 },
+    { id: "unit_uiux_5", subjectId: "subj_bca155", title: "Unit 5: UI Design considerations (6 Hrs)", order: 5 },
+    { id: "unit_uiux_6", subjectId: "subj_bca155", title: "Unit 6: Wireframing and prototyping (6 Hrs)", order: 6 },
+    { id: "unit_uiux_7", subjectId: "subj_bca155", title: "Unit 7: Design evaluations (6 Hrs)", order: 7 },
+    { id: "unit_uiux_8", subjectId: "subj_bca155", title: "Unit 8: Advanced techniques: VUI and NLP based UI (4 Hrs)", order: 8 },
+
+    // Principles of Management (subj_bca156) Units
+    { id: "unit_pom_1", subjectId: "subj_bca156", title: "Unit 1: Introduction to Management (5 Hrs)", order: 1 },
+    { id: "unit_pom_2", subjectId: "subj_bca156", title: "Unit 2: Planning and Decision making (5 Hrs)", order: 2 },
+    { id: "unit_pom_3", subjectId: "subj_bca156", title: "Unit 3: Organizing (3 Hrs)", order: 3 },
+    { id: "unit_pom_4", subjectId: "subj_bca156", title: "Unit 4: Leading (3 Hrs)", order: 4 },
   ];
   for (const u of unitsData) await db.insert(courseUnits).values(u);
 
@@ -432,7 +585,8 @@ async function seedAll() {
       const sessionDate = new Date(baseDate);
       sessionDate.setDate(baseDate.getDate() + week * 7 + day);
 
-      const dayRoutines = routineData.filter((r) => r.dayOfWeek === day);
+      const demoSubjectIds = ["subj_dbms", "subj_os", "subj_web2", "subj_nm", "subj_se"];
+      const dayRoutines = routineData.filter((r) => r.dayOfWeek === day && demoSubjectIds.includes(r.subjectId));
 
       for (let slot = 0; slot < dayRoutines.length; slot++) {
         const routine = dayRoutines[slot];

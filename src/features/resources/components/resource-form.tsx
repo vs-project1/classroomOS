@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Paperclip, Link as LinkIcon } from "lucide-react";
+import { Loader2, Paperclip, Link as LinkIcon, Presentation, CheckCircle2 } from "lucide-react";
 import { uploadFiles } from "@/utils/uploadthing";
 import { cn } from "@/lib/utils";
+import { parseGoogleDriveUrl, isGoogleDriveUrl } from "@/lib/google-drive";
 
 type UploadedFile = {
   url: string;
@@ -42,14 +43,27 @@ const selectClassName =
 export function ResourceForm({ subjects }: { subjects: { id: string; name: string }[] }) {
   const [state, formAction, isPending] = useActionState(createResourceAction, null);
 
-  const [mode, setMode] = useState<"upload" | "link">("upload");
+  const [mode, setMode] = useState<"gdrive" | "upload" | "link">("gdrive");
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
-  const [fileType, setFileType] = useState("pdf");
+  const [fileType, setFileType] = useState("slides");
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [chapterTreeError, setChapterTreeError] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [units, setUnits] = useState<ChapterTreeNode[]>([]);
   const [chaptersLoading, setChaptersLoading] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+
+  const handleLinkUrlChange = (url: string) => {
+    setLinkUrl(url);
+    const parsed = parseGoogleDriveUrl(url);
+    if (parsed.isGoogleDrive) {
+      if (parsed.type === "presentation" || parsed.type === "drive_file") {
+        setFileType("slides");
+      } else if (parsed.type === "document") {
+        setFileType("doc");
+      }
+    }
+  };
 
   // Publish feedback toasts (inline banners remain for field-level context).
   useEffect(() => {
@@ -129,12 +143,15 @@ export function ResourceForm({ subjects }: { subjects: { id: string; name: strin
 
   const fileUrlValue = mode === "upload" ? uploadedFile?.url ?? "" : "";
   const canSubmit =
-    !isPending && !isUploading && (mode === "link" ? true : Boolean(uploadedFile?.url));
+    !isPending &&
+    !isUploading &&
+    (mode === "upload" ? Boolean(uploadedFile?.url) : Boolean(linkUrl.trim()));
 
-  // Clear uploaded file after successful publish so form resets for next entry
+  // Clear uploaded file and link URL after successful publish so form resets for next entry
   useEffect(() => {
     if (state?.success) {
       setUploadedFile(null);
+      setLinkUrl("");
     }
   }, [state?.success]);
 
@@ -209,30 +226,74 @@ export function ResourceForm({ subjects }: { subjects: { id: string; name: strin
         )}
       </div>
 
-      {/* Source toggle: real file upload vs external URL */}
+      {/* Source toggle: Google Drive vs direct file upload vs generic URL */}
       <div className="space-y-2">
         <Label>Resource Source</Label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
+          <Button
+            type="button"
+            variant={mode === "gdrive" ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setMode("gdrive");
+              setFileType("slides");
+            }}
+            className="text-xs"
+          >
+            <Presentation className="w-3.5 h-3.5 mr-1.5 text-amber-500" /> Google Drive
+          </Button>
           <Button
             type="button"
             variant={mode === "upload" ? "default" : "outline"}
             size="sm"
             onClick={() => setMode("upload")}
+            className="text-xs"
           >
-            <Paperclip className="w-4 h-4 mr-2" /> Upload File
+            <Paperclip className="w-3.5 h-3.5 mr-1.5" /> Direct File
           </Button>
           <Button
             type="button"
             variant={mode === "link" ? "default" : "outline"}
             size="sm"
             onClick={() => setMode("link")}
+            className="text-xs"
           >
-            <LinkIcon className="w-4 h-4 mr-2" /> External Link
+            <LinkIcon className="w-3.5 h-3.5 mr-1.5" /> Web Link
           </Button>
         </div>
       </div>
 
-      {mode === "upload" ? (
+      {mode === "gdrive" ? (
+        <div className="space-y-2">
+          <Label htmlFor="fileUrl">Google Drive / Google Slides Link</Label>
+          <Input
+            id="fileUrl"
+            name="fileUrl"
+            type="url"
+            required
+            value={linkUrl}
+            onChange={(e) => handleLinkUrlChange(e.target.value)}
+            placeholder="https://docs.google.com/presentation/d/... or drive.google.com/file/d/..."
+          />
+          {isGoogleDriveUrl(linkUrl) ? (
+            <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium pt-1">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+              <span>Google Drive Presentation detected — Ready for interactive slide viewer!</span>
+            </div>
+          ) : linkUrl ? (
+            <p className="text-xs text-amber-600">
+              Tip: Paste a Google Drive file or Google Slides link for instant in-app slide viewing.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Paste your Google Drive share link. Make sure access is set to "Anyone with the link can view".
+            </p>
+          )}
+          {state?.fieldErrors?.fileUrl && (
+            <p className="text-sm text-destructive">{state.fieldErrors.fileUrl}</p>
+          )}
+        </div>
+      ) : mode === "upload" ? (
         <div className="space-y-2">
           <Label>File Upload</Label>
           <label className="flex flex-col items-center gap-3 border-dashed border-2 border-border rounded-lg bg-muted/30 py-6 outline-none transition-colors hover:border-primary/50 cursor-pointer">
@@ -263,7 +324,21 @@ export function ResourceForm({ subjects }: { subjects: { id: string; name: strin
       ) : (
         <div className="space-y-2">
           <Label htmlFor="fileUrl">External Resource URL</Label>
-          <Input id="fileUrl" name="fileUrl" type="url" required placeholder="https://..." />
+          <Input
+            id="fileUrl"
+            name="fileUrl"
+            type="url"
+            required
+            value={linkUrl}
+            onChange={(e) => handleLinkUrlChange(e.target.value)}
+            placeholder="https://..."
+          />
+          {isGoogleDriveUrl(linkUrl) && (
+            <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium pt-1">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+              <span>Google Drive Presentation detected!</span>
+            </div>
+          )}
           {state?.fieldErrors?.fileUrl && (
             <p className="text-sm text-destructive">{state.fieldErrors.fileUrl}</p>
           )}

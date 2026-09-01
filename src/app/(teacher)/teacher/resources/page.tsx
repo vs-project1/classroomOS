@@ -54,8 +54,6 @@ export default async function TeacherResourcesPage() {
     orderBy: [desc(resources.createdAt)],
   });
 
-  const generalResources = myResources.filter(r => !r.chapterId);
-
   return (
     <div className="flex-1 space-y-8 max-w-5xl">
       <div className="flex flex-col gap-1.5 pb-6 border-b border-border/40">

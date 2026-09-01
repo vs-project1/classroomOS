@@ -248,6 +248,8 @@ export async function saveRoutine(prevState: any, formData: FormData) {
   }
 
   revalidatePath("/routine");
+  revalidatePath("/teacher/routine");
+  revalidatePath("/admin/routine");
   revalidatePath("/");
   revalidatePath("/today");
   redirect("/routine");
@@ -299,6 +301,8 @@ export async function deleteRoutine(id: string) {
     }
 
     revalidatePath("/routine");
+    revalidatePath("/teacher/routine");
+    revalidatePath("/admin/routine");
     revalidatePath("/today");
     revalidatePath("/");
   } catch (error) {

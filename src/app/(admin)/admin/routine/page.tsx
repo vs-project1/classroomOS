@@ -77,17 +77,17 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
     };
   });
 
-  const nptTime = formatNepaliDateTime(new Date());
-  const nptParts = new Intl.DateTimeFormat("en-US", {
+  const nptTime = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Kathmandu",
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  }).formatToParts(new Date());
-  const nptY = parseInt(nptParts.find((p) => p.type === "year")?.value ?? "1970", 10);
-  const nptM = parseInt(nptParts.find((p) => p.type === "month")?.value ?? "1", 10) - 1;
-  const nptD = parseInt(nptParts.find((p) => p.type === "day")?.value ?? "1", 10);
-  const todayIndex = new Date(nptY, nptM, nptD).getDay();
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date());
+  const nptWeekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kathmandu",
+    weekday: "short",
+  }).format(new Date());
+  const todayIndex = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(nptWeekday);
 
   return (
     <div className="flex-1 space-y-8 max-w-6xl mx-auto w-full">

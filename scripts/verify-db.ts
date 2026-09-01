@@ -957,7 +957,7 @@ async function verify() {
       await db.insert(classSessions).values({
         id: sessCorrCascId,
         subjectId: subjectId,
-        sessionDate: new Date(),
+        sessionDate: new Date(Date.now() + 3600000),
         startTime: "13:00",
         endTime: "14:00",
       });

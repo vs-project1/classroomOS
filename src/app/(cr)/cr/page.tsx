@@ -18,6 +18,7 @@ import {
   FileText,
   ClipboardEdit,
 } from "lucide-react";
+import { RecentResourcesWidget } from "@/features/resources/components/recent-resources-widget";
 
 export default async function CRDashboard() {
   // RBAC Guard: CR or ADMIN only
@@ -41,9 +42,17 @@ export default async function CRDashboard() {
   // `new Date()` gives Invalid Date and .getDay() returns NaN, which
   // then breaks the weekly_routine query at the SQLite layer.)
   const now = new Date();
-  const dayOfWeek = now.getDay();
-  const nptDateString = formatNepaliDate(now);
-  const nptTime = formatNepaliDateTime(now);
+  const nptWeekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kathmandu",
+    weekday: "short",
+  }).format(now);
+  const dayOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(nptWeekday);
+  const nptTime = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kathmandu",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(now);
   const nptHour = parseInt(nptTime.split(":")[0], 10);
   const greeting =
     nptHour < 12 ? "Good morning" : nptHour < 17 ? "Good afternoon" : "Good evening";
@@ -428,6 +437,9 @@ export default async function CRDashboard() {
               </div>
             )}
           </div>
+
+          {/* Recent Study Materials Widget */}
+          <RecentResourcesWidget href="/cr/resources" />
         </div>
 
         {/* Right Column */}

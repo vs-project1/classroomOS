@@ -1,4 +1,4 @@
-import { Bell, Book, CalendarDays, CalendarOff, CalendarRange, CheckCircle, Clock, FileText, GraduationCap, Home, Inbox } from "lucide-react";
+import { Bell, Book, CalendarDays, CalendarOff, CalendarRange, CheckCircle, Clock, FileText, FolderDown, GraduationCap, Home, Inbox } from "lucide-react";
 import type { RoleNavigation } from "./types";
 
 export const studentNavigation: RoleNavigation = {
@@ -15,6 +15,7 @@ export const studentNavigation: RoleNavigation = {
       title: "Academics",
       items: [
         { label: "My Subjects", href: "/subjects", icon: GraduationCap },
+        { label: "Study Materials", href: "/resources", icon: FolderDown },
         { label: "Routine", href: "/routine", icon: CalendarRange },
         { label: "Class History", href: "/lecture-logs", icon: FileText },
         { label: "What You Missed", href: "/missed", icon: CalendarOff },

@@ -9,6 +9,8 @@ import { calculateAttendanceMetrics } from "@/lib/attendance";
 import { ArcGauge } from "@/components/attendance/arc-gauge";
 import { Book, Bell, CalendarDays, CheckCircle2, AlertCircle, ArrowRight, Laptop, Lock, AlertTriangle } from "lucide-react";
 
+import { RecentResourcesWidget } from "@/features/resources/components/recent-resources-widget";
+
 import { getCurrentUser } from "@/lib/auth";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
@@ -288,6 +290,9 @@ export default async function StudentDashboard() {
               </div>
             )}
           </div>
+
+          {/* Recent Study Materials Widget */}
+          <RecentResourcesWidget />
         </div>
 
         {/* Right Column (lg:col-span-1) */}

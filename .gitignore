@@ -56,7 +56,10 @@ scratch/
 
 # agent workspace archives are tracked intentionally; see .agents/README.md
 
-# agent runtime state (heartbeat, loop state, QA screenshots)
+# agent runtime state, skills, and tools
 /.runtime/
+.opencode/
+.claude/
+.impeccable/
 
 .worktrees/
