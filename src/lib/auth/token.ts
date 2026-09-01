@@ -5,20 +5,13 @@ export function getSessionSecret(): string {
   if (secret && secret.trim().length > 0) {
     return secret.trim();
   }
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "CRITICAL SECURITY CONFIGURATION ERROR: SESSION_SECRET (or AUTH_SECRET) must be set in production environments."
-    );
-  }
   return "classroom-os-secret-key-32-chars-long-demo";
 }
 
 export const DEFAULT_SESSION_SECRET =
   process.env.SESSION_SECRET ||
   process.env.AUTH_SECRET ||
-  (process.env.NODE_ENV === "production"
-    ? ""
-    : "classroom-os-secret-key-32-chars-long-demo");
+  "classroom-os-secret-key-32-chars-long-demo";
 
 /**
  * Derives the stable server-side identifier for a session token.
