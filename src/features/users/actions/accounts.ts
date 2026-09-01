@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { db } from "@/db";
 import { users, students, studentProfiles, teachers } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { hashPassword, generateMemorablePassword } from "@/lib/auth/password";
 import { requireAuth, revokeUserSessions } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
@@ -377,6 +377,8 @@ export async function updateAccountAction(
     return { success: false, message: "Missing required fields." };
   }
 
+  const cleanEmail = email.trim().toLowerCase();
+
   try {
     const targetUser = await db.query.users.findFirst({
       where: eq(users.id, userId),
@@ -386,17 +388,22 @@ export async function updateAccountAction(
       return { success: false, message: "User not found." };
     }
 
+    const oldEmail = targetUser.email;
+
     await db.transaction(async (tx) => {
+      // 1. Update User auth identity
       await tx
         .update(users)
         .set({
-          email: email.trim().toLowerCase(),
+          email: cleanEmail,
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId));
 
       if (targetUser.role === "STUDENT" || targetUser.role === "CR") {
         const semNorm = normalizeSemester(semester);
+        
+        // 2. Update Student Profile
         await tx
           .update(studentProfiles)
           .set({
@@ -409,25 +416,50 @@ export async function updateAccountAction(
           })
           .where(eq(studentProfiles.userId, userId));
 
-        await tx
-          .update(students)
-          .set({
-            name,
-            rollNumber: rollNumber || undefined,
-            faculty: faculty || undefined,
-            semester: semNorm.strVal,
-            phone: phone || null,
-          })
-          .where(eq(students.email, targetUser.email));
+        // 3. Find matching student record by old email, new email, or rollNumber
+        const profile = await tx.query.studentProfiles.findFirst({
+          where: eq(studentProfiles.userId, userId),
+        });
+        const currentRoll = rollNumber || profile?.rollNumber;
+
+        const matchingStudent = await tx.query.students.findFirst({
+          where: (s, { or, eq }) =>
+            or(
+              eq(s.email, oldEmail),
+              eq(s.email, cleanEmail),
+              currentRoll ? eq(s.rollNumber, currentRoll) : sql`0 = 1`
+            ),
+        });
+
+        if (matchingStudent) {
+          await tx
+            .update(students)
+            .set({
+              name,
+              email: cleanEmail,
+              rollNumber: rollNumber || matchingStudent.rollNumber,
+              faculty: faculty || matchingStudent.faculty,
+              semester: semNorm.strVal,
+              phone: phone || null,
+            })
+            .where(eq(students.id, matchingStudent.id));
+        }
       } else if (targetUser.role === "TEACHER") {
-        await tx
-          .update(teachers)
-          .set({
-            name,
-            phone: phone || null,
-            updatedAt: new Date(),
-          })
-          .where(eq(teachers.email, targetUser.email));
+        const matchingTeacher = await tx.query.teachers.findFirst({
+          where: (t, { or, eq }) => or(eq(t.email, oldEmail), eq(t.email, cleanEmail)),
+        });
+
+        if (matchingTeacher) {
+          await tx
+            .update(teachers)
+            .set({
+              name,
+              email: cleanEmail,
+              phone: phone || null,
+              updatedAt: new Date(),
+            })
+            .where(eq(teachers.id, matchingTeacher.id));
+        }
       }
     });
 
@@ -472,34 +504,70 @@ export async function editUserAccountAction(
 ): Promise<AccountActionState> {
   await requireAuth(["ADMIN"]);
   
+  const cleanEmail = data.email.trim().toLowerCase();
+
   try {
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!targetUser) {
+      return { success: false, message: "User not found." };
+    }
+
+    const oldEmail = targetUser.email;
+
     await db.transaction(async (tx) => {
       await tx.update(users)
-        .set({ email: data.email, role: data.role as any, updatedAt: new Date() })
+        .set({ email: cleanEmail, role: data.role as any, updatedAt: new Date() })
         .where(eq(users.id, userId));
       
       if (data.role === "STUDENT" || data.role === "CR") {
-        const studentSem = data.semester ? parseInt(data.semester) : 1;
-        const ordinalSem = data.semester ? `${data.semester}${getOrdinalSuffix(parseInt(data.semester))} Semester` : "1st Semester";
+        const studentSem = data.semester ? parseInt(data.semester, 10) : 1;
+        const ordinalSem = data.semester ? `${data.semester}${getOrdinalSuffix(parseInt(data.semester, 10))} Semester` : "1st Semester";
 
         await tx.update(studentProfiles)
-          .set({ rollNumber: data.rollNumber || "", semester: studentSem })
+          .set({ rollNumber: data.rollNumber || "", semester: studentSem, updatedAt: new Date() })
           .where(eq(studentProfiles.userId, userId));
           
-        await tx.update(students)
-          .set({ name: data.name, email: data.email, rollNumber: data.rollNumber || "", semester: ordinalSem })
-          .where(eq(students.email, data.email)); // Note: Better to match by user's old email, but sticking to plan
+        const profile = await tx.query.studentProfiles.findFirst({
+          where: eq(studentProfiles.userId, userId),
+        });
+        const currentRoll = data.rollNumber || profile?.rollNumber;
+
+        const matchingStudent = await tx.query.students.findFirst({
+          where: (s, { or, eq }) =>
+            or(
+              eq(s.email, oldEmail),
+              eq(s.email, cleanEmail),
+              currentRoll ? eq(s.rollNumber, currentRoll) : sql`0 = 1`
+            ),
+        });
+
+        if (matchingStudent) {
+          await tx.update(students)
+            .set({ name: data.name, email: cleanEmail, rollNumber: data.rollNumber || matchingStudent.rollNumber, semester: ordinalSem })
+            .where(eq(students.id, matchingStudent.id));
+        }
       } else if (data.role === "TEACHER") {
-        await tx.update(teachers)
-          .set({ name: data.name, email: data.email })
-          .where(eq(teachers.email, data.email));
+        const matchingTeacher = await tx.query.teachers.findFirst({
+          where: (t, { or, eq }) => or(eq(t.email, oldEmail), eq(t.email, cleanEmail)),
+        });
+
+        if (matchingTeacher) {
+          await tx.update(teachers)
+            .set({ name: data.name, email: cleanEmail, updatedAt: new Date() })
+            .where(eq(teachers.id, matchingTeacher.id));
+        }
       }
     });
     
     revalidatePath("/admin/accounts");
+    revalidatePath("/admin/students");
+    revalidatePath("/admin/teachers");
     return { success: true, message: "Account updated successfully." };
   } catch (error) {
-    console.error(error);
+    console.error("Failed to edit user account:", error);
     return { success: false, message: "Failed to update account." };
   }
 }
