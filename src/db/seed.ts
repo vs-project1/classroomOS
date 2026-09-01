@@ -346,7 +346,7 @@ async function seedAll() {
       email: s.email,
       phone: s.phone,
       faculty: "BCA",
-      semester: "4th Semester",
+      semester: "2nd Semester",
     });
 
     await db.insert(studentProfiles).values({
@@ -354,9 +354,9 @@ async function seedAll() {
       userId: s.userId,
       rollNumber: s.roll,
       faculty: "BCA",
-      semester: 4,
+      semester: 2,
       section: "A",
-      batchYear: 2024,
+      batchYear: 2025,
       phone: s.phone,
     });
   }
@@ -432,45 +432,24 @@ async function seedAll() {
     await db.insert(subjects).values(subj);
   }
 
-  // 6. Seed Enrollments (All students to 4th semester core subjects)
-  console.log("📝 Seeding Enrollments...");
-  const demoEnrolledSubjects = subjectsData.filter((s) => s.semester === "IV" && ["subj_dbms", "subj_os", "subj_web2", "subj_nm", "subj_se"].includes(s.id));
+  // 6. Seed Enrollments (All students to 2nd semester core subjects)
+  console.log("📝 Seeding Enrollments (2nd Semester)...");
+  const secondSemSubjects = subjectsData.filter((s) => s.semester === "II");
   for (const s of rawStudents) {
-    for (const subj of demoEnrolledSubjects) {
+    for (const subj of secondSemSubjects) {
       await db.insert(enrollments).values({
         id: `enr_${s.id}_${subj.id}`,
         studentId: s.id,
         subjectId: subj.id,
-        semester: 4,
+        semester: 2,
         enrolledAt: new Date("2026-07-20T00:00:00.000Z"),
       });
     }
   }
 
-  // 7. Seed Weekly Routine (15 periods)
-  console.log("⏰ Seeding Weekly Routine...");
+  // 7. Seed Weekly Routine (2nd Semester - 30 periods)
+  console.log("⏰ Seeding Weekly Routine (2nd Semester)...");
   const routineData = [
-    // Sunday (0)
-    { id: "rt_sun_1", subjectId: "subj_dbms", dayOfWeek: 0, startTime: "07:00", endTime: "08:30", teacherName: "Prof. Rajesh Shrestha", room: "Room 301", notes: "Theory" },
-    { id: "rt_sun_2", subjectId: "subj_os", dayOfWeek: 0, startTime: "08:45", endTime: "10:15", teacherName: "Er. Sunita Sharma", room: "Room 301", notes: "Theory" },
-    { id: "rt_sun_3", subjectId: "subj_web2", dayOfWeek: 0, startTime: "10:30", endTime: "12:00", teacherName: "Dr. Bishal Thapa", room: "Lab 2", notes: "Lab Session" },
-    // Monday (1)
-    { id: "rt_mon_1", subjectId: "subj_nm", dayOfWeek: 1, startTime: "07:00", endTime: "08:30", teacherName: "Ms. Anjali Adhikari", room: "Room 301", notes: "Theory" },
-    { id: "rt_mon_2", subjectId: "subj_se", dayOfWeek: 1, startTime: "08:45", endTime: "10:15", teacherName: "Prof. Rajesh Shrestha", room: "Room 301", notes: "Theory" },
-    { id: "rt_mon_3", subjectId: "subj_dbms", dayOfWeek: 1, startTime: "10:30", endTime: "12:00", teacherName: "Prof. Rajesh Shrestha", room: "Room 301", notes: "Theory" },
-    // Tuesday (2)
-    { id: "rt_tue_1", subjectId: "subj_os", dayOfWeek: 2, startTime: "07:00", endTime: "08:30", teacherName: "Er. Sunita Sharma", room: "Room 301", notes: "Theory" },
-    { id: "rt_tue_2", subjectId: "subj_web2", dayOfWeek: 2, startTime: "08:45", endTime: "10:15", teacherName: "Dr. Bishal Thapa", room: "Lab 2", notes: "Lab Session" },
-    { id: "rt_tue_3", subjectId: "subj_nm", dayOfWeek: 2, startTime: "10:30", endTime: "12:00", teacherName: "Ms. Anjali Adhikari", room: "Room 301", notes: "Theory" },
-    // Wednesday (3)
-    { id: "rt_wed_1", subjectId: "subj_se", dayOfWeek: 3, startTime: "07:00", endTime: "08:30", teacherName: "Prof. Rajesh Shrestha", room: "Room 301", notes: "Theory" },
-    { id: "rt_wed_2", subjectId: "subj_dbms", dayOfWeek: 3, startTime: "08:45", endTime: "10:15", teacherName: "Prof. Rajesh Shrestha", room: "Lab 1", notes: "Lab Session" },
-    { id: "rt_wed_3", subjectId: "subj_os", dayOfWeek: 3, startTime: "10:30", endTime: "12:00", teacherName: "Er. Sunita Sharma", room: "Room 301", notes: "Theory" },
-    // Thursday (4)
-    { id: "rt_thu_1", subjectId: "subj_web2", dayOfWeek: 4, startTime: "07:00", endTime: "08:30", teacherName: "Dr. Bishal Thapa", room: "Lab 2", notes: "Lab Session" },
-    { id: "rt_thu_2", subjectId: "subj_nm", dayOfWeek: 4, startTime: "08:45", endTime: "10:15", teacherName: "Ms. Anjali Adhikari", room: "Room 301", notes: "Theory" },
-    { id: "rt_thu_3", subjectId: "subj_se", dayOfWeek: 4, startTime: "10:30", endTime: "12:00", teacherName: "Prof. Rajesh Shrestha", room: "Room 301", notes: "Theory" },
-
     // --- Second Semester Routine ---
     // Monday (1)
     { id: "rt_sem2_mon_1", subjectId: "subj_bca151", dayOfWeek: 1, startTime: "06:25", endTime: "07:15", teacherName: "Er. Nikunja Sir", room: "Room 201", notes: "Discrete Structure" },
@@ -601,37 +580,35 @@ async function seedAll() {
   // Starting 3 weeks ago (Sunday, 2026-07-26)
   const baseDate = new Date("2026-07-26T00:00:00.000Z");
   const curriculumTopics = [
-    { subj: "subj_dbms", topic: "Relational Schema Mapping from ER Models", hw: "Review textbook Section 3.2", notes: "Students grasped entity conversion well" },
-    { subj: "subj_os", topic: "Process Lifecycle & PCB Implementation in Linux", hw: "Write a fork() program in C", notes: "High engagement during process tree demonstration" },
-    { subj: "subj_web2", topic: "TypeScript Generics & Strict Invariants in React", hw: "Build typed generic table component", notes: "Covered interface vs type aliases" },
-    { subj: "subj_nm", topic: "Bisection Method for Root Finding", hw: "Solve Problem Set 1.1 (Q1-Q5)", notes: "Emphasized stopping criteria tolerance epsilon" },
-    { subj: "subj_se", topic: "Agile Scrum vs Waterfall Process Models", hw: "Draft 5 user stories with acceptance criteria", notes: "Reviewed sprint backlog creation" },
-    { subj: "subj_dbms", topic: "SQL DDL, DML & Advanced Nested Subqueries", hw: "Practice 10 SQL queries on Company database", notes: "Focused on correlated subqueries" },
-    { subj: "subj_os", topic: "CPU Scheduling: FCFS, SJF, and Round Robin", hw: "Calculate average waiting times for 5 workloads", notes: "Demonstrated Gantt charts on board" },
-    { subj: "subj_web2", topic: "Next.js 16 Server Components & Data Fetching", hw: "Implement server-rendered product catalog", notes: "Explained React 19 RSC streaming" },
-    { subj: "subj_nm", topic: "Newton-Raphson Method Convergence Analysis", hw: "Implement Newton-Raphson in C", notes: "Derived quadratic convergence formula" },
-    { subj: "subj_se", topic: "IEEE 830 Standard Software Requirements Specification", hw: "Write functional requirements for Library OS", notes: "Good class discussion on non-functional requirements" },
-    { subj: "subj_dbms", topic: "Functional Dependencies & 1NF, 2NF, 3NF Normalization", hw: "Normalize 3 unnormalized relational schemas", notes: "Covered transitive dependencies thoroughly" },
-    { subj: "subj_os", topic: "Process Synchronization & Mutex / Semaphores", hw: "Solve Producer-Consumer problem pseudocode", notes: "Explained race conditions and critical sections" },
-    { subj: "subj_web2", topic: "React 19 Server Actions & useActionState Hook", hw: "Build server action mutation form with Zod", notes: "Walked through optimistic UI updates" },
-    { subj: "subj_nm", topic: "Gauss Elimination with Partial Pivoting", hw: "Solve 3x3 system of linear equations", notes: "Demonstrated back-substitution matrix steps" },
-    { subj: "subj_se", topic: "UML Use Case & Sequence Diagrams", hw: "Draw sequence diagram for login auth flow", notes: "Reviewed actor vs system boundary lines" },
+    { subj: "subj_bca151", topic: "Propositional Logic & Equivalence Proofs", hw: "Solve Problem Set 2.1 (Q1-Q5)", notes: "Students grasped truth tables well" },
+    { subj: "subj_bca153", topic: "OOP Inheritance & Abstract Method Overriding", hw: "Build typed class hierarchy in Java", notes: "High engagement during polymorphism demo" },
+    { subj: "subj_bca152", topic: "8085 Microprocessor Architecture & Bus System", hw: "Draw 8085 pin diagram & register set", notes: "Covered ALU, accumulator, and flag register" },
+    { subj: "subj_bca154", topic: "Limits & Continuity of Algebraic Functions", hw: "Solve Exercise 1.2 (Q1-Q10)", notes: "Emphasized epsilon-delta limit definition" },
+    { subj: "subj_bca155", topic: "User Interface Principles & Visual Hierarchy", hw: "Figma wireframe sketch for mobile app", notes: "Reviewed typography and layout spacing" },
+    { subj: "subj_bca156", topic: "Management Theories & Organizational Structure", hw: "Draft case study summary on Henri Fayol", notes: "Good class discussion on leadership styles" },
   ];
 
   const sessionIds: string[] = [];
 
+  let sessionCounter = 0;
   for (let week = 0; week < 3; week++) {
     for (let day = 0; day < 5; day++) {
       const sessionDate = new Date(baseDate);
       sessionDate.setDate(baseDate.getDate() + week * 7 + day);
 
-      const demoSubjectIds = ["subj_dbms", "subj_os", "subj_web2", "subj_nm", "subj_se"];
-      const dayRoutines = routineData.filter((r) => r.dayOfWeek === day && demoSubjectIds.includes(r.subjectId));
+      const secondSemSubjectIds = ["subj_bca151", "subj_bca152", "subj_bca153", "subj_bca154", "subj_bca155", "subj_bca156"];
+      const seenSubjects = new Set<string>();
+      const dayRoutines = routineData.filter((r) => {
+        if (r.dayOfWeek !== day + 1 || !secondSemSubjectIds.includes(r.subjectId)) return false;
+        if (seenSubjects.has(r.subjectId)) return false;
+        seenSubjects.add(r.subjectId);
+        return true;
+      });
 
       for (let slot = 0; slot < dayRoutines.length; slot++) {
         const routine = dayRoutines[slot];
-        const sessionIndex = week * 15 + day * 3 + slot;
-        const sessionId = `sess_${(sessionIndex + 1).toString().padStart(3, "0")}`;
+        sessionCounter++;
+        const sessionId = `sess_${sessionCounter.toString().padStart(3, "0")}`;
         sessionIds.push(sessionId);
 
         await db.insert(classSessions).values({
@@ -643,11 +620,11 @@ async function seedAll() {
           endTime: routine.endTime,
         });
 
-        const topicInfo = curriculumTopics[sessionIndex % curriculumTopics.length];
+        const topicInfo = curriculumTopics[(sessionCounter - 1) % curriculumTopics.length];
         await db.insert(lectureLogs).values({
           id: `log_${sessionId}`,
           classSessionId: sessionId,
-          topicsCovered: `${topicInfo.topic} (Lecture ${sessionIndex + 1})`,
+          topicsCovered: `${topicInfo.topic} (Lecture ${sessionCounter})`,
           homework: topicInfo.hw,
           notes: topicInfo.notes,
         });
@@ -698,54 +675,54 @@ async function seedAll() {
   const homeworkData = [
     {
       id: "hw_01",
-      subjectId: "subj_dbms",
-      title: "ER Modeling & BCNF Normalization for Hospital Management System",
-      description: "Design a complete Entity-Relationship model and normalize all relational schemas to Boyce-Codd Normal Form (BCNF).",
+      subjectId: "subj_bca153",
+      title: "Java OOP Class Hierarchy & Polymorphism Lab Report",
+      description: "Implement a complete Java class hierarchy demonstrating inheritance, method overriding, abstract classes, and interface contracts.",
       assignedDate: new Date("2026-07-27T00:00:00.000Z"),
       dueDate: new Date("2026-08-05T23:59:59.000Z"),
       status: "completed",
     },
     {
       id: "hw_02",
-      subjectId: "subj_os",
-      title: "CPU Scheduling Algorithm Simulator in C/C++",
-      description: "Implement FCFS, SJF (Preemptive and Non-Preemptive), and Round Robin (Quantum=2) with turnaround and waiting time calculations.",
+      subjectId: "subj_bca151",
+      title: "Discrete Mathematics Set Theory & Truth Table Proofs",
+      description: "Solve Problem Set 2.1 Q1-Q10 on propositional logic equivalence, Venn diagrams, and set relation properties.",
       assignedDate: new Date("2026-08-01T00:00:00.000Z"),
       dueDate: new Date("2026-08-10T23:59:59.000Z"),
       status: "completed",
     },
     {
       id: "hw_03",
-      subjectId: "subj_web2",
-      title: "React 19 Server Actions Task Management System",
-      description: "Build an institutional task manager using Next.js 16 App Router, React 19 useActionState, Drizzle ORM, and Zod validation.",
+      subjectId: "subj_bca152",
+      title: "8085 Microprocessor Pin Diagram & Bus Architecture Sketch",
+      description: "Draw the detailed 8085 microprocessor pin diagram and write functional descriptions of control signals (ALE, RD, WR, IO/M).",
       assignedDate: new Date("2026-08-12T00:00:00.000Z"),
       dueDate: new Date("2026-08-18T23:59:59.000Z"),
       status: "active",
     },
     {
       id: "hw_04",
-      subjectId: "subj_nm",
-      title: "Newton-Raphson & Gauss Elimination Numerical Lab Report",
-      description: "Write C programs to find roots of f(x) = x^3 - 4x - 9 and solve 3-variable linear equation systems with partial pivoting.",
+      subjectId: "subj_bca154",
+      title: "Mathematics II Calculus Limits & Differentiation Assignment",
+      description: "Solve derivative problems using first principles, chain rule, and implicit differentiation from Exercise 2.2.",
       assignedDate: new Date("2026-08-13T00:00:00.000Z"),
       dueDate: new Date("2026-08-20T23:59:59.000Z"),
       status: "active",
     },
     {
       id: "hw_05",
-      subjectId: "subj_se",
-      title: "Software Requirements Specification (SRS) for HealthTech Portal",
-      description: "Prepare an IEEE 830 compliant SRS document including UML use cases, sequence diagrams, and non-functional requirements.",
+      subjectId: "subj_bca155",
+      title: "UX/UI Design Mobile App Low-Fidelity Wireframes",
+      description: "Prepare low-fidelity mobile app wireframes focusing on visual hierarchy, navigation patterns, and accessibility guidelines.",
       assignedDate: new Date("2026-08-03T00:00:00.000Z"),
       dueDate: new Date("2026-08-13T23:59:59.000Z"),
       status: "active",
     },
     {
       id: "hw_06",
-      subjectId: "subj_dbms",
-      title: "Indexing & Query Optimization Benchmark Analysis",
-      description: "Analyze performance improvements of B+ tree index on 100k records vs sequential scan with EXPLAIN QUERY PLAN.",
+      subjectId: "subj_bca156",
+      title: "Principles of Management Organizational Structure Case Study",
+      description: "Analyze the management structure and decision-making framework of a modern tech organization.",
       assignedDate: new Date("2026-08-14T00:00:00.000Z"),
       dueDate: new Date("2026-08-22T23:59:59.000Z"),
       status: "active",
@@ -892,32 +869,32 @@ async function seedAll() {
   const examsData = [
     {
       id: "exam_01",
-      subjectId: "subj_dbms",
-      title: "DBMS Unit Test 1 (SQL & Relational Algebra)",
+      subjectId: "subj_bca153",
+      title: "OOP in Java Unit Test 1 (Classes & Objects)",
       examType: "unit_test" as const,
       totalMarks: 20,
       passMarks: 8,
       examDate: new Date("2026-08-03T07:00:00.000Z"),
       startTime: "07:00",
       endTime: "08:00",
-      room: "Room 301",
+      room: "Lab 1",
     },
     {
       id: "exam_02",
-      subjectId: "subj_os",
-      title: "Operating Systems Mid-Term Assessment",
+      subjectId: "subj_bca151",
+      title: "Discrete Structure Mid-Term Assessment",
       examType: "midterm" as const,
       totalMarks: 40,
       passMarks: 16,
       examDate: new Date("2026-08-09T07:00:00.000Z"),
       startTime: "07:00",
       endTime: "09:00",
-      room: "Exam Hall A",
+      room: "Room 201",
     },
     {
       id: "exam_03",
-      subjectId: "subj_web2",
-      title: "Web Technology II Practical Lab Assessment",
+      subjectId: "subj_bca152",
+      title: "Microprocessor & Computer Architecture Lab Assessment",
       examType: "practical" as const,
       totalMarks: 25,
       passMarks: 10,
@@ -1001,14 +978,12 @@ async function seedAll() {
   // 13. Seed Resources (8 Items)
   console.log("📁 Seeding Resources...");
   const resourcesData = [
-    { id: "res_01", subjectId: "subj_dbms", chapterId: "chap_dbms_1", title: "TU BCA 4th Sem Complete DBMS Syllabus & Model Questions 2026", description: "Official Tribhuvan University syllabus and past 5 years board exam questions.", fileUrl: "https://classroom.os/resources/dbms-syllabus-2026.pdf", fileType: "pdf", fileSize: 2400000, uploadedBy: "tch_rajesh_01" },
-    { id: "res_02", subjectId: "subj_os", chapterId: "chap_os_1", title: "Operating Systems Core Architecture & Kernel Slides", description: "Comprehensive lecture slides covering processes, CPU scheduling, and memory management.", fileUrl: "https://classroom.os/resources/os-slides-complete.pdf", fileType: "pdf", fileSize: 5100000, uploadedBy: "tch_sunita_02" },
-    { id: "res_03", subjectId: "subj_web2", title: "Web Technology II Next.js & React 19 Lab Manual", description: "Step-by-step laboratory guide for building fullstack web apps.", fileUrl: "https://classroom.os/resources/web-lab-manual.pdf", fileType: "pdf", fileSize: 3800000, uploadedBy: "tch_bishal_03" },
-    { id: "res_04", subjectId: "subj_nm", title: "Numerical Methods C Code Implementations & Algorithms", description: "Source code examples for non-linear equations, interpolation, and integration.", fileUrl: "https://classroom.os/resources/numerical-c-code.pdf", fileType: "pdf", fileSize: 1200000, uploadedBy: "tch_anjali_04" },
-    { id: "res_05", subjectId: "subj_se", title: "IEEE 830 Standard Software Requirements Specification Template", description: "Official format and guideline for writing industry-standard SRS documents.", fileUrl: "https://classroom.os/resources/ieee-srs-template.pdf", fileType: "pdf", fileSize: 850000, uploadedBy: "tch_rajesh_01" },
-    { id: "res_06", subjectId: "subj_dbms", chapterId: "chap_dbms_2", title: "DBMS Hospital Management SQL Sample Dataset", description: "Pre-populated SQL dump for query practice and indexing experiments.", fileUrl: "https://classroom.os/resources/hospital-db-sample.zip", fileType: "zip", fileSize: 4500000, uploadedBy: "tch_rajesh_01" },
-    { id: "res_07", subjectId: "subj_os", chapterId: "chap_os_1", title: "Virtual Memory, Paging & Segmentation Study Guide", description: "Detailed guide on TLB, page replacement, and memory fragmentation.", fileUrl: "https://classroom.os/resources/os-virtual-memory.pdf", fileType: "pdf", fileSize: 1900000, uploadedBy: "tch_sunita_02" },
-    { id: "res_08", subjectId: "subj_nm", title: "Numerical Integration & Interpolation Cheatsheet", description: "Formulas and error bounds for Newton forward/backward and Simpson rules.", fileUrl: "https://classroom.os/resources/numerical-cheatsheet.pdf", fileType: "pdf", fileSize: 980000, uploadedBy: "tch_anjali_04" },
+    { id: "res_01", subjectId: "subj_bca153", title: "TU BCA 2nd Sem Complete OOP in Java Syllabus & Past Questions", description: "Official Tribhuvan University syllabus and past board exam questions.", fileUrl: "https://classroom.os/resources/java-syllabus.pdf", fileType: "pdf", fileSize: 2400000, uploadedBy: "tch_ashish_06" },
+    { id: "res_02", subjectId: "subj_bca151", title: "Discrete Structure Set Theory & Logic Slide Deck", description: "Comprehensive lecture slides covering sets, logic, and proof techniques.", fileUrl: "https://classroom.os/resources/ds-slides.pdf", fileType: "pdf", fileSize: 5100000, uploadedBy: "tch_nikunja_05" },
+    { id: "res_03", subjectId: "subj_bca152", title: "8085 Microprocessor Pin Diagram & Architecture Reference", description: "Step-by-step diagram and reference manual for 8085 architecture.", fileUrl: "https://classroom.os/resources/microprocessor-manual.pdf", fileType: "pdf", fileSize: 3800000, uploadedBy: "tch_saddam_09" },
+    { id: "res_04", subjectId: "subj_bca154", title: "Mathematics II Calculus Formula & Derivative Guide", description: "Handy formula sheet for limits, derivatives, and anti-derivatives.", fileUrl: "https://classroom.os/resources/math2-formulas.pdf", fileType: "pdf", fileSize: 1200000, uploadedBy: "tch_mohit_07" },
+    { id: "res_05", subjectId: "subj_bca155", title: "UX/UI Design Principles & Figma Layout Guidelines", description: "Design guidelines for typography, spacing, and interaction patterns.", fileUrl: "https://classroom.os/resources/uiux-guidelines.pdf", fileType: "pdf", fileSize: 850000, uploadedBy: "tch_sudeep_08" },
+    { id: "res_06", subjectId: "subj_bca156", title: "Principles of Management Case Study Analysis Notes", description: "Case studies on planning, organizing, and leadership styles.", fileUrl: "https://classroom.os/resources/management-notes.pdf", fileType: "pdf", fileSize: 4500000, uploadedBy: "tch_rajesh_01" },
   ];
 
   for (const res of resourcesData) {
@@ -1018,16 +993,12 @@ async function seedAll() {
   // 14. Seed Study Tasks (10 Items)
   console.log("📌 Seeding Study Tasks...");
   const studyTasksData = [
-    { id: "task_01", studentId: "std_aarav_cr", subjectId: "subj_dbms", title: "Review B+ Tree deletion algorithm before Unit Test 2", description: "Focus on underflow redistribution vs merge cases.", dueDate: new Date("2026-08-19T00:00:00.000Z"), status: "in_progress" as const, priority: "high" as const },
-    { id: "task_02", studentId: "std_aarav_cr", subjectId: "subj_web2", title: "Complete Web Technology Assignment 3 prototype", description: "Implement server actions with error handling.", dueDate: new Date("2026-08-17T00:00:00.000Z"), status: "pending" as const, priority: "high" as const },
-    { id: "task_03", studentId: "std_bipana_02", subjectId: "subj_os", title: "Read Operating Systems chapter 7 on Deadlocks", description: "Review Banker's algorithm safe state check.", dueDate: new Date("2026-08-18T00:00:00.000Z"), status: "completed" as const, priority: "medium" as const },
-    { id: "task_04", studentId: "std_rohan_03", subjectId: "subj_nm", title: "Practice 10 numerical problems on Runge-Kutta 4th order", description: "Work through past board exam numericals.", dueDate: new Date("2026-08-20T00:00:00.000Z"), status: "in_progress" as const, priority: "high" as const },
-    { id: "task_05", studentId: "std_sneha_04", subjectId: "subj_se", title: "Prepare lecture summary on Software Quality Assurance", description: "Compare Black-box vs White-box testing.", dueDate: new Date("2026-08-21T00:00:00.000Z"), status: "pending" as const, priority: "medium" as const },
-    { id: "task_06", studentId: "std_niraj_05", subjectId: "subj_web2", title: "Set up local Turso SQLite database for Web Tech lab", description: "Initialize schema and configure environment variables.", dueDate: new Date("2026-08-16T00:00:00.000Z"), status: "completed" as const, priority: "medium" as const },
-    { id: "task_07", studentId: "std_puja_06", subjectId: "subj_dbms", title: "Review BCNF normalization proofs", description: "Practice functional dependency preservation tests.", dueDate: new Date("2026-08-22T00:00:00.000Z"), status: "in_progress" as const, priority: "high" as const },
-    { id: "task_08", studentId: "std_dipen_07", subjectId: "subj_os", title: "Catch up on missed OS lectures (Process Scheduling)", description: "Read lecture notes and study Gantt chart examples.", dueDate: new Date("2026-08-19T00:00:00.000Z"), status: "pending" as const, priority: "high" as const },
-    { id: "task_09", studentId: "std_kriti_08", subjectId: "subj_dbms", title: "Implement advanced query optimization benchmarks", description: "Write EXPLAIN QUERY PLAN analysis comparing indexes.", dueDate: new Date("2026-08-15T00:00:00.000Z"), status: "completed" as const, priority: "low" as const },
-    { id: "task_10", studentId: "std_kriti_08", subjectId: "subj_se", title: "Draft Software Architecture diagram for group project", description: "Create component and deployment diagrams in PlantUML.", dueDate: new Date("2026-08-23T00:00:00.000Z"), status: "in_progress" as const, priority: "medium" as const },
+    { id: "task_01", studentId: "std_aarav_cr", subjectId: "subj_bca153", title: "Review OOP Java abstract classes before Unit Test 1", description: "Focus on interface contracts and method overriding.", dueDate: new Date("2026-08-19T00:00:00.000Z"), status: "in_progress" as const, priority: "high" as const },
+    { id: "task_02", studentId: "std_aarav_cr", subjectId: "subj_bca151", title: "Solve Discrete Structure set theory problem set", description: "Complete Q1 to Q10 in textbook.", dueDate: new Date("2026-08-17T00:00:00.000Z"), status: "pending" as const, priority: "high" as const },
+    { id: "task_03", studentId: "std_bipana_02", subjectId: "subj_bca152", title: "Draw 8085 pin diagram & bus system", description: "Review register organization and ALU control signals.", dueDate: new Date("2026-08-18T00:00:00.000Z"), status: "completed" as const, priority: "medium" as const },
+    { id: "task_04", studentId: "std_rohan_03", subjectId: "subj_bca154", title: "Practice calculus derivative numericals", description: "Work through past board exam calculus problems.", dueDate: new Date("2026-08-20T00:00:00.000Z"), status: "in_progress" as const, priority: "high" as const },
+    { id: "task_05", studentId: "std_sneha_04", subjectId: "subj_bca155", title: "Figma mobile wireframe design", description: "Sketch layout grid and visual hierarchy.", dueDate: new Date("2026-08-21T00:00:00.000Z"), status: "pending" as const, priority: "medium" as const },
+    { id: "task_06", studentId: "std_niraj_05", subjectId: "subj_bca156", title: "Read Principles of Management Chapter 2 on Planning", description: "Prepare notes on decision making processes.", dueDate: new Date("2026-08-16T00:00:00.000Z"), status: "completed" as const, priority: "medium" as const },
   ];
 
   for (const st of studyTasksData) {
