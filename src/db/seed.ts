@@ -127,7 +127,7 @@ async function seedAll() {
       email: "student@classroom.edu.np",
       passwordHash: defaultStudentPass,
       role: "STUDENT" as const,
-      mustChangePassword: false,
+      mustChangePassword: true,
       isActive: true,
     },
     {
@@ -300,7 +300,7 @@ async function seedAll() {
       email: s.email,
       passwordHash: defaultStudentPass,
       role: (s as any).role || ("STUDENT" as const),
-      mustChangePassword: false,
+      mustChangePassword: true,
       isActive: true,
     });
 
