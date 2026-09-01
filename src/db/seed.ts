@@ -151,24 +151,40 @@ async function seedAll() {
       isActive: true,
     },
     {
-      id: "usr_teacher_sunita",
-      email: "sunita.sharma@classroom.os",
+      id: "usr_teacher_nikunja",
+      email: "nikunja@classroom.os",
       passwordHash: defaultTeacherPass,
       role: "TEACHER" as const,
       mustChangePassword: false,
       isActive: true,
     },
     {
-      id: "usr_teacher_bishal",
-      email: "bishal.thapa@classroom.os",
+      id: "usr_teacher_ashish",
+      email: "ashish@classroom.os",
       passwordHash: defaultTeacherPass,
       role: "TEACHER" as const,
       mustChangePassword: false,
       isActive: true,
     },
     {
-      id: "usr_teacher_anjali",
-      email: "anjali.adhikari@classroom.os",
+      id: "usr_teacher_mohit",
+      email: "mohit@classroom.os",
+      passwordHash: defaultTeacherPass,
+      role: "TEACHER" as const,
+      mustChangePassword: false,
+      isActive: true,
+    },
+    {
+      id: "usr_teacher_sudeep",
+      email: "sudeep@classroom.os",
+      passwordHash: defaultTeacherPass,
+      role: "TEACHER" as const,
+      mustChangePassword: false,
+      isActive: true,
+    },
+    {
+      id: "usr_teacher_saddam",
+      email: "saddam@classroom.os",
       passwordHash: defaultTeacherPass,
       role: "TEACHER" as const,
       mustChangePassword: false,
@@ -180,7 +196,7 @@ async function seedAll() {
     await db.insert(users).values(u);
   }
 
-  // 3. Seed Teachers
+  // 3. Seed Teachers (Real 2nd Semester Faculty)
   console.log("👨‍🏫 Seeding Teachers...");
   const teachersData = [
     {
@@ -188,32 +204,8 @@ async function seedAll() {
       name: "Prof. Rajesh Shrestha",
       email: "rajesh.shrestha@classroom.os",
       phone: "+977-9841234567",
-      faculties: ["BCA", "CSIT"],
-      semesters: ["4th Semester", "2nd Semester"],
-    },
-    {
-      id: "tch_sunita_02",
-      name: "Er. Sunita Sharma",
-      email: "sunita.sharma@classroom.os",
-      phone: "+977-9841234568",
       faculties: ["BCA"],
-      semesters: ["4th Semester"],
-    },
-    {
-      id: "tch_bishal_03",
-      name: "Dr. Bishal Thapa",
-      email: "bishal.thapa@classroom.os",
-      phone: "+977-9841234569",
-      faculties: ["BCA", "BIT"],
-      semesters: ["4th Semester", "6th Semester"],
-    },
-    {
-      id: "tch_anjali_04",
-      name: "Ms. Anjali Adhikari",
-      email: "anjali.adhikari@classroom.os",
-      phone: "+977-9841234570",
-      faculties: ["BCA"],
-      semesters: ["4th Semester"],
+      semesters: ["2nd Semester"],
     },
     {
       id: "tch_nikunja_05",
@@ -339,11 +331,11 @@ async function seedAll() {
   const subjectsData = [
     // --- First Semester (I) ---
     { id: "subj_bca101", name: "Computer Fundamentals and Applications", slug: slugify("Computer Fundamentals and Applications"), code: "BCA 101", semester: "I", teacherId: "tch_rajesh_01" },
-    { id: "subj_bca102", name: "Programming in C", slug: slugify("Programming in C"), code: "BCA 102", semester: "I", teacherId: "tch_sunita_02" },
-    { id: "subj_bca103", name: "Digital Logic", slug: slugify("Digital Logic"), code: "BCA 103", semester: "I", teacherId: "tch_bishal_03" },
-    { id: "subj_bca104", name: "Mathematics I", slug: slugify("Mathematics I"), code: "BCA 104", semester: "I", teacherId: "tch_anjali_04" },
+    { id: "subj_bca102", name: "Programming in C", slug: slugify("Programming in C"), code: "BCA 102", semester: "I", teacherId: "tch_ashish_06" },
+    { id: "subj_bca103", name: "Digital Logic", slug: slugify("Digital Logic"), code: "BCA 103", semester: "I", teacherId: "tch_saddam_09" },
+    { id: "subj_bca104", name: "Mathematics I", slug: slugify("Mathematics I"), code: "BCA 104", semester: "I", teacherId: "tch_mohit_07" },
     { id: "subj_bca105", name: "Professional Communication and Ethics", slug: slugify("Professional Communication and Ethics"), code: "BCA 105", semester: "I", teacherId: "tch_rajesh_01" },
-    { id: "subj_bca106", name: "Hardware Workshop", slug: slugify("Hardware Workshop"), code: "BCA 106", semester: "I", teacherId: "tch_sunita_02" },
+    { id: "subj_bca106", name: "Hardware Workshop", slug: slugify("Hardware Workshop"), code: "BCA 106", semester: "I", teacherId: "tch_saddam_09" },
 
     // --- Second Semester (II) ---
     { id: "subj_bca151", name: "Discrete Structure", slug: slugify("Discrete Structure"), code: "BCA 151", semester: "II", teacherId: "tch_nikunja_05" },
@@ -354,51 +346,51 @@ async function seedAll() {
     { id: "subj_bca156", name: "Principles of Management", slug: slugify("Principles of Management"), code: "BCA 156", semester: "II", teacherId: "tch_rajesh_01" },
 
     // --- Third Semester (III) ---
-    { id: "subj_bca201", name: "Data Structure and Algorithms", slug: slugify("Data Structure and Algorithms"), code: "BCA 201", semester: "III", teacherId: "tch_bishal_03" },
+    { id: "subj_bca201", name: "Data Structure and Algorithms", slug: slugify("Data Structure and Algorithms"), code: "BCA 201", semester: "III", teacherId: "tch_nikunja_05" },
     { id: "subj_bca202", name: "Database Management System (3rd)", slug: slugify("Database Management System 3rd"), code: "BCA 202", semester: "III", teacherId: "tch_rajesh_01" },
-    { id: "subj_bca203", name: "Web Technology I", slug: slugify("Web Technology I"), code: "BCA 203", semester: "III", teacherId: "tch_bishal_03" },
-    { id: "subj_bca204", name: "System Analysis and Design", slug: slugify("System Analysis and Design"), code: "BCA 204", semester: "III", teacherId: "tch_sunita_02" },
-    { id: "subj_bca205", name: "Probability and Statistics", slug: slugify("Probability and Statistics"), code: "BCA 205", semester: "III", teacherId: "tch_anjali_04" },
+    { id: "subj_bca203", name: "Web Technology I", slug: slugify("Web Technology I"), code: "BCA 203", semester: "III", teacherId: "tch_sudeep_08" },
+    { id: "subj_bca204", name: "System Analysis and Design", slug: slugify("System Analysis and Design"), code: "BCA 204", semester: "III", teacherId: "tch_ashish_06" },
+    { id: "subj_bca205", name: "Probability and Statistics", slug: slugify("Probability and Statistics"), code: "BCA 205", semester: "III", teacherId: "tch_mohit_07" },
     { id: "subj_bca206", name: "Applied Economics", slug: slugify("Applied Economics"), code: "BCA 206", semester: "III", teacherId: "tch_rajesh_01" },
 
     // --- Fourth Semester (IV) ---
     { id: "subj_dbms", name: "Database Management System", slug: slugify("Database Management System"), code: "CACS251", semester: "IV", teacherId: "tch_rajesh_01" },
-    { id: "subj_os", name: "Operating Systems", slug: slugify("Operating Systems"), code: "CACS252", semester: "IV", teacherId: "tch_sunita_02" },
-    { id: "subj_web2", name: "Web Technology II", slug: slugify("Web Technology II"), code: "CACS253", semester: "IV", teacherId: "tch_bishal_03" },
-    { id: "subj_nm", name: "Numerical Methods", slug: slugify("Numerical Methods"), code: "CACS254", semester: "IV", teacherId: "tch_anjali_04" },
-    { id: "subj_se", name: "Software Engineering", slug: slugify("Software Engineering"), code: "CACS255", semester: "IV", teacherId: "tch_rajesh_01" },
-    { id: "subj_bca254", name: "Python Programming", slug: slugify("Python Programming"), code: "BCA 254", semester: "IV", teacherId: "tch_bishal_03" },
+    { id: "subj_os", name: "Operating Systems", slug: slugify("Operating Systems"), code: "CACS252", semester: "IV", teacherId: "tch_saddam_09" },
+    { id: "subj_web2", name: "Web Technology II", slug: slugify("Web Technology II"), code: "CACS253", semester: "IV", teacherId: "tch_sudeep_08" },
+    { id: "subj_nm", name: "Numerical Methods", slug: slugify("Numerical Methods"), code: "CACS254", semester: "IV", teacherId: "tch_mohit_07" },
+    { id: "subj_se", name: "Software Engineering", slug: slugify("Software Engineering"), code: "CACS255", semester: "IV", teacherId: "tch_ashish_06" },
+    { id: "subj_bca254", name: "Python Programming", slug: slugify("Python Programming"), code: "BCA 254", semester: "IV", teacherId: "tch_nikunja_05" },
     { id: "subj_bca256", name: "Project I", slug: slugify("Project I"), code: "BCA 256", semester: "IV", teacherId: "tch_rajesh_01" },
 
     // --- Fifth Semester (V) ---
-    { id: "subj_bca301", name: "Computer Network", slug: slugify("Computer Network"), code: "BCA 301", semester: "V", teacherId: "tch_sunita_02" },
-    { id: "subj_bca302", name: "Artificial Intelligence", slug: slugify("Artificial Intelligence"), code: "BCA 302", semester: "V", teacherId: "tch_bishal_03" },
-    { id: "subj_bca303", name: "Advance Java Programming", slug: slugify("Advance Java Programming"), code: "BCA 303", semester: "V", teacherId: "tch_bishal_03" },
+    { id: "subj_bca301", name: "Computer Network", slug: slugify("Computer Network"), code: "BCA 301", semester: "V", teacherId: "tch_saddam_09" },
+    { id: "subj_bca302", name: "Artificial Intelligence", slug: slugify("Artificial Intelligence"), code: "BCA 302", semester: "V", teacherId: "tch_nikunja_05" },
+    { id: "subj_bca303", name: "Advance Java Programming", slug: slugify("Advance Java Programming"), code: "BCA 303", semester: "V", teacherId: "tch_ashish_06" },
     { id: "subj_bca304", name: "MIS and e-Business", slug: slugify("MIS and e-Business"), code: "BCA 304", semester: "V", teacherId: "tch_rajesh_01" },
-    { id: "subj_bca305", name: "Society and Technology", slug: slugify("Society and Technology"), code: "BCA 305", semester: "V", teacherId: "tch_anjali_04" },
+    { id: "subj_bca305", name: "Society and Technology", slug: slugify("Society and Technology"), code: "BCA 305", semester: "V", teacherId: "tch_mohit_07" },
     { id: "subj_bca306", name: "Project II", slug: slugify("Project II"), code: "BCA 306", semester: "V", teacherId: "tch_rajesh_01" },
 
     // --- Sixth Semester (VI) ---
-    { id: "subj_bca351", name: "Computer Graphics and Animation", slug: slugify("Computer Graphics and Animation"), code: "BCA 351", semester: "VI", teacherId: "tch_bishal_03" },
-    { id: "subj_bca352", name: "Mobile Programming", slug: slugify("Mobile Programming"), code: "BCA 352", semester: "VI", teacherId: "tch_bishal_03" },
-    { id: "subj_bca353", name: "Cryptography and Network Security", slug: slugify("Cryptography and Network Security"), code: "BCA 353", semester: "VI", teacherId: "tch_sunita_02" },
-    { id: "subj_bca354", name: "Technical Writing", slug: slugify("Technical Writing"), code: "BCA 354", semester: "VI", teacherId: "tch_anjali_04" },
-    { id: "subj_bca355", name: "Distributed System", slug: slugify("Distributed System"), code: "BCA 355", semester: "VI", teacherId: "tch_sunita_02" },
+    { id: "subj_bca351", name: "Computer Graphics and Animation", slug: slugify("Computer Graphics and Animation"), code: "BCA 351", semester: "VI", teacherId: "tch_sudeep_08" },
+    { id: "subj_bca352", name: "Mobile Programming", slug: slugify("Mobile Programming"), code: "BCA 352", semester: "VI", teacherId: "tch_ashish_06" },
+    { id: "subj_bca353", name: "Cryptography and Network Security", slug: slugify("Cryptography and Network Security"), code: "BCA 353", semester: "VI", teacherId: "tch_saddam_09" },
+    { id: "subj_bca354", name: "Technical Writing", slug: slugify("Technical Writing"), code: "BCA 354", semester: "VI", teacherId: "tch_mohit_07" },
+    { id: "subj_bca355", name: "Distributed System", slug: slugify("Distributed System"), code: "BCA 355", semester: "VI", teacherId: "tch_nikunja_05" },
     { id: "subj_bca356", name: "Project III", slug: slugify("Project III"), code: "BCA 356", semester: "VI", teacherId: "tch_rajesh_01" },
 
     // --- Seventh Semester (VII) ---
-    { id: "subj_bca401", name: "Cyber Security and Ethical Hacking", slug: slugify("Cyber Security and Ethical Hacking"), code: "BCA 401", semester: "VII", teacherId: "tch_sunita_02" },
+    { id: "subj_bca401", name: "Cyber Security and Ethical Hacking", slug: slugify("Cyber Security and Ethical Hacking"), code: "BCA 401", semester: "VII", teacherId: "tch_saddam_09" },
     { id: "subj_bca402", name: "Software Project Management", slug: slugify("Software Project Management"), code: "BCA 402", semester: "VII", teacherId: "tch_rajesh_01" },
-    { id: "subj_bca403", name: "Financial Accounting", slug: slugify("Financial Accounting"), code: "BCA 403", semester: "VII", teacherId: "tch_anjali_04" },
+    { id: "subj_bca403", name: "Financial Accounting", slug: slugify("Financial Accounting"), code: "BCA 403", semester: "VII", teacherId: "tch_mohit_07" },
     { id: "subj_bca404", name: "Project IV", slug: slugify("Project IV"), code: "BCA 404", semester: "VII", teacherId: "tch_rajesh_01" },
-    { id: "subj_bca405", name: "Elective I", slug: slugify("Elective I"), code: "BCA 405", semester: "VII", teacherId: "tch_bishal_03" },
-    { id: "subj_bca406", name: "Elective II", slug: slugify("Elective II"), code: "BCA 406", semester: "VII", teacherId: "tch_bishal_03" },
+    { id: "subj_bca405", name: "Elective I", slug: slugify("Elective I"), code: "BCA 405", semester: "VII", teacherId: "tch_nikunja_05" },
+    { id: "subj_bca406", name: "Elective II", slug: slugify("Elective II"), code: "BCA 406", semester: "VII", teacherId: "tch_ashish_06" },
 
     // --- Eighth Semester (VIII) ---
-    { id: "subj_bca451", name: "Cloud Computing", slug: slugify("Cloud Computing"), code: "BCA 451", semester: "VIII", teacherId: "tch_bishal_03" },
+    { id: "subj_bca451", name: "Cloud Computing", slug: slugify("Cloud Computing"), code: "BCA 451", semester: "VIII", teacherId: "tch_saddam_09" },
     { id: "subj_bca452", name: "Internship", slug: slugify("Internship"), code: "BCA 452", semester: "VIII", teacherId: "tch_rajesh_01" },
-    { id: "subj_bca453", name: "Elective III", slug: slugify("Elective III"), code: "BCA 453", semester: "VIII", teacherId: "tch_sunita_02" },
-    { id: "subj_bca454", name: "Elective IV", slug: slugify("Elective IV"), code: "BCA 454", semester: "VIII", teacherId: "tch_anjali_04" },
+    { id: "subj_bca453", name: "Elective III", slug: slugify("Elective III"), code: "BCA 453", semester: "VIII", teacherId: "tch_sudeep_08" },
+    { id: "subj_bca454", name: "Elective IV", slug: slugify("Elective IV"), code: "BCA 454", semester: "VIII", teacherId: "tch_mohit_07" },
   ];
 
   for (const subj of subjectsData) {
