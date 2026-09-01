@@ -279,6 +279,46 @@ async function seedAll() {
       faculties: ["BCA"],
       semesters: ["4th Semester"],
     },
+    {
+      id: "tch_nikunja_05",
+      name: "Er. Nikunja Sir",
+      email: "nikunja@classroom.os",
+      phone: "+977-9841234571",
+      faculties: ["BCA"],
+      semesters: ["2nd Semester"],
+    },
+    {
+      id: "tch_ashish_06",
+      name: "Er. Ashish Sir",
+      email: "ashish@classroom.os",
+      phone: "+977-9841234572",
+      faculties: ["BCA"],
+      semesters: ["2nd Semester"],
+    },
+    {
+      id: "tch_mohit_07",
+      name: "Mr. Mohit Sir",
+      email: "mohit@classroom.os",
+      phone: "+977-9841234573",
+      faculties: ["BCA"],
+      semesters: ["2nd Semester"],
+    },
+    {
+      id: "tch_sudeep_08",
+      name: "Sudeep Sir",
+      email: "sudeep@classroom.os",
+      phone: "+977-9841234574",
+      faculties: ["BCA"],
+      semesters: ["2nd Semester"],
+    },
+    {
+      id: "tch_saddam_09",
+      name: "Er. MD Saddam Sir",
+      email: "saddam@classroom.os",
+      phone: "+977-9841234575",
+      faculties: ["BCA"],
+      semesters: ["2nd Semester"],
+    },
   ];
 
   for (const t of teachersData) {
@@ -333,11 +373,11 @@ async function seedAll() {
     { id: "subj_bca106", name: "Hardware Workshop", slug: slugify("Hardware Workshop"), code: "BCA 106", semester: "I", teacherId: "tch_sunita_02" },
 
     // --- Second Semester (II) ---
-    { id: "subj_bca151", name: "Discrete Structure", slug: slugify("Discrete Structure"), code: "BCA 151", semester: "II", teacherId: "tch_anjali_04" },
-    { id: "subj_bca152", name: "Microprocessor and Computer Architecture", slug: slugify("Microprocessor and Computer Architecture"), code: "BCA 152", semester: "II", teacherId: "tch_sunita_02" },
-    { id: "subj_bca153", name: "OOP in Java", slug: slugify("OOP in Java"), code: "BCA 153", semester: "II", teacherId: "tch_bishal_03" },
-    { id: "subj_bca154", name: "Mathematics II", slug: slugify("Mathematics II"), code: "BCA 154", semester: "II", teacherId: "tch_anjali_04" },
-    { id: "subj_bca155", name: "UX/UI Design", slug: slugify("UX/UI Design"), code: "BCA 155", semester: "II", teacherId: "tch_rajesh_01" },
+    { id: "subj_bca151", name: "Discrete Structure", slug: slugify("Discrete Structure"), code: "BCA 151", semester: "II", teacherId: "tch_nikunja_05" },
+    { id: "subj_bca152", name: "Microprocessor and Computer Architecture", slug: slugify("Microprocessor and Computer Architecture"), code: "BCA 152", semester: "II", teacherId: "tch_saddam_09" },
+    { id: "subj_bca153", name: "OOP in Java", slug: slugify("OOP in Java"), code: "BCA 153", semester: "II", teacherId: "tch_ashish_06" },
+    { id: "subj_bca154", name: "Mathematics II", slug: slugify("Mathematics II"), code: "BCA 154", semester: "II", teacherId: "tch_mohit_07" },
+    { id: "subj_bca155", name: "UX/UI Design", slug: slugify("UX/UI Design"), code: "BCA 155", semester: "II", teacherId: "tch_sudeep_08" },
     { id: "subj_bca156", name: "Principles of Management", slug: slugify("Principles of Management"), code: "BCA 156", semester: "II", teacherId: "tch_rajesh_01" },
 
     // --- Third Semester (III) ---
@@ -433,44 +473,44 @@ async function seedAll() {
 
     // --- Second Semester Routine ---
     // Monday (1)
-    { id: "rt_sem2_mon_1", subjectId: "subj_bca151", dayOfWeek: 1, startTime: "06:25", endTime: "07:15", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Discrete Structure" },
-    { id: "rt_sem2_mon_2", subjectId: "subj_bca151", dayOfWeek: 1, startTime: "07:15", endTime: "08:05", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Discrete Structure" },
-    { id: "rt_sem2_mon_3", subjectId: "subj_bca153", dayOfWeek: 1, startTime: "08:05", endTime: "08:55", teacherName: "Dr. Bishal Thapa", room: "Lab 1", notes: "OOP in Java" },
-    { id: "rt_sem2_mon_4", subjectId: "subj_bca153", dayOfWeek: 1, startTime: "08:55", endTime: "09:45", teacherName: "Dr. Bishal Thapa", room: "Lab 1", notes: "OOP in Java" },
-    { id: "rt_sem2_mon_5", subjectId: "subj_bca152", dayOfWeek: 1, startTime: "10:10", endTime: "11:00", teacherName: "Er. Sunita Sharma", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
+    { id: "rt_sem2_mon_1", subjectId: "subj_bca151", dayOfWeek: 1, startTime: "06:25", endTime: "07:15", teacherName: "Er. Nikunja Sir", room: "Room 201", notes: "Discrete Structure" },
+    { id: "rt_sem2_mon_2", subjectId: "subj_bca151", dayOfWeek: 1, startTime: "07:15", endTime: "08:05", teacherName: "Er. Nikunja Sir", room: "Room 201", notes: "Discrete Structure" },
+    { id: "rt_sem2_mon_3", subjectId: "subj_bca153", dayOfWeek: 1, startTime: "08:05", endTime: "08:55", teacherName: "Er. Ashish Sir", room: "Lab 1", notes: "OOP in Java" },
+    { id: "rt_sem2_mon_4", subjectId: "subj_bca153", dayOfWeek: 1, startTime: "08:55", endTime: "09:45", teacherName: "Er. Ashish Sir", room: "Lab 1", notes: "OOP in Java" },
+    { id: "rt_sem2_mon_5", subjectId: "subj_bca152", dayOfWeek: 1, startTime: "10:10", endTime: "11:00", teacherName: "Er. MD Saddam Sir", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
     { id: "rt_sem2_mon_6", subjectId: "subj_bca156", dayOfWeek: 1, startTime: "11:00", endTime: "11:50", teacherName: "Prof. Rajesh Shrestha", room: "Seminar Hall", notes: "Weekly Presentation" },
 
     // Tuesday (2)
-    { id: "rt_sem2_tue_1", subjectId: "subj_bca151", dayOfWeek: 2, startTime: "06:25", endTime: "07:15", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Discrete Structure" },
-    { id: "rt_sem2_tue_2", subjectId: "subj_bca151", dayOfWeek: 2, startTime: "07:15", endTime: "08:05", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Discrete Structure" },
-    { id: "rt_sem2_tue_3", subjectId: "subj_bca153", dayOfWeek: 2, startTime: "08:05", endTime: "08:55", teacherName: "Dr. Bishal Thapa", room: "Lab 1", notes: "OOP in Java" },
-    { id: "rt_sem2_tue_4", subjectId: "subj_bca153", dayOfWeek: 2, startTime: "08:55", endTime: "09:45", teacherName: "Dr. Bishal Thapa", room: "Lab 1", notes: "OOP in Java" },
-    { id: "rt_sem2_tue_5", subjectId: "subj_bca152", dayOfWeek: 2, startTime: "10:10", endTime: "11:00", teacherName: "Er. Sunita Sharma", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
-    { id: "rt_sem2_tue_6", subjectId: "subj_bca152", dayOfWeek: 2, startTime: "11:00", endTime: "11:50", teacherName: "Er. Sunita Sharma", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
+    { id: "rt_sem2_tue_1", subjectId: "subj_bca151", dayOfWeek: 2, startTime: "06:25", endTime: "07:15", teacherName: "Er. Nikunja Sir", room: "Room 201", notes: "Discrete Structure" },
+    { id: "rt_sem2_tue_2", subjectId: "subj_bca151", dayOfWeek: 2, startTime: "07:15", endTime: "08:05", teacherName: "Er. Nikunja Sir", room: "Room 201", notes: "Discrete Structure" },
+    { id: "rt_sem2_tue_3", subjectId: "subj_bca153", dayOfWeek: 2, startTime: "08:05", endTime: "08:55", teacherName: "Er. Ashish Sir", room: "Lab 1", notes: "OOP in Java" },
+    { id: "rt_sem2_tue_4", subjectId: "subj_bca153", dayOfWeek: 2, startTime: "08:55", endTime: "09:45", teacherName: "Er. Ashish Sir", room: "Lab 1", notes: "OOP in Java" },
+    { id: "rt_sem2_tue_5", subjectId: "subj_bca152", dayOfWeek: 2, startTime: "10:10", endTime: "11:00", teacherName: "Er. MD Saddam Sir", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
+    { id: "rt_sem2_tue_6", subjectId: "subj_bca152", dayOfWeek: 2, startTime: "11:00", endTime: "11:50", teacherName: "Er. MD Saddam Sir", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
 
     // Wednesday (3)
-    { id: "rt_sem2_wed_1", subjectId: "subj_bca154", dayOfWeek: 3, startTime: "06:25", endTime: "07:15", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Mathematics-II" },
-    { id: "rt_sem2_wed_2", subjectId: "subj_bca151", dayOfWeek: 3, startTime: "07:15", endTime: "08:05", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Discrete Structure" },
-    { id: "rt_sem2_wed_3", subjectId: "subj_bca153", dayOfWeek: 3, startTime: "08:05", endTime: "08:55", teacherName: "Dr. Bishal Thapa", room: "Lab 1", notes: "OOP in Java" },
-    { id: "rt_sem2_wed_4", subjectId: "subj_bca155", dayOfWeek: 3, startTime: "08:55", endTime: "09:45", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "UX/UI Design" },
-    { id: "rt_sem2_wed_5", subjectId: "subj_bca152", dayOfWeek: 3, startTime: "10:10", endTime: "11:00", teacherName: "Er. Sunita Sharma", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
-    { id: "rt_sem2_wed_6", subjectId: "subj_bca152", dayOfWeek: 3, startTime: "11:00", endTime: "11:50", teacherName: "Er. Sunita Sharma", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
+    { id: "rt_sem2_wed_1", subjectId: "subj_bca154", dayOfWeek: 3, startTime: "06:25", endTime: "07:15", teacherName: "Mr. Mohit Sir", room: "Room 201", notes: "Mathematics-II" },
+    { id: "rt_sem2_wed_2", subjectId: "subj_bca151", dayOfWeek: 3, startTime: "07:15", endTime: "08:05", teacherName: "Er. Nikunja Sir", room: "Room 201", notes: "Discrete Structure" },
+    { id: "rt_sem2_wed_3", subjectId: "subj_bca153", dayOfWeek: 3, startTime: "08:05", endTime: "08:55", teacherName: "Er. Ashish Sir", room: "Lab 1", notes: "OOP in Java" },
+    { id: "rt_sem2_wed_4", subjectId: "subj_bca155", dayOfWeek: 3, startTime: "08:55", endTime: "09:45", teacherName: "Sudeep Sir", room: "Room 201", notes: "UX/UI Design" },
+    { id: "rt_sem2_wed_5", subjectId: "subj_bca152", dayOfWeek: 3, startTime: "10:10", endTime: "11:00", teacherName: "Er. MD Saddam Sir", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
+    { id: "rt_sem2_wed_6", subjectId: "subj_bca152", dayOfWeek: 3, startTime: "11:00", endTime: "11:50", teacherName: "Er. MD Saddam Sir", room: "Room 201", notes: "Microprocessor & Computer Architecture" },
 
     // Thursday (4)
-    { id: "rt_sem2_thu_1", subjectId: "subj_bca154", dayOfWeek: 4, startTime: "06:25", endTime: "07:15", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Mathematics-II" },
-    { id: "rt_sem2_thu_2", subjectId: "subj_bca154", dayOfWeek: 4, startTime: "07:15", endTime: "08:05", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Mathematics-II" },
-    { id: "rt_sem2_thu_3", subjectId: "subj_bca155", dayOfWeek: 4, startTime: "08:05", endTime: "08:55", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "UX/UI Design" },
-    { id: "rt_sem2_thu_4", subjectId: "subj_bca155", dayOfWeek: 4, startTime: "08:55", endTime: "09:45", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "UX/UI Design" },
+    { id: "rt_sem2_thu_1", subjectId: "subj_bca154", dayOfWeek: 4, startTime: "06:25", endTime: "07:15", teacherName: "Mr. Mohit Sir", room: "Room 201", notes: "Mathematics-II" },
+    { id: "rt_sem2_thu_2", subjectId: "subj_bca154", dayOfWeek: 4, startTime: "07:15", endTime: "08:05", teacherName: "Mr. Mohit Sir", room: "Room 201", notes: "Mathematics-II" },
+    { id: "rt_sem2_thu_3", subjectId: "subj_bca155", dayOfWeek: 4, startTime: "08:05", endTime: "08:55", teacherName: "Sudeep Sir", room: "Room 201", notes: "UX/UI Design" },
+    { id: "rt_sem2_thu_4", subjectId: "subj_bca155", dayOfWeek: 4, startTime: "08:55", endTime: "09:45", teacherName: "Sudeep Sir", room: "Room 201", notes: "UX/UI Design" },
     { id: "rt_sem2_thu_5", subjectId: "subj_bca156", dayOfWeek: 4, startTime: "10:10", endTime: "11:00", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "Principle of Management" },
     { id: "rt_sem2_thu_6", subjectId: "subj_bca156", dayOfWeek: 4, startTime: "11:00", endTime: "11:50", teacherName: "Prof. Rajesh Shrestha", room: "Seminar Hall", notes: "Weekly Presentation" },
 
     // Friday (5)
-    { id: "rt_sem2_fri_1", subjectId: "subj_bca154", dayOfWeek: 5, startTime: "06:25", endTime: "07:15", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Mathematics-II" },
-    { id: "rt_sem2_fri_2", subjectId: "subj_bca154", dayOfWeek: 5, startTime: "07:15", endTime: "08:05", teacherName: "Ms. Anjali Adhikari", room: "Room 201", notes: "Mathematics-II" },
-    { id: "rt_sem2_fri_3", subjectId: "subj_bca155", dayOfWeek: 5, startTime: "08:05", endTime: "08:55", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "UX/UI Design" },
-    { id: "rt_sem2_fri_4", subjectId: "subj_bca155", dayOfWeek: 5, startTime: "08:55", endTime: "09:45", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "UX/UI Design" },
+    { id: "rt_sem2_fri_1", subjectId: "subj_bca154", dayOfWeek: 5, startTime: "06:25", endTime: "07:15", teacherName: "Mr. Mohit Sir", room: "Room 201", notes: "Mathematics-II" },
+    { id: "rt_sem2_fri_2", subjectId: "subj_bca154", dayOfWeek: 5, startTime: "07:15", endTime: "08:05", teacherName: "Mr. Mohit Sir", room: "Room 201", notes: "Mathematics-II" },
+    { id: "rt_sem2_fri_3", subjectId: "subj_bca155", dayOfWeek: 5, startTime: "08:05", endTime: "08:55", teacherName: "Sudeep Sir", room: "Room 201", notes: "UX/UI Design" },
+    { id: "rt_sem2_fri_4", subjectId: "subj_bca155", dayOfWeek: 5, startTime: "08:55", endTime: "09:45", teacherName: "Sudeep Sir", room: "Room 201", notes: "UX/UI Design" },
     { id: "rt_sem2_fri_5", subjectId: "subj_bca156", dayOfWeek: 5, startTime: "10:10", endTime: "11:00", teacherName: "Prof. Rajesh Shrestha", room: "Room 201", notes: "Principle of Management" },
-    { id: "rt_sem2_fri_6", subjectId: "subj_bca155", dayOfWeek: 5, startTime: "11:00", endTime: "11:50", teacherName: "Faculty Member", room: "Auditorium", notes: "Extracurricular Activities (ECA)" },
+    { id: "rt_sem2_fri_6", subjectId: "subj_bca155", dayOfWeek: 5, startTime: "11:00", endTime: "11:50", teacherName: "Sudeep Sir", room: "Auditorium", notes: "Extracurricular Activities (ECA)" },
   ];
 
   for (const r of routineData) {
