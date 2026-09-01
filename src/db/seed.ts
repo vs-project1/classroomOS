@@ -261,7 +261,80 @@ async function seedAll() {
     await db.insert(teachers).values(t);
   }
 
-  // 4. Seed Subjects (Complete 8-Semester BCA Curriculum)
+  // 4. Seed Real 2nd Semester Students (35 Students)
+  console.log("🎓 Seeding Real 2nd Semester Students...");
+  const rawStudents = [
+    { id: "std_001", name: "Aakriti Thapa", roll: "2025-BCA-001", email: "aakriti.thapa@classroom.os", phone: "+977-9851000001" },
+    { id: "std_002", name: "Aashish Khatri", roll: "2025-BCA-002", email: "aashish.khatri@classroom.os", phone: "+977-9851000002", role: "CR" as const },
+    { id: "std_003", name: "Aayush Purbachhane", roll: "2025-BCA-003", email: "aayush.purbachhane@classroom.os", phone: "+977-9851000003" },
+    { id: "std_004", name: "Abhishek Acharya", roll: "2025-BCA-004", email: "abhishek.acharya@classroom.os", phone: "+977-9851000004" },
+    { id: "std_005", name: "Anish Karki", roll: "2025-BCA-005", email: "anish.karki@classroom.os", phone: "+977-9851000005" },
+    { id: "std_006", name: "Arnab Shrestha", roll: "2025-BCA-006", email: "arnab.shrestha@classroom.os", phone: "+977-9851000006" },
+    { id: "std_007", name: "Arpan Rai", roll: "2025-BCA-007", email: "arpan.rai@classroom.os", phone: "+977-9851000007" },
+    { id: "std_008", name: "Barshika Magar", roll: "2025-BCA-008", email: "barshika.magar@classroom.os", phone: "+977-9851000008" },
+    { id: "std_009", name: "Bikram Chaudhary", roll: "2025-BCA-009", email: "bikram.chaudhary@classroom.os", phone: "+977-9851000009" },
+    { id: "std_010", name: "Bishan Budhathoki", roll: "2025-BCA-010", email: "bishan.budhathoki@classroom.os", phone: "+977-9851000010" },
+    { id: "std_011", name: "Binayak Bdr. KC", roll: "2025-BCA-011", email: "binayak.kc@classroom.os", phone: "+977-9851000011" },
+    { id: "std_012", name: "Bishal Balami", roll: "2025-BCA-012", email: "bishal.balami@classroom.os", phone: "+977-9851000012" },
+    { id: "std_013", name: "Darpan Gurung", roll: "2025-BCA-013", email: "darpan.gurung@classroom.os", phone: "+977-9851000013" },
+    { id: "std_014", name: "Durga Bdr. Thapa", roll: "2025-BCA-014", email: "durga.thapa@classroom.os", phone: "+977-9851000014" },
+    { id: "std_015", name: "Grishma Khatiwada", roll: "2025-BCA-015", email: "grishma.khatiwada@classroom.os", phone: "+977-9851000015" },
+    { id: "std_016", name: "Jenith Gurung", roll: "2025-BCA-016", email: "jenith.gurung@classroom.os", phone: "+977-9851000016" },
+    { id: "std_017", name: "Keshang Tamang", roll: "2025-BCA-017", email: "keshang.tamang@classroom.os", phone: "+977-9851000017" },
+    { id: "std_018", name: "Kushal Neupane", roll: "2025-BCA-018", email: "kushal.neupane@classroom.os", phone: "+977-9851000018" },
+    { id: "std_019", name: "Lakpa Syantang", roll: "2025-BCA-019", email: "lakpa.syantang@classroom.os", phone: "+977-9851000019" },
+    { id: "std_020", name: "Lakpa Tamang", roll: "2025-BCA-020", email: "lakpa.tamang@classroom.os", phone: "+977-9851000020" },
+    { id: "std_021", name: "Nishan Joshi", roll: "2025-BCA-021", email: "nishan.joshi@classroom.os", phone: "+977-9851000021" },
+    { id: "std_022", name: "Pabina Tamang", roll: "2025-BCA-022", email: "pabina.tamang@classroom.os", phone: "+977-9851000022" },
+    { id: "std_023", name: "Prakriti Dhamala", roll: "2025-BCA-023", email: "prakriti.dhamala@classroom.os", phone: "+977-9851000023" },
+    { id: "std_024", name: "Pranish Ghatani", roll: "2025-BCA-024", email: "pranish.ghatani@classroom.os", phone: "+977-9851000024" },
+    { id: "std_025", name: "Pukar Parajuli", roll: "2025-BCA-025", email: "pukar.parajuli@classroom.os", phone: "+977-9851000025" },
+    { id: "std_026", name: "Rarak Singh Moktan", roll: "2025-BCA-026", email: "rarak.moktan@classroom.os", phone: "+977-9851000026" },
+    { id: "std_027", name: "Samir Balampaki Magar", roll: "2025-BCA-027", email: "samir.magar@classroom.os", phone: "+977-9851000027" },
+    { id: "std_028", name: "Shishir Gautam", roll: "2025-BCA-028", email: "shishir.gautam@classroom.os", phone: "+977-9851000028" },
+    { id: "std_029", name: "Saurabh Rai", roll: "2025-BCA-029", email: "saurabh.rai@classroom.os", phone: "+977-9851000029" },
+    { id: "std_030", name: "Subhadra Pandey", roll: "2025-BCA-030", email: "subhadra.pandey@classroom.os", phone: "+977-9851000030" },
+    { id: "std_031", name: "Sumi Lama", roll: "2025-BCA-031", email: "sumi.lama@classroom.os", phone: "+977-9851000031" },
+    { id: "std_032", name: "Sunil Khatik", roll: "2025-BCA-032", email: "sunil.khatik@classroom.os", phone: "+977-9851000032" },
+    { id: "std_033", name: "Tenchembi Sherpa", roll: "2025-BCA-033", email: "tenchembi.sherpa@classroom.os", phone: "+977-9851000033" },
+    { id: "std_034", name: "Oshin Lama", roll: "2025-BCA-034", email: "oshin.lama@classroom.os", phone: "+977-9851000034" },
+    { id: "std_035", name: "Ang Dawa Sherpa", roll: "2025-BCA-035", email: "angdawa.sherpa@classroom.os", phone: "+977-9851000035" },
+  ];
+
+  for (const s of rawStudents) {
+    const userId = `usr_${s.id}`;
+    await db.insert(users).values({
+      id: userId,
+      email: s.email,
+      passwordHash: defaultStudentPass,
+      role: (s as any).role || ("STUDENT" as const),
+      mustChangePassword: false,
+      isActive: true,
+    });
+
+    await db.insert(students).values({
+      id: s.id,
+      name: s.name,
+      rollNumber: s.roll,
+      email: s.email,
+      phone: s.phone,
+      faculty: "BCA",
+      semester: "2nd Semester",
+    });
+
+    await db.insert(studentProfiles).values({
+      id: `sp_${s.id}`,
+      userId,
+      rollNumber: s.roll,
+      faculty: "BCA",
+      semester: 2,
+      section: "A",
+      batchYear: 2025,
+      phone: s.phone,
+    });
+  }
+
+  // 5. Seed Subjects (Complete 8-Semester BCA Curriculum)
   console.log("📚 Seeding Subjects...");
   const subjectsData = [
     // --- First Semester (I) ---
@@ -332,7 +405,22 @@ async function seedAll() {
     await db.insert(subjects).values(subj);
   }
 
-  // 5. Seed Weekly Routine (2nd Semester - 30 periods)
+  // 5. Seed Enrollments (35 Real 2nd Semester Students x 6 Core Subjects)
+  console.log("📝 Seeding Enrollments (35 Students x 6 Core 2nd Sem Subjects)...");
+  const secondSemSubjects = subjectsData.filter((s) => s.semester === "II");
+  for (const s of rawStudents) {
+    for (const subj of secondSemSubjects) {
+      await db.insert(enrollments).values({
+        id: `enr_${s.id}_${subj.id}`,
+        studentId: s.id,
+        subjectId: subj.id,
+        semester: 2,
+        enrolledAt: new Date("2026-07-20T00:00:00.000Z"),
+      });
+    }
+  }
+
+  // 6. Seed Weekly Routine (2nd Semester - 30 periods)
   console.log("⏰ Seeding Weekly Routine (2nd Semester)...");
   const routineData = [
     // --- Second Semester Routine ---
