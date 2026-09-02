@@ -3,9 +3,9 @@ import { weeklyRoutine, homework, notices, attendance, dailyAttendance } from "@
 import { desc, eq, asc } from "drizzle-orm";
 import Link from "next/link";
 import { resolveCurrentStudent } from "@/lib/auth";
-import { formatTime12h } from "@/lib/time";
+import { formatTime12h } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
-import { calculateAttendanceMetrics } from "@/lib/attendance";
+import { calculateAttendanceMetrics } from "@/features/attendance/calculations/attendance-projection";
 import { ArcGauge } from "@/components/attendance/arc-gauge";
 import { Book, Bell, CalendarDays, CheckCircle2, AlertCircle, ArrowRight, Laptop, Lock, AlertTriangle } from "lucide-react";
 

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { subjects, enrollments } from "@/db/schema";
-import { SessionForm } from "./session-form";
+import { SessionForm } from "@/features/sessions/components/session-form";
 import { asc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";

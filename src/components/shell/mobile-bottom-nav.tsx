@@ -6,7 +6,7 @@ import { ChevronDown, GraduationCap, LayoutGrid, LogOut } from "lucide-react";
 import * as React from "react";
 import { Sheet, SheetTrigger, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { logoutAction } from "@/app/actions/auth";
+import { logoutAction } from "@/features/auth/actions/auth";
 import type { SidebarSubject } from "@/features/subjects/queries";
 import type { NavBadges, UserRole } from "@/lib/navigation/types";
 import { badgeUnitLabels, isNavItemActive } from "@/lib/navigation/types";

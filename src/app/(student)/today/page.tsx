@@ -4,7 +4,7 @@ import { asc, eq, and, gte, lt } from "drizzle-orm";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { CheckCircle2, Clock, Play, ArrowLeft, ArrowRight, Calendar, Radio, ListTodo } from "lucide-react";
-import { formatTime12h } from "@/lib/time";
+import { formatTime12h } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { DayStripSelector } from "./day-strip-selector";
 import { getTodayDeadlines } from "./queries";

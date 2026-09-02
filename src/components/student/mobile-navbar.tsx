@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChevronDown, GraduationCap, LayoutGrid, LogOut } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { logoutAction } from "@/app/actions/auth";
+import { logoutAction } from "@/features/auth/actions/auth";
 import type { SidebarSubject } from "@/features/subjects/queries";
 import type { NavBadges, UserRole } from "@/lib/navigation/types";
 import { isNavItemActive } from "@/lib/navigation/types";

@@ -4,7 +4,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
-import { formatTime12h } from "@/lib/time";
+import { formatTime12h } from "@/lib/timezone";
 import { Calendar, Clock, Book, FileText, FolderOpen } from "lucide-react";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 

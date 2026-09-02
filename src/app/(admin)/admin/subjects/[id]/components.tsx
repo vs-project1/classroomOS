@@ -1,15 +1,17 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { addCourseUnit, addCourseChapter, addCourseMaterial } from "./actions";
+import { addCourseUnit, addCourseChapter, addCourseMaterial, type ActionState } from "@/features/subjects/actions/syllabus";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UploadDropzone } from "@/utils/uploadthing";
 
+const initialState: ActionState = { success: false };
+
 export function AddUnitDialog({ subjectId }: { subjectId: string }) {
-  const [state, action, isPending] = useActionState(addCourseUnit, { success: false });
+  const [state, action, isPending] = useActionState(addCourseUnit, initialState);
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -39,7 +41,7 @@ export function AddUnitDialog({ subjectId }: { subjectId: string }) {
 }
 
 export function AddChapterDialog({ unitId, subjectId }: { unitId: string, subjectId: string }) {
-  const [state, action, isPending] = useActionState(addCourseChapter, { success: false });
+  const [state, action, isPending] = useActionState(addCourseChapter, initialState);
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -70,7 +72,7 @@ export function AddChapterDialog({ unitId, subjectId }: { unitId: string, subjec
 }
 
 export function AddMaterialDialog({ chapterId, subjectId }: { chapterId: string, subjectId: string }) {
-  const [state, action, isPending] = useActionState(addCourseMaterial, { success: false });
+  const [state, action, isPending] = useActionState(addCourseMaterial, initialState);
   const [fileUrl, setFileUrl] = useState("");
   const [fileType, setFileType] = useState("");
   const [isOpen, setIsOpen] = useState(false);

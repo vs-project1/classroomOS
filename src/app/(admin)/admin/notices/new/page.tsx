@@ -1,4 +1,4 @@
-import { NoticeForm } from "./notice-form";
+import { NoticeForm } from "@/features/notices/components/notice-form";
 
 export const dynamic = "force-dynamic";
 

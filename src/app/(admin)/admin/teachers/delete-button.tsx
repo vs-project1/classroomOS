@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { deleteTeacher } from "./actions";
+import { deleteTeacher } from "@/features/users/actions/teacher-actions";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 

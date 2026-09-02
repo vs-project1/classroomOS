@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { deleteNotice, togglePinNotice } from "./actions";
+import { deleteNotice, togglePinNotice } from "@/features/notices/actions/notice-actions";
 import { Button } from "@/components/ui/button";
 import { Pin, PinOff, Trash2 } from "lucide-react";
 

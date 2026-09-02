@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { deleteEvent } from "./actions";
+import { deleteEvent } from "@/features/events/actions/event-actions";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 

@@ -3,7 +3,7 @@ import { classSessions, subjects, lectureLogs } from "@/db/schema";
 import { desc, eq, inArray } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
-import { formatTime12h } from "@/lib/time";
+import { formatTime12h } from "@/lib/timezone";
 import { FileText, Calendar, Clock, BookOpen } from "lucide-react";
 
 export const dynamic = "force-dynamic";

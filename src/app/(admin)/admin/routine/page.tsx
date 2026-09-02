@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Plus, Edit, CalendarDays, ArrowLeft, ArrowRight, CalendarRange } from "lucide-react";
 import { getPermissions } from "@/lib/auth";
 import { TimelineRiver, type TimelineRiverSlot } from "@/components/timetable/timeline-river";
-import { DeleteRoutineButton } from "@/app/(student)/routine/delete-button";
+import { DeleteRoutineButton } from "@/features/routine/components/delete-routine-button";
 import { buttonVariants } from "@/components/ui/button";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 

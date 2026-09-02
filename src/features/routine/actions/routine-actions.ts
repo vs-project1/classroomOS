@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import crypto from "crypto";
 import { and, eq, ne, gte, lte, inArray } from "drizzle-orm";
-import { parseAndNormalizeTime } from "@/lib/time";
+import { parseAndNormalizeTime } from "@/lib/timezone";
 import { requireAuth } from "@/lib/auth/session";
 import { notifyMany } from "@/lib/notifications";
 

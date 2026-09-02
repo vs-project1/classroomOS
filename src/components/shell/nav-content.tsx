@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Book, ChevronDown, GraduationCap, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { logoutAction } from "@/app/actions/auth";
+import { logoutAction } from "@/features/auth/actions/auth";
 import type { SidebarSubject } from "@/features/subjects/queries";
 import type { NavBadges, UserRole } from "@/lib/navigation/types";
 import { badgeUnitLabels, isNavItemActive } from "@/lib/navigation/types";

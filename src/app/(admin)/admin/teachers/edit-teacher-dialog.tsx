@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { saveTeacher, type TeacherActionState } from "./actions";
+import { saveTeacher, type TeacherActionState } from "@/features/users/actions/teacher-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

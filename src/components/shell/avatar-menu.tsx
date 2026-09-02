@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { KeyRound, LogOut, UserRound } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { logoutAction } from "@/app/actions/auth";
+import { logoutAction } from "@/features/auth/actions/auth";
 
 function initialsOf(name: string): string {
   return (

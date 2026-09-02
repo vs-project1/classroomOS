@@ -7,7 +7,7 @@ import {
   editUserAccountAction,
   deleteUserAccountAction,
   AccountActionState,
-} from "@/app/actions/accounts";
+} from "@/features/users/actions/accounts";
 import { CreateAccountDialog } from "@/components/admin/create-account-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

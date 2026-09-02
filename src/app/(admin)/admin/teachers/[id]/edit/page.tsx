@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { teachers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import { TeacherForm } from "../../teacher-form";
+import { TeacherForm } from "@/features/users/components/teacher-form";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";

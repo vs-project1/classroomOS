@@ -4,10 +4,10 @@ import { asc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Edit, CalendarDays } from "lucide-react";
-import { DeleteRoutineButton } from "./delete-button";
+import { DeleteRoutineButton } from "@/features/routine/components/delete-routine-button";
 import { getCurrentUser, getPermissions } from "@/lib/auth";
 import { toRoman } from "@/lib/utils/roman";
-import { getNptTimeString } from "@/lib/time";
+import { getNptTimeString } from "@/lib/timezone";
 import { RoutineView } from "@/components/timetable/routine-view";
 import type { RoutineSlotData } from "@/components/timetable/routine-card";
 

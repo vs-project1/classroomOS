@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { subjects, teachers } from "@/db/schema";
 import Link from "next/link";
-import { SubjectForm } from "./subject-form";
+import { SubjectForm } from "@/features/subjects/components/subject-form";
 import { asc, eq } from "drizzle-orm";
 import { BookOpen, Search, ArrowRight, LibraryBig, BookCopy, Fingerprint, ArrowLeft } from "lucide-react";
 import { getPermissions } from "@/lib/auth";

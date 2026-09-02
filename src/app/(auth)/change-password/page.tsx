@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
-import { ChangePasswordForm } from "./change-password-form";
+import { ChangePasswordForm } from "@/features/auth/components/change-password-form";
 
 export const metadata: Metadata = {
   title: "Set Permanent Password — Classroom OS",

@@ -4,7 +4,7 @@ import { useState, useActionState } from "react";
 import {
   createAccountAction,
   AccountActionState,
-} from "@/app/actions/accounts";
+} from "@/features/users/actions/accounts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { asc } from "drizzle-orm";
 import { subjects } from "@/db/schema";
-import { HomeworkForm } from "./homework-form";
+import { HomeworkForm } from "@/features/assignments/components/homework-form";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";

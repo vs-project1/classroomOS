@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { Book } from "lucide-react";
-import { LoginForm } from "./login-form";
+import { LoginForm } from "@/features/auth/components/login-form";
 
 export const metadata: Metadata = {
   title: "Sign In — Classroom OS",

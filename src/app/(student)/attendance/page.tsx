@@ -2,12 +2,12 @@ import { db } from "@/db";
 import { attendance, subjects, enrollments } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { resolveCurrentStudent, getCurrentUser } from "@/lib/auth";
-import { calculateAttendanceMetrics } from "@/lib/attendance";
+import { calculateAttendanceMetrics } from "@/features/attendance/calculations/attendance-projection";
 import { Activity, ShieldAlert, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { ArcGauge } from "@/components/attendance/arc-gauge";
-import { WhatIfCalculator } from "./what-if-calculator";
-import { CorrectionDialog } from "./correction-dialog";
+import { WhatIfCalculator } from "@/features/attendance/components/what-if-calculator";
+import { CorrectionDialog } from "@/features/attendance/components/correction-dialog";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";

@@ -1,7 +1,7 @@
 import React from "react";
 import { CheckCircle2, Clock, Laptop, MapPin, Radio, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatTime12h } from "@/lib/time";
+import { formatTime12h } from "@/lib/timezone";
 
 export type RoutineSlotData = {
   id: string;

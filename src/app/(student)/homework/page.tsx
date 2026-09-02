@@ -3,7 +3,7 @@ import { homework, assignmentSubmissions, studentProfiles, students, enrollments
 import { toRoman } from "@/lib/utils/roman";
 import { getCurrentUser } from "@/lib/auth/session";
 import { desc, eq, inArray } from "drizzle-orm";
-import { HomeworkClientWorkspace } from "./homework-client-workspace";
+import { HomeworkClientWorkspace } from "@/features/assignments/components/homework-client-workspace";
 
 export const dynamic = "force-dynamic";
 

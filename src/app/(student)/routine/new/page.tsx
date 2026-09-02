@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { RoutineForm } from "../routine-form";
+import { RoutineForm } from "@/features/routine/components/routine-form";
 import { asc } from "drizzle-orm";
 import { subjects } from "@/db/schema";
 import Link from "next/link";

@@ -6,7 +6,7 @@ import { toRoman } from "@/lib/utils/roman";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatTime12h } from "@/lib/time";
+import { formatTime12h } from "@/lib/timezone";
 import { FileText, Calendar, Clock, Search, X } from "lucide-react";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 

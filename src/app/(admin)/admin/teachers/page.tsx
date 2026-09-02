@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { teachers } from "@/db/schema";
 import { asc, like, or, eq, and } from "drizzle-orm";
-import { TeacherForm } from "./teacher-form";
+import { TeacherForm } from "@/features/users/components/teacher-form";
 import { DeleteTeacherButton } from "./delete-button";
 import { EditTeacherDialog } from "./edit-teacher-dialog";
 import { Users, GraduationCap, Mail, Phone, Calendar } from "lucide-react";

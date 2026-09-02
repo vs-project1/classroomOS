@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { projectAttendance } from "@/lib/attendance";
+import { projectAttendance } from "@/features/attendance/calculations/attendance-projection";
 import { Sparkles, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface WhatIfCalculatorProps {

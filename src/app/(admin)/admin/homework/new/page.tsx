@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { asc } from "drizzle-orm";
 import { subjects } from "@/db/schema";
-import { HomeworkForm } from "./homework-form";
+import { HomeworkForm } from "@/features/assignments/components/homework-form";
 
 export const dynamic = "force-dynamic";
 

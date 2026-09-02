@@ -1,4 +1,4 @@
-import { EventForm } from "./event-form";
+import { EventForm } from "@/features/events/components/event-form";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";

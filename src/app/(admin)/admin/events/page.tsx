@@ -8,7 +8,7 @@ import { EventActions } from "./event-actions";
 import { getPermissions } from "@/lib/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { formatTime12h } from "@/lib/time";
+import { formatTime12h } from "@/lib/timezone";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";

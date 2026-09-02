@@ -36,7 +36,7 @@ import {
   Code,
   MapPin,
 } from "lucide-react";
-import { formatTime12h } from "@/lib/time";
+import { formatTime12h } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { FilePreview } from "@/components/files/file-preview";

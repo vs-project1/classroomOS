@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { updateStudent, type StudentActionState } from "./actions";
+import { updateStudent, type StudentActionState } from "@/features/users/actions/student-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

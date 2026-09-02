@@ -1,4 +1,4 @@
-import { NoticeForm } from "./notice-form";
+import { NoticeForm } from "@/features/notices/components/notice-form";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";

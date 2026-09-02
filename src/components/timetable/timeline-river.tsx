@@ -1,7 +1,7 @@
 import { Clock, MapPin, User, Radio, CheckCircle2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { formatTime12h } from "@/lib/time";
+import { formatTime12h } from "@/lib/timezone";
 
 export type TimelineRiverSlot = {
   id: string;

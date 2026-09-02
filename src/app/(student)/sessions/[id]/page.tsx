@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft, BookOpen, Clock, Users } from "lucide-react";
-import { formatTime12h } from "@/lib/time";
+import { formatTime12h } from "@/lib/timezone";
 import { getCurrentUser, resolveCurrentStudent } from "@/lib/auth";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 

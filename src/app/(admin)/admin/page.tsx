@@ -3,7 +3,7 @@ import { weeklyRoutine, classSessions, homework, notices, events } from "@/db/sc
 import { desc, eq, gte, asc } from "drizzle-orm";
 import Link from "next/link";
 import { Clock, Book, Bell, CalendarDays, Calendar, ArrowRight, PenTool, Megaphone, ClipboardList, Lock, CheckCircle } from "lucide-react";
-import { formatTime12h } from "@/lib/time";
+import { formatTime12h } from "@/lib/timezone";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";

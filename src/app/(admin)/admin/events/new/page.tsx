@@ -1,4 +1,4 @@
-import { EventForm } from "./event-form";
+import { EventForm } from "@/features/events/components/event-form";
 
 export const dynamic = "force-dynamic";
 

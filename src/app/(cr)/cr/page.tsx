@@ -3,7 +3,7 @@ import { weeklyRoutine, classSessions, enrollments } from "@/db/schema";
 import { desc, eq, asc, and, inArray, gte } from "drizzle-orm";
 import Link from "next/link";
 import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
-import { formatTime12h } from "@/lib/time";
+import { formatTime12h } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 import {

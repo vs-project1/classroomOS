@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import crypto from "crypto";
 import { eq } from "drizzle-orm";
-import { parseAndNormalizeTime } from "@/lib/time";
+import { parseAndNormalizeTime } from "@/lib/timezone";
 import { requireAuth } from "@/lib/auth/session";
 
 const eventSchema = z.object({

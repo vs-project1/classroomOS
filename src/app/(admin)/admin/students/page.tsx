@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { students } from "@/db/schema";
-import { StudentForm } from "./student-form";
+import { StudentForm } from "@/features/users/components/student-form";
 import { EditStudentDialog } from "./edit-student-dialog";
 import { asc, like, or, eq, and } from "drizzle-orm";
 import { Users, GraduationCap, Search, FileDown } from "lucide-react";

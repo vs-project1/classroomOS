@@ -4,7 +4,7 @@ import * as React from "react";
 import { Book, LogOut, Menu } from "lucide-react";
 import { Sheet, SheetTrigger, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { logoutAction } from "@/app/actions/auth";
+import { logoutAction } from "@/features/auth/actions/auth";
 import type { SidebarSubject } from "@/features/subjects/queries";
 import type { NavBadges, UserRole } from "@/lib/navigation/types";
 import { NavContent } from "./nav-content";
