@@ -116,14 +116,21 @@ export default async function TeachersPage({ searchParams }: Props) {
                 </div>
 
                 {teacher.subjects && teacher.subjects.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-border/40 space-y-1">
-                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">Assigned Modules:</span>
+                  <div className="mt-4 pt-3 border-t border-border/40 space-y-1.5">
+                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                      Assigned Subjects ({teacher.subjects.length}):
+                    </span>
                     <div className="flex flex-wrap gap-1">
-                      {teacher.subjects.map(sub => (
+                      {teacher.subjects.slice(0, 3).map(sub => (
                         <span key={sub.id} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">
-                          {sub.name} ({sub.code})
+                          {sub.name}
                         </span>
                       ))}
+                      {teacher.subjects.length > 3 && (
+                        <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded font-medium">
+                          +{teacher.subjects.length - 3} more
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
