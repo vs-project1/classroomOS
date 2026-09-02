@@ -211,7 +211,7 @@ async function verify() {
         name: "Dr. Rajesh Shrestha",
         email: `${prefix}_rajesh@classroom.os`,
         phone: "9841000001",
-        faculties: ["BCA", "CSIT"],
+        faculties: ["BCA"],
         semesters: ["4th", "6th"],
       });
       cleanupBag.teacherIds.add(teacherId);

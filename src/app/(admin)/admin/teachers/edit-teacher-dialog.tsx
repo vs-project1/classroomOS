@@ -31,7 +31,7 @@ type EditTeacherDialogProps = {
 };
 
 export function EditTeacherDialog({ teacher }: EditTeacherDialogProps) {
-  const FACULTIES = ["BCA", "BIM", "BBM", "BBA", "BBS", "BSc.CSIT"];
+  const FACULTIES = ["BCA"];
   const SEMESTERS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
   const [state, formAction, isPending] = useActionState(saveTeacher, initialState);
   const [open, setOpen] = useState(false);

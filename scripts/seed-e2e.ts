@@ -72,7 +72,7 @@ export async function seedE2E(customClient?: Client) {
     { id: "sp_student_001", userId: "usr_student_001", roll: "BCA-2024-002", faculty: "BCA", sem: 4, section: "A" },
     { id: "sp_atrisk_001", userId: "usr_atrisk_001", roll: "BCA-2024-005", faculty: "BCA", sem: 4, section: "A" },
     { id: "sp_newstudent_001", userId: "usr_newstudent_001", roll: "BCA-2024-015", faculty: "BCA", sem: 4, section: "A" },
-    { id: "sp_unauthorized_001", userId: "usr_unauthorized_001", roll: "CSIT-2024-099", faculty: "CSIT", sem: 2, section: "A" },
+    { id: "sp_unauthorized_001", userId: "usr_unauthorized_001", roll: "BCA-2024-098", faculty: "BCA", sem: 2, section: "A" },
     { id: "sp_deactivated_001", userId: "usr_deactivated_001", roll: "BCA-2024-099", faculty: "BCA", sem: 4, section: "A" },
   ];
 
@@ -88,7 +88,7 @@ export async function seedE2E(customClient?: Client) {
   // 1. Seed Teachers
   await client.execute({
     sql: `INSERT INTO teachers (id, name, email, phone, faculties, semesters, created_at, updated_at)
-          VALUES ('tch_ram_001', 'Prof. Ram Sharma', 'teacher@classroom.edu.np', '9841000001', '["BCA","CSIT"]', '["4th","2nd"]', ?, ?)
+          VALUES ('tch_ram_001', 'Prof. Ram Sharma', 'teacher@classroom.edu.np', '9841000001', '["BCA"]', '["4th","2nd"]', ?, ?)
           ON CONFLICT(id) DO UPDATE SET name = excluded.name, email = excluded.email;`,
     args: [now, now],
   });
@@ -98,7 +98,7 @@ export async function seedE2E(customClient?: Client) {
     { id: "subj_dsa_001", name: "Data Structures and Algorithms", code: "CACS201", teacherId: "tch_ram_001" },
     { id: "subj_dbms_001", name: "Database Management Systems", code: "CACS202", teacherId: "tch_ram_001" },
     { id: "subj_wt_001", name: "Web Technology", code: "CACS203", teacherId: "tch_ram_001" },
-    { id: "subj_restricted_001", name: "Discrete Mathematics (CSIT Only)", code: "CSIT201", teacherId: "tch_ram_001" },
+    { id: "subj_restricted_001", name: "Discrete Mathematics", code: "CACS204", teacherId: "tch_ram_001" },
   ];
 
   for (const s of subjectsData) {
@@ -116,7 +116,7 @@ export async function seedE2E(customClient?: Client) {
     { id: "sp_student_001", name: "Bikash Thapa", roll: "BCA-2024-002", email: "student@classroom.edu.np", faculty: "BCA", semester: "4th" },
     { id: "sp_atrisk_001", name: "Sunil Shrestha", roll: "BCA-2024-005", email: "atrisk@classroom.edu.np", faculty: "BCA", semester: "4th" },
     { id: "sp_newstudent_001", name: "Roshani Shrestha", roll: "BCA-2024-015", email: "newstudent@classroom.edu.np", faculty: "BCA", semester: "4th" },
-    { id: "sp_unauthorized_001", name: "Kiran Adhikari", roll: "CSIT-2024-099", email: "unauthorized@classroom.edu.np", faculty: "CSIT", semester: "2nd" },
+    { id: "sp_unauthorized_001", name: "Kiran Adhikari", roll: "BCA-2024-098", email: "unauthorized@classroom.edu.np", faculty: "BCA", semester: "2nd" },
   ];
 
   for (const st of studentsData) {

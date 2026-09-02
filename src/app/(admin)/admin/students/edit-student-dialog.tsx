@@ -91,15 +91,9 @@ export function EditStudentDialog({ student }: EditStudentDialogProps) {
               id={`edit-faculty-${student.id}`}
               name="faculty"
               className="flex h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
-              defaultValue={student.faculty || ""}
+              defaultValue={student.faculty || "BCA"}
             >
-              <option value="" disabled>Select Faculty</option>
-              <option value="BCA">BCA</option>
-              <option value="BIM">BIM</option>
-              <option value="BBM">BBM</option>
-              <option value="BBA">BBA</option>
-              <option value="BBS">BBS</option>
-              <option value="BSc.CSIT">BSc.CSIT</option>
+              <option value="BCA">BCA (Bachelor of Computer Application)</option>
             </select>
             {state.fieldErrors?.faculty && (
               <p className="text-sm font-medium text-destructive">{state.fieldErrors.faculty[0]}</p>

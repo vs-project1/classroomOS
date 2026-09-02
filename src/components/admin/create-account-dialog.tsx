@@ -191,10 +191,7 @@ export function CreateAccountDialog({
                     defaultValue="BCA"
                     className="w-full h-9 px-2 text-sm rounded-md border border-input bg-background text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
-                    <option value="BCA">BCA</option>
-                    <option value="CSIT">CSIT</option>
-                    <option value="BIM">BIM</option>
-                    <option value="BBM">BBM</option>
+                    <option value="BCA">BCA (Bachelor of Computer Application)</option>
                   </select>
                 </div>
                 <div className="space-y-1">
