@@ -143,7 +143,7 @@ export default async function Dashboard() {
                           {isCurrent && <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">Now</span>}
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
-                          {c.subject.teacher?.name || "TBA"} {c.room ? `• Room ${c.room}` : ""}
+                          {c.subject.teacher?.name || "TBA"} {c.room ? `• ${c.room.startsWith('Room') || c.room.startsWith('Lab') ? c.room : `Room ${c.room}`}` : ""}
                         </div>
                       </div>
                       <div className="text-right">

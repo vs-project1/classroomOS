@@ -34,11 +34,13 @@ export default async function TeachersPage({ searchParams }: Props) {
     conditions.push(like(teachers.semesters, `%${semester}%`));
   }
 
-  const allTeachers = await db
-    .select()
-    .from(teachers)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(asc(teachers.name));
+  const allTeachers = await db.query.teachers.findMany({
+    where: conditions.length > 0 ? and(...conditions) : undefined,
+    orderBy: [asc(teachers.name)],
+    with: {
+      subjects: true,
+    },
+  });
   
   const hasTeachers = allTeachers.length > 0 || search !== "" || semester !== "";
 
@@ -112,6 +114,19 @@ export default async function TeachersPage({ searchParams }: Props) {
                     </div>
                   )}
                 </div>
+
+                {teacher.subjects && teacher.subjects.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-border/40 space-y-1">
+                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">Assigned Modules:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {teacher.subjects.map(sub => (
+                        <span key={sub.id} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">
+                          {sub.name} ({sub.code})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="px-6 py-4 border-t border-border/50 bg-muted/5 flex flex-wrap gap-2">
@@ -122,15 +137,26 @@ export default async function TeachersPage({ searchParams }: Props) {
                     </span>
                   ))
                 ) : (
-                  <span className="text-xs text-muted-foreground italic">No departments assigned</span>
+                  <span className="text-xs uppercase tracking-wider font-bold text-secondary-foreground bg-secondary px-2.5 py-1 rounded-md border border-secondary-foreground/10">
+                    BCA
+                  </span>
                 )}
-                {teacher.semesters && teacher.semesters.length > 0 && (
-                  teacher.semesters.map(s => (
-                    <span key={s} className="text-xs uppercase tracking-wider font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-md border border-border">
-                      Sem {s}
-                    </span>
-                  ))
-                )}
+                {(() => {
+                  const derivedSemesters = [...new Set([
+                    ...(teacher.semesters || []),
+                    ...(teacher.subjects?.map(s => s.semester) || [])
+                  ])].filter(Boolean);
+                  
+                  return derivedSemesters.length > 0 ? (
+                    derivedSemesters.map(s => (
+                      <span key={s} className="text-xs uppercase tracking-wider font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-md border border-border">
+                        Sem {s}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">No active semesters</span>
+                  );
+                })()}
               </div>
               </div>
             ))

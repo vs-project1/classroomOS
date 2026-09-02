@@ -186,7 +186,7 @@ export function TimelineRiver({
                         </span>
                         <span className="inline-flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5 opacity-70" aria-hidden />
-                          {slot.room.startsWith("Room") ? slot.room : `Room ${slot.room}`}
+                          {slot.room.startsWith("Room") || slot.room.startsWith("Lab") ? slot.room : `Room ${slot.room}`}
                         </span>
                       </>
                     )}
