@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { subjects, teachers } from "@/db/schema";
 import Link from "next/link";
 import { SubjectForm } from "@/features/subjects/components/subject-form";
+import { EditSubjectDialog } from "@/features/subjects/components/edit-subject-dialog";
 import { asc, eq } from "drizzle-orm";
 import { BookOpen, Search, ArrowRight, LibraryBig, BookCopy, Fingerprint, ArrowLeft } from "lucide-react";
 import { getPermissions } from "@/lib/auth";
@@ -102,10 +103,13 @@ export default async function SubjectsPage({ searchParams }: Props) {
                   <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                     <BookOpen className="w-6 h-6 text-primary" />
                   </div>
-                  <div className="flex flex-col items-end">
+                  <div className="flex items-center gap-2">
                     <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-md border border-border">
                       {subject.code}
                     </span>
+                    {permissions.canManageSubjects && (
+                      <EditSubjectDialog subject={subject} teachers={allTeachers} />
+                    )}
                   </div>
                 </div>
                 
