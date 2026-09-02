@@ -1,62 +1,47 @@
 import { db } from "@/db";
 import { weeklyRoutine } from "@/db/schema";
-import { asc, eq } from "drizzle-orm";
+import { asc } from "drizzle-orm";
 import Link from "next/link";
-import { Plus, Edit, CalendarDays, ArrowLeft, ArrowRight, CalendarRange } from "lucide-react";
+import { Plus, Edit, CalendarRange } from "lucide-react";
 import { getPermissions } from "@/lib/auth";
 import { TimelineRiver, type TimelineRiverSlot } from "@/components/timetable/timeline-river";
 import { DeleteRoutineButton } from "@/features/routine/components/delete-routine-button";
 import { buttonVariants } from "@/components/ui/button";
-import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const SEMESTERS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
+const SEMESTERS = ["All", "I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
 
 type Props = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
+function matchSemester(subSem: string | number | null | undefined, targetSem: string | null): boolean {
+  if (!targetSem || targetSem === "All") return true;
+  if (!subSem) return false;
+  const str = String(subSem).toUpperCase().trim();
+  const target = targetSem.toUpperCase().trim();
+
+  const romanMap: Record<string, string[]> = {
+    I: ["I", "1", "1ST"],
+    II: ["II", "2", "2ND"],
+    III: ["III", "3", "3RD"],
+    IV: ["IV", "4", "4TH"],
+    V: ["V", "5", "5TH"],
+    VI: ["VI", "6", "6TH"],
+    VII: ["VII", "7", "7TH"],
+    VIII: ["VIII", "8", "8TH"],
+  };
+
+  const equivalents = romanMap[target] || [target];
+  return equivalents.some(eq => str === eq || str.startsWith(eq));
+}
+
 export default async function AdminRoutinePage({ searchParams }: Props) {
   const permissions = await getPermissions();
   const resolvedParams = await searchParams;
-  const semester = typeof resolvedParams.semester === "string" ? resolvedParams.semester : null;
-
-  if (!semester) {
-    return (
-      <div className="flex-1 space-y-8 max-w-6xl mx-auto w-full">
-        <div className="flex flex-col gap-1.5 pb-6 border-b border-border/40">
-          <h2 className="text-3xl font-bold font-fira-sans tracking-tight text-foreground">
-            Class Routines
-          </h2>
-          <p className="text-muted-foreground text-sm max-w-2xl">
-            Select a semester to view and manage its weekly class schedule.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {SEMESTERS.map((sem) => (
-            <Link
-              key={sem}
-              href={`/admin/routine?semester=${sem}`}
-              className="group flex flex-col justify-between rounded-xl border bg-card hover:bg-muted/10 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden relative p-6 h-32"
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold font-fira-sans text-foreground">Semester {sem}</h3>
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <CalendarRange className="w-5 h-5 text-primary" />
-                </div>
-              </div>
-              <div className="text-sm text-primary font-medium flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                View Routine <ArrowRight className="w-4 h-4" />
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const selectedSemester = typeof resolvedParams.semester === "string" ? resolvedParams.semester : "All";
 
   const rawRoutine = await db.query.weeklyRoutine.findMany({
     orderBy: [asc(weeklyRoutine.dayOfWeek), asc(weeklyRoutine.startTime)],
@@ -67,7 +52,7 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
     }
   });
 
-  const allRoutine = rawRoutine.filter(r => r.subject?.semester === semester);
+  const allRoutine = rawRoutine.filter(r => matchSemester(r.subject?.semester, selectedSemester));
   const hasRoutine = allRoutine.length > 0;
 
   const grouped = DAYS.map((dayName, index) => {
@@ -91,41 +76,61 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
 
   return (
     <div className="flex-1 space-y-8 max-w-6xl mx-auto w-full">
+      {/* Header & Controls */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-border/40">
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-3">
-            <Link href="/admin/routine" className="text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <h2 className="text-3xl font-bold font-fira-sans tracking-tight text-foreground">
-              Semester {semester} Routine
-            </h2>
-          </div>
+          <h2 className="text-3xl font-bold font-fira-sans tracking-tight text-foreground">
+            Class Routine Management
+          </h2>
           <p className="text-muted-foreground text-sm max-w-2xl">
-            Manage the weekly class schedule for Semester {semester}.
+            Manage weekly timetable schedules, room allocations, and teacher assignments across all semesters.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {permissions.canManageRoutine && (
             <Link href="/routine/new" className={buttonVariants({ variant: "default", size: "sm" })}>
-              <Plus className="w-4 h-4 mr-2" /> Add Class
+              <Plus className="w-4 h-4 mr-2" /> Add Class Slot
             </Link>
           )}
         </div>
       </div>
 
+      {/* Semester Filter Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-border/20">
+        {SEMESTERS.map((sem) => {
+          const isActive = selectedSemester === sem;
+          const href = sem === "All" ? "/admin/routine" : `/admin/routine?semester=${sem}`;
+          return (
+            <Link
+              key={sem}
+              href={href}
+              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {sem === "All" ? "All Semesters" : `Semester ${sem}`}
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Main Timetable View */}
       {!hasRoutine ? (
-        <div className="flex flex-col items-center justify-center h-[50vh] space-y-4 max-w-md mx-auto text-center">
-          <div className="h-16 w-16 bg-muted/30 rounded-full flex items-center justify-center mb-4">
-            <CalendarDays className="w-8 h-8 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center h-[40vh] space-y-4 max-w-md mx-auto text-center border rounded-xl border-dashed bg-muted/5 p-8">
+          <div className="h-16 w-16 bg-muted/30 rounded-full flex items-center justify-center mb-2">
+            <CalendarRange className="w-8 h-8 text-muted-foreground opacity-60" />
           </div>
-          <h2 className="text-2xl font-semibold font-fira-sans tracking-tight">No Routine Created</h2>
+          <h3 className="text-xl font-bold font-fira-sans tracking-tight">No Routine Slots Found</h3>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            The weekly class schedule for this semester hasn't been set up yet.
+            {selectedSemester === "All"
+              ? "No weekly class slots have been added yet."
+              : `No class slots configured for Semester ${selectedSemester}.`}
           </p>
           {permissions.canManageRoutine && (
-            <Link href="/routine/new" className={buttonVariants({ variant: "default" })}>
-              <Plus className="w-4 h-4 mr-2" /> Create First Class
+            <Link href="/routine/new" className={buttonVariants({ variant: "default", size: "sm" })}>
+              <Plus className="w-4 h-4 mr-2" /> Create First Class Slot
             </Link>
           )}
         </div>
@@ -153,7 +158,7 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
                 room: routine.room,
                 teacherName: routine.subject.teacher?.name,
                 status,
-                notes: null,
+                notes: routine.subject.semester ? `Sem ${routine.subject.semester}` : null,
               };
             });
 

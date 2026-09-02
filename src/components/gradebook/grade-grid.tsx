@@ -1,3 +1,4 @@
+import { EditExamResultDialog } from "./edit-exam-result-dialog";
 "use client";
 
 import { useState } from "react";
@@ -153,6 +154,7 @@ export function GradeGrid({
                 <th scope="col" className="px-4 py-3">Category</th>
                 <th scope="col" className="px-4 py-3">Date</th>
                 <th scope="col" className="px-6 py-3 text-right">Result</th>
+                <th scope="col" className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
