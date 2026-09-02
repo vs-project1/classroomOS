@@ -22,8 +22,6 @@ import {
   studentProfiles,
   enrollments,
   assignmentSubmissions,
-  exams,
-  examResults,
   resources,
   studyTasks,
   notifications,
@@ -379,41 +377,6 @@ async function verify() {
       assert(hwQuery?.submissions[0]?.gradedByTeacher?.id === teacherId, "Submission gradedBy teacher relation mismatch");
     });
 
-    await runTest("Suite 1", "1.5 Insert Exams & Exam Results", async () => {
-      await db.insert(exams).values({
-        id: examId,
-        subjectId: subjectId,
-        title: "Mid-Term Assessment 2026",
-        examType: "midterm",
-        totalMarks: 40,
-        passMarks: 16,
-        examDate: new Date(Date.now() + 86400000 * 14),
-        startTime: "08:00",
-        endTime: "10:00",
-        room: "Hall B",
-      });
-      cleanupBag.examIds.add(examId);
-
-      await db.insert(examResults).values({
-        id: examResId,
-        examId: examId,
-        studentId: studentId,
-        obtainedMarks: 36,
-        isAbsent: false,
-        remarks: "Excellent problem solving in SQL queries.",
-      });
-      cleanupBag.examResultIds.add(examResId);
-
-      const examQuery = await db.query.exams.findFirst({
-        where: eq(exams.id, examId),
-        with: {
-          results: { with: { student: true } },
-        },
-      });
-      assert(examQuery?.results[0]?.obtainedMarks === 36, "Exam results marks mismatch");
-      assert(examQuery?.results[0]?.student?.id === studentId, "Exam results student relation mismatch");
-    });
-
     await runTest("Suite 1", "1.6 Insert Resources, Study Tasks, Notifications & Correction Requests", async () => {
       await db.insert(resources).values({
         id: resourceId,
@@ -541,56 +504,6 @@ async function verify() {
             score: -5,
           }),
         "Negative submission score -5"
-      );
-    });
-
-    await runTest("Suite 2", "2.5 Reject Invalid Exam Type ('pop_quiz')", async () => {
-      await assertRejects(
-        () =>
-          db.insert(exams).values({
-            id: `${prefix}_inv_exam_type`,
-            subjectId: subjectId,
-            title: "Pop Quiz 1",
-            examType: "pop_quiz" as any,
-            totalMarks: 20,
-            passMarks: 8,
-            examDate: new Date(),
-          }),
-        "Invalid exam type 'pop_quiz'"
-      );
-    });
-
-    await runTest("Suite 2", "2.6 Reject Illogical Exam Marks (passMarks > totalMarks)", async () => {
-      await assertRejects(
-        () =>
-          db.insert(exams).values({
-            id: `${prefix}_inv_exam_marks`,
-            subjectId: subjectId,
-            title: "Invalid Marks Exam",
-            examType: "unit_test",
-            totalMarks: 40,
-            passMarks: 50,
-            examDate: new Date(),
-          }),
-        "Exam passMarks > totalMarks"
-      );
-    });
-
-    await runTest("Suite 2", "2.7 Reject Backwards Exam Times (startTime >= endTime)", async () => {
-      await assertRejects(
-        () =>
-          db.insert(exams).values({
-            id: `${prefix}_inv_exam_time`,
-            subjectId: subjectId,
-            title: "Backwards Time Exam",
-            examType: "unit_test",
-            totalMarks: 40,
-            passMarks: 16,
-            examDate: new Date(),
-            startTime: "12:00",
-            endTime: "10:00",
-          }),
-        "Exam startTime >= endTime"
       );
     });
 
@@ -722,19 +635,6 @@ async function verify() {
       );
     });
 
-    await runTest("Suite 3", "3.6 Reject Duplicate Exam Result (examId + studentId)", async () => {
-      await assertRejects(
-        () =>
-          db.insert(examResults).values({
-            id: `${prefix}_dup_res`,
-            examId: examId,
-            studentId: studentId,
-            obtainedMarks: 20,
-          }),
-        "Duplicate exam result for same exam and student"
-      );
-    });
-
     await runTest("Suite 3", "3.7 Reject Duplicate Attendance (classSessionId + studentId)", async () => {
       await assertRejects(
         () =>
@@ -838,16 +738,6 @@ async function verify() {
         dueDate: new Date(),
       });
 
-      await db.insert(exams).values({
-        id: eCascId,
-        subjectId: sCascId,
-        title: "Cascade Exam",
-        examType: "unit_test",
-        totalMarks: 20,
-        passMarks: 8,
-        examDate: new Date(),
-      });
-
       await db.insert(resources).values({
         id: resCascId,
         subjectId: sCascId,
@@ -876,7 +766,6 @@ async function verify() {
       const checkRout = await db.select().from(weeklyRoutine).where(eq(weeklyRoutine.id, rCascId));
       const checkSess = await db.select().from(classSessions).where(eq(classSessions.id, sessCascId));
       const checkHw = await db.select().from(homework).where(eq(homework.id, hwCascId));
-      const checkExam = await db.select().from(exams).where(eq(exams.id, eCascId));
       const checkRes = await db.select().from(resources).where(eq(resources.id, resCascId));
       const checkUnit = await db.select().from(courseUnits).where(eq(courseUnits.id, uCascId));
       const checkEnr = await db.select().from(enrollments).where(eq(enrollments.id, enrCascId));
@@ -884,40 +773,9 @@ async function verify() {
       assert(checkRout.length === 0, "weeklyRoutine not cascade deleted");
       assert(checkSess.length === 0, "classSessions not cascade deleted");
       assert(checkHw.length === 0, "homework not cascade deleted");
-      assert(checkExam.length === 0, "exams not cascade deleted");
       assert(checkRes.length === 0, "resources not cascade deleted");
       assert(checkUnit.length === 0, "courseUnits not cascade deleted");
       assert(checkEnr.length === 0, "enrollments not cascade deleted");
-    });
-
-    await runTest("Suite 4", "4.3 Exam Deletion Cascades to Exam Results", async () => {
-      const eCascId = `${prefix}_e_res_casc`;
-      const rCascId = `${prefix}_res_casc`;
-
-      await db.insert(exams).values({
-        id: eCascId,
-        subjectId: subjectId,
-        title: "Exam For Result Cascade",
-        examType: "practical",
-        totalMarks: 20,
-        passMarks: 8,
-        examDate: new Date(),
-      });
-      cleanupBag.examIds.add(eCascId);
-
-      await db.insert(examResults).values({
-        id: rCascId,
-        examId: eCascId,
-        studentId: studentId,
-        obtainedMarks: 18,
-      });
-
-      // Delete Exam
-      await db.delete(exams).where(eq(exams.id, eCascId));
-      cleanupBag.examIds.delete(eCascId);
-
-      const checkRes = await db.select().from(examResults).where(eq(examResults.id, rCascId));
-      assert(checkRes.length === 0, "examResults not cascade deleted when Exam was deleted");
     });
 
     await runTest("Suite 4", "4.4 Homework Deletion Cascades to Assignment Submissions", async () => {
@@ -1188,9 +1046,6 @@ async function verify() {
       for (const id of cleanupBag.submissionIds) {
         await db.delete(assignmentSubmissions).where(eq(assignmentSubmissions.id, id));
       }
-      for (const id of cleanupBag.examResultIds) {
-        await db.delete(examResults).where(eq(examResults.id, id));
-      }
       for (const id of cleanupBag.studyTaskIds) {
         await db.delete(studyTasks).where(eq(studyTasks.id, id));
       }
@@ -1202,9 +1057,6 @@ async function verify() {
       }
       for (const id of cleanupBag.enrollmentIds) {
         await db.delete(enrollments).where(eq(enrollments.id, id));
-      }
-      for (const id of cleanupBag.examIds) {
-        await db.delete(exams).where(eq(exams.id, id));
       }
       for (const id of cleanupBag.homeworkIds) {
         await db.delete(homework).where(eq(homework.id, id));

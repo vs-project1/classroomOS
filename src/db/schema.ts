@@ -580,10 +580,8 @@ export const subjectsRelations = relations(subjects, ({ one, many }) => ({
   homework: many(homework),
   courseUnits: many(courseUnits),
   enrollments: many(enrollments),
-  exams: many(exams),
   resources: many(resources),
   studyTasks: many(studyTasks),
-  gradeWeights: many(subjectGradeWeights),
 }));
 
 export const subjectGradeWeightsRelations = relations(subjectGradeWeights, ({ one }) => ({
@@ -597,7 +595,6 @@ export const studentsRelations = relations(students, ({ many }) => ({
   attendance: many(attendance),
   enrollments: many(enrollments),
   assignmentSubmissions: many(assignmentSubmissions),
-  examResults: many(examResults),
   studyTasks: many(studyTasks),
   attendanceCorrectionRequests: many(attendanceCorrectionRequests),
 }));

@@ -77,29 +77,7 @@ export default async function TeacherDashboard() {
       <p className="text-muted-foreground">Welcome to the Teacher Portal, {user.name}.</p>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Link
-          href="/teacher/grading"
-          data-testid="quick-grading-link"
-          className="relative flex flex-col items-start gap-2 rounded-2xl border border-border/40 bg-card p-4 hover:border-primary/50 transition-all"
-        >
-          <ClipboardCheck className="w-5 h-5 text-primary" />
-          <span className="text-sm font-bold">Grading</span>
-          {pendingGrading > 0 && (
-            <span
-              data-slot="nav-badge"
-              aria-hidden="true"
-              className="absolute top-3 right-3 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none bg-primary/15 text-primary min-w-[20px] text-center"
-            >
-              {pendingGrading > 9 ? "9+" : pendingGrading}
-            </span>
-          )}
-          <span className="text-xs text-muted-foreground">
-            {pendingGrading > 0
-              ? `${pendingGrading} submission${pendingGrading === 1 ? "" : "s"} to grade`
-              : "Nothing to grade"}
-          </span>
-        </Link>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Link
           href="/teacher/attendance"
           className="flex flex-col items-start gap-2 rounded-2xl border border-border/40 bg-card p-4 hover:border-primary/50 transition-all"

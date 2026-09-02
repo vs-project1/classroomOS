@@ -24,7 +24,6 @@ export const teacherNavigation: RoleNavigation = {
     {
       title: "Work",
       items: [
-        { label: "Grading", href: "/teacher/grading", icon: ClipboardCheck, badgeKey: "pendingGrading" },
         { label: "Notifications", href: "/notifications", icon: Inbox, badgeKey: "notifications" },
       ],
     },
@@ -32,6 +31,6 @@ export const teacherNavigation: RoleNavigation = {
   mobileTabs: [
     { label: "Home", href: "/teacher", icon: Home },
     { label: "Today", href: "/today", icon: Clock },
-    { label: "Grading", href: "/teacher/grading", icon: ClipboardCheck, badgeKey: "pendingGrading" },
+    { label: "Attendance", href: "/teacher/attendance", icon: CheckCircle },
   ],
 };

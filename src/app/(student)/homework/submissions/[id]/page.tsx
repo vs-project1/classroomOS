@@ -88,8 +88,8 @@ export default async function SubmissionDetailPage({ params }: Props) {
           <p className="text-sm text-muted-foreground mb-6">
             Access Denied: This submission belongs to a subject you do not teach.
           </p>
-          <Link href="/teacher/grading" className={buttonVariants({ variant: "outline" })}>
-            ← Return to Grading
+          <Link href="/homework" className={buttonVariants({ variant: "outline" })}>
+            ← Return to Assignments
           </Link>
         </div>
       );

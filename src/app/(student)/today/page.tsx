@@ -424,20 +424,6 @@ export default async function TodayPage({ searchParams }: Props) {
           </ul>
         </section>
       )}
-
-      {/* Needs your attention (teacher) */}
-      {role === "TEACHER" && (navBadges.pendingGrading ?? 0) > 0 && (
-        <section data-testid="attention-card" className="rounded-2xl border border-primary/30 bg-primary/5 p-5">
-          <h2 className="font-bold text-base text-foreground">Needs your attention</h2>
-          <Link
-            href="/teacher/grading"
-            className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-card px-4 py-3 text-sm font-semibold text-foreground hover:border-primary/40 transition-colors"
-          >
-            <span>Grade {(navBadges.pendingGrading ?? 0)} pending submission{(navBadges.pendingGrading ?? 0) === 1 ? "" : "s"}</span>
-            <span aria-hidden>→</span>
-          </Link>
-        </section>
-      )}
     </div>
   );
 }
