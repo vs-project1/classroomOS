@@ -25,7 +25,7 @@ export const crNavigation: RoleNavigation = {
       title: "My Class",
       items: [
         { label: "Subjects", href: "/subjects", icon: Book },
-        { label: "Study Materials", href: "/cr/resources", icon: FolderDown },
+        { label: "Study Materials", href: "/resources", icon: FolderDown },
         { label: "Routine", href: "/routine", icon: CalendarRange },
         { label: "Notifications", href: "/notifications", icon: Inbox, badgeKey: "notifications" },
       ],

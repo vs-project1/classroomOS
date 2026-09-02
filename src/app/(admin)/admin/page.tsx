@@ -107,7 +107,7 @@ export default async function Dashboard() {
           <ClipboardList className="h-5 w-5 text-primary" />
           <span className="font-semibold text-sm">Create Assignment</span>
         </Link>
-        <Link href="/routine" className="flex items-center gap-4 bg-card hover:bg-accent hover:text-accent-foreground rounded-xl p-4 transition-all border border-border/40 group cursor-pointer shadow-sm hover:shadow-md">
+        <Link href="/admin/routine" className="flex items-center gap-4 bg-card hover:bg-accent hover:text-accent-foreground rounded-xl p-4 transition-all border border-border/40 group cursor-pointer shadow-sm hover:shadow-md">
           <CalendarDays className="h-5 w-5 text-primary" />
           <span className="font-semibold text-sm">View Routine</span>
         </Link>
@@ -156,7 +156,7 @@ export default async function Dashboard() {
             ) : (
                <div className="text-muted-foreground text-sm mb-6 bg-muted/20 p-8 text-center rounded-lg border border-dashed border-border/40 flex-1 flex items-center justify-center">No classes scheduled for today.</div>
             )}
-            <Link href="/routine" className="inline-flex items-center gap-2 text-sm font-medium text-primary mt-auto hover:underline w-fit cursor-pointer">
+            <Link href="/admin/routine" className="inline-flex items-center gap-2 text-sm font-medium text-primary mt-auto hover:underline w-fit cursor-pointer">
               View Full Routine <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

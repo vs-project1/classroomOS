@@ -15,6 +15,7 @@ export const studentNavigation: RoleNavigation = {
       title: "Academics",
       items: [
         { label: "My Subjects", href: "/subjects", icon: GraduationCap },
+        { label: "My Grades", href: "/my-grades", icon: CheckCircle },
         { label: "Study Materials", href: "/resources", icon: FolderDown },
         { label: "Routine", href: "/routine", icon: CalendarRange },
         { label: "Class History", href: "/lecture-logs", icon: FileText },

@@ -11,7 +11,9 @@ import { computeSubjectGrade } from "@/lib/grading/compute";
 import { asc, eq, inArray } from "drizzle-orm";
 import { resolveCurrentStudent } from "@/lib/auth";
 import { SubjectCard, type SubjectCardExam } from "@/components/grades/subject-card";
-import { GraduationCap } from "lucide-react";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import { GraduationCap, FileText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -119,6 +121,13 @@ export default async function MyGradesPage() {
             Your weighted assessment standing for every enrolled subject. Absent exams are excluded from the math; unmarked ones stay pending.
           </p>
         </div>
+        <Link
+          href={`/report-cards/${student.id}`}
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+        >
+          <FileText className="w-4 h-4 mr-2" />
+          Official Report Card
+        </Link>
       </div>
 
       {cards.length === 0 ? (

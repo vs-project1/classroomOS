@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { subjects } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { AddUnitDialog, AddChapterDialog, AddMaterialDialog } from "./components";
 import { FileText, Video, Link as LinkIcon, File, ArrowLeft } from "lucide-react";
@@ -21,7 +21,7 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   
   const subject = await db.query.subjects.findFirst({
-    where: eq(subjects.id, id),
+    where: or(eq(subjects.id, id), eq(subjects.slug, id)),
     with: {
       courseUnits: {
         orderBy: (units, { asc }) => [asc(units.order)],

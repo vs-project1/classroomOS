@@ -1,4 +1,4 @@
-﻿import { Book, Bell, CalendarDays, CalendarRange, ClipboardCheck, FileText, GraduationCap, Home, ShieldCheck, Users } from "lucide-react";
+import { Book, Bell, CalendarDays, CalendarRange, ClipboardCheck, FileText, GraduationCap, Home, ShieldCheck, Users } from "lucide-react";
 import type { RoleNavigation } from "./types";
 
 export const adminNavigation: RoleNavigation = {
@@ -21,6 +21,7 @@ export const adminNavigation: RoleNavigation = {
       items: [
         { label: "Subjects", href: "/admin/subjects", icon: Book },
         { label: "Assignments", href: "/admin/homework", icon: ClipboardCheck },
+        { label: "Gradebook", href: "/admin/gradebook", icon: CalendarRange },
         { label: "Monthly Ledger", href: "/admin/attendance/monthly", icon: CalendarDays },
       ],
     },

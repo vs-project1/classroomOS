@@ -1,14 +1,13 @@
 import { db } from "@/db";
 import { homework } from "@/db/schema";
-import { asc, desc } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
-import { Plus, CheckCircle2, Clock, Calendar, CheckSquare, Code, DownloadCloud } from "lucide-react";
+import { Plus, CheckCircle2, CheckSquare, Code } from "lucide-react";
 import { HomeworkStatusActions } from "./status-actions";
 import { StatusChip } from "@/components/student/status-chip";
 import { getPermissions } from "@/lib/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
+import { formatNepaliDate } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
@@ -118,14 +117,6 @@ export default async function HomeworkPage() {
           <p className="text-muted-foreground text-sm leading-relaxed">
             You have no pending assignments or project deliverables. Upcoming lab reports, programming assignments, and semester projects will appear here once assigned by faculty.
           </p>
-          <div className="flex gap-3 mt-6">
-            <button className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-2 cursor-pointer">
-              <DownloadCloud className="w-4 h-4" /> Sync Deadlines
-            </button>
-            <button className="px-4 py-2 bg-secondary text-secondary-foreground text-sm font-medium rounded-md hover:bg-secondary/80 transition-colors cursor-pointer">
-              View Graded Submissions
-            </button>
-          </div>
         </div>
       ) : (
         <Tabs defaultValue="active" className="w-full">

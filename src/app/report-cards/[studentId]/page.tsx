@@ -106,10 +106,10 @@ export default async function ReportCardPage({ params }: Props) {
       <div className="max-w-[210mm] mx-auto space-y-4 no-print">
         <div className="flex items-center justify-between gap-4">
           <a
-            href={user.role === "ADMIN" ? "/admin" : "/teacher"}
+            href={user.role === "ADMIN" ? "/admin/gradebook" : user.role === "TEACHER" ? "/teacher" : "/my-grades"}
             className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            ← Back to dashboard
+            ← Back to portal
           </a>
           <PrintButton />
         </div>
