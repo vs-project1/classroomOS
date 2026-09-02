@@ -143,20 +143,66 @@ export default async function TeacherDashboard() {
             {todayClasses.length === 0 ? (
               <p className="text-sm text-muted-foreground">No classes scheduled for today.</p>
             ) : (
-              <ul className="space-y-3">
-                {todayClasses.map(({ routine, subject }) => (
-                  <li key={routine.id} className="flex gap-4 p-3 rounded-lg border bg-card">
-                    <div className="flex flex-col items-center justify-center bg-primary/10 text-primary rounded-md p-2 min-w-20">
-                      <Clock className="w-4 h-4 mb-1" />
-                      <span className="text-xs font-semibold">{routine.startTime}</span>
-                    </div>
-                    <div>
-                      <p className="font-semibold">{subject.name}</p>
-                      <p className="text-xs text-muted-foreground">Room: {routine.room || "N/A"}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-3">
+                {(() => {
+                  const sorted = [...todayClasses].sort((a, b) => a.routine.startTime.localeCompare(b.routine.startTime));
+                  const nptTime = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kathmandu", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+                  const nextClass = sorted.find(c => nptTime < c.routine.startTime);
+
+                  return sorted.map(({ routine, subject }) => {
+                    const isOngoing = routine.startTime <= nptTime && routine.endTime >= nptTime;
+                    const isCompleted = nptTime > routine.endTime;
+                    const isNext = routine.id === nextClass?.routine.id;
+
+                    return (
+                      <div
+                        key={routine.id}
+                        className={`flex items-center justify-between p-3.5 rounded-xl border transition-colors ${
+                          isOngoing
+                            ? 'bg-emerald-500/10 border-emerald-500/30'
+                            : isNext
+                            ? 'bg-primary/5 border-primary/30'
+                            : isCompleted
+                            ? 'bg-muted/20 border-transparent opacity-60'
+                            : 'bg-card border-border/40'
+                        }`}
+                      >
+                        <div>
+                          <div className="font-semibold text-sm text-foreground flex items-center gap-2">
+                            {subject.name}
+                            {isOngoing && (
+                              <span className="text-xs font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Ongoing
+                              </span>
+                            )}
+                            {isNext && (
+                              <span className="text-xs font-bold bg-primary/15 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                                Next Up
+                              </span>
+                            )}
+                            {isCompleted && (
+                              <span className="text-xs font-semibold bg-muted text-muted-foreground px-2 py-0.5 rounded-full border border-border">
+                                Completed
+                              </span>
+                            )}
+                            {!isOngoing && !isNext && !isCompleted && (
+                              <span className="text-xs font-semibold bg-muted/60 text-muted-foreground px-2 py-0.5 rounded-full">
+                                Upcoming
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {routine.room ? (routine.room.startsWith('Room') || routine.room.startsWith('Lab') ? routine.room : `Room ${routine.room}`) : "Room: TBA"}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs font-medium tabular-nums text-foreground">{routine.startTime} - {routine.endTime}</div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
             )}
           </CardContent>
         </Card>

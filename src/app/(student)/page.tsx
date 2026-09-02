@@ -221,7 +221,7 @@ export default async function StudentDashboard() {
                             {cls.room && (
                               <>
                                 <span className="opacity-40">•</span> 
-                                <span>Room {cls.room}</span>
+                                <span>{cls.room.startsWith('Room') || cls.room.startsWith('Lab') ? cls.room : `Room ${cls.room}`}</span>
                               </>
                             )}
                           </p>

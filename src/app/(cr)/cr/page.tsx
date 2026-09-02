@@ -354,7 +354,7 @@ export default async function CRDashboard() {
                             {cls.room && (
                               <>
                                 <span className="opacity-40">&bull;</span>
-                                <span>Room {cls.room}</span>
+                                <span>{cls.room.startsWith('Room') || cls.room.startsWith('Lab') ? cls.room : `Room ${cls.room}`}</span>
                               </>
                             )}
                           </p>

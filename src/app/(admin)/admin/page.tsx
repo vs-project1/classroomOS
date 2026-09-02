@@ -133,25 +133,63 @@ export default async function Dashboard() {
             
             {todaysClasses.length > 0 ? (
               <div className="space-y-2 mb-6">
-                {todaysClasses.map(c => {
-                  const isCurrent = c.startTime <= nptTime && c.endTime >= nptTime;
-                  return (
-                    <div key={c.id} className={`flex items-center justify-between p-4 rounded-lg transition-colors ${isCurrent ? 'bg-primary/5 border border-primary/20' : 'hover:bg-muted/50 border border-transparent'}`}>
-                      <div>
-                        <div className="font-semibold text-foreground flex items-center gap-2">
-                          {c.subject.name}
-                          {isCurrent && <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">Now</span>}
+                {(() => {
+                  const sorted = [...todaysClasses].sort((a, b) => a.startTime.localeCompare(b.startTime));
+                  const nextClass = sorted.find(c => nptTime < c.startTime);
+
+                  return sorted.map(c => {
+                    const isOngoing = c.startTime <= nptTime && c.endTime >= nptTime;
+                    const isCompleted = nptTime > c.endTime;
+                    const isNext = c.id === nextClass?.id;
+
+                    return (
+                      <div
+                        key={c.id}
+                        className={`flex items-center justify-between p-4 rounded-lg transition-colors border ${
+                          isOngoing
+                            ? 'bg-emerald-500/10 border-emerald-500/30'
+                            : isNext
+                            ? 'bg-primary/5 border-primary/30'
+                            : isCompleted
+                            ? 'bg-muted/20 border-transparent opacity-60'
+                            : 'hover:bg-muted/40 border-transparent'
+                        }`}
+                      >
+                        <div>
+                          <div className="font-semibold text-foreground flex items-center gap-2">
+                            {c.subject.name}
+                            {isOngoing && (
+                              <span className="text-xs font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Ongoing
+                              </span>
+                            )}
+                            {isNext && (
+                              <span className="text-xs font-bold bg-primary/15 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
+                                Next Up
+                              </span>
+                            )}
+                            {isCompleted && (
+                              <span className="text-xs font-semibold bg-muted text-muted-foreground px-2.5 py-0.5 rounded-full border border-border">
+                                Completed
+                              </span>
+                            )}
+                            {!isOngoing && !isNext && !isCompleted && (
+                              <span className="text-xs font-semibold bg-muted/60 text-muted-foreground px-2 py-0.5 rounded-full">
+                                Upcoming
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {c.subject.teacher?.name || "TBA"} {c.room ? `• ${c.room.startsWith('Room') || c.room.startsWith('Lab') ? c.room : `Room ${c.room}`}` : ""}
+                          </div>
                         </div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {c.subject.teacher?.name || "TBA"} {c.room ? `• ${c.room.startsWith('Room') || c.room.startsWith('Lab') ? c.room : `Room ${c.room}`}` : ""}
+                        <div className="text-right">
+                          <div className="text-sm font-medium tabular-nums text-foreground">{formatTime12h(c.startTime)} - {formatTime12h(c.endTime)}</div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm font-medium tabular-nums text-foreground">{formatTime12h(c.startTime)} - {formatTime12h(c.endTime)}</div>
-                      </div>
-                    </div>
-                  )
-                })}
+                    );
+                  });
+                })()}
               </div>
             ) : (
                <div className="text-muted-foreground text-sm mb-6 bg-muted/20 p-8 text-center rounded-lg border border-dashed border-border/40 flex-1 flex items-center justify-center">No classes scheduled for today.</div>
