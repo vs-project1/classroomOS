@@ -155,11 +155,13 @@ export default async function TeachersPage({ searchParams }: Props) {
                   ])].filter(Boolean);
                   
                   return derivedSemesters.length > 0 ? (
-                    derivedSemesters.map(s => (
+                    derivedSemesters.map(s => {
+                      const displayStr = s.toUpperCase().includes('SEM') ? s : `Sem ${s}`;
+                      return (
                       <span key={s} className="text-xs uppercase tracking-wider font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-md border border-border">
-                        Sem {s}
+                        {displayStr}
                       </span>
-                    ))
+                    )})
                   ) : (
                     <span className="text-xs text-muted-foreground italic">No active semesters</span>
                   );

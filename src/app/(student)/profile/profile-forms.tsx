@@ -60,32 +60,69 @@ export function PasswordForm() {
   const [state, formAction, pending] = useActionState(changePasswordAction, initialState);
 
   return (
-    <form action={formAction} className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-3">
+    <form action={formAction} className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-1.5">
-          <Label htmlFor="currentPassword">Current password</Label>
-          <Input id="currentPassword" name="currentPassword" type="password" required autoComplete="current-password" className="h-11 rounded-xl" />
+          <Label htmlFor="currentPassword" className="text-xs font-semibold text-foreground">
+            Current password
+          </Label>
+          <Input
+            id="currentPassword"
+            name="currentPassword"
+            type="password"
+            required
+            autoComplete="current-password"
+            className="h-10 rounded-xl text-sm"
+          />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="newPassword">New password</Label>
-          <Input id="newPassword" name="newPassword" type="password" required minLength={8} autoComplete="new-password" className="h-11 rounded-xl" />
+          <Label htmlFor="newPassword" className="text-xs font-semibold text-foreground">
+            New password
+          </Label>
+          <Input
+            id="newPassword"
+            name="newPassword"
+            type="password"
+            required
+            minLength={8}
+            autoComplete="new-password"
+            className="h-10 rounded-xl text-sm"
+          />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="confirmPassword">Confirm new password</Label>
-          <Input id="confirmPassword" name="confirmPassword" type="password" required minLength={8} autoComplete="new-password" className="h-11 rounded-xl" />
+          <Label htmlFor="confirmPassword" className="text-xs font-semibold text-foreground">
+            Confirm new password
+          </Label>
+          <Input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            required
+            minLength={8}
+            autoComplete="new-password"
+            className="h-10 rounded-xl text-sm"
+          />
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className={buttonVariants({ variant: "outline", size: "sm", className: "rounded-xl cursor-pointer" })}
-        >
-          {pending ? "Updating…" : "Change password"}
-        </button>
-        <Feedback state={state} />
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={pending}
+            className={buttonVariants({
+              variant: "default",
+              size: "sm",
+              className: "rounded-xl font-semibold px-5 cursor-pointer shadow-xs",
+            })}
+          >
+            {pending ? "Updating…" : "Update Password"}
+          </button>
+          <Feedback state={state} />
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Changing your password signs you out of all other active sessions.
+        </p>
       </div>
-      <p className="text-xs text-muted-foreground">Changing your password signs you out everywhere else.</p>
     </form>
   );
 }

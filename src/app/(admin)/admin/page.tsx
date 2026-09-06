@@ -6,9 +6,18 @@ import { Clock, Book, Bell, CalendarDays, Calendar, ArrowRight, PenTool, Megapho
 import { formatTime12h } from "@/lib/timezone";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
+import { AdminTodaySchedule } from "@/features/routine/components/admin-today-schedule";
+
 export const dynamic = "force-dynamic";
 
-export default async function Dashboard() {
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function Dashboard({ searchParams }: Props) {
+  const resolvedParams = searchParams ? await searchParams : {};
+  const selectedSemester = typeof resolvedParams.semester === "string" ? resolvedParams.semester : undefined;
+
   // Get Nepal Time
   const nptDateString = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'short' }).format(new Date());
   const nptDate = new Date(nptDateString);
@@ -124,80 +133,11 @@ export default async function Dashboard() {
         <div className="lg:col-span-2 space-y-6">
           
           {/* Today's Schedule Card */}
-          <div className="rounded-xl border border-border/40 bg-card p-6 flex flex-col h-full min-h-[300px]">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-semibold text-lg text-foreground flex items-center gap-2">
-                <Clock className="h-5 w-5 text-muted-foreground" /> Today's Schedule
-              </h3>
-            </div>
-            
-            {todaysClasses.length > 0 ? (
-              <div className="space-y-2 mb-6">
-                {(() => {
-                  const sorted = [...todaysClasses].sort((a, b) => a.startTime.localeCompare(b.startTime));
-                  const nextClass = sorted.find(c => nptTime < c.startTime);
-
-                  return sorted.map(c => {
-                    const isOngoing = c.startTime <= nptTime && c.endTime >= nptTime;
-                    const isCompleted = nptTime > c.endTime;
-                    const isNext = c.id === nextClass?.id;
-
-                    return (
-                      <div
-                        key={c.id}
-                        className={`flex items-center justify-between p-4 rounded-lg transition-colors border ${
-                          isOngoing
-                            ? 'bg-emerald-500/10 border-emerald-500/30'
-                            : isNext
-                            ? 'bg-primary/5 border-primary/30'
-                            : isCompleted
-                            ? 'bg-muted/20 border-transparent opacity-60'
-                            : 'hover:bg-muted/40 border-transparent'
-                        }`}
-                      >
-                        <div>
-                          <div className="font-semibold text-foreground flex items-center gap-2">
-                            {c.subject.name}
-                            {isOngoing && (
-                              <span className="text-xs font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Ongoing
-                              </span>
-                            )}
-                            {isNext && (
-                              <span className="text-xs font-bold bg-primary/15 text-primary px-2.5 py-0.5 rounded-full border border-primary/20">
-                                Next Up
-                              </span>
-                            )}
-                            {isCompleted && (
-                              <span className="text-xs font-semibold bg-muted text-muted-foreground px-2.5 py-0.5 rounded-full border border-border">
-                                Completed
-                              </span>
-                            )}
-                            {!isOngoing && !isNext && !isCompleted && (
-                              <span className="text-xs font-semibold bg-muted/60 text-muted-foreground px-2 py-0.5 rounded-full">
-                                Upcoming
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-sm text-muted-foreground mt-1">
-                            {c.subject.teacher?.name || "TBA"} {c.room ? `• ${c.room.startsWith('Room') || c.room.startsWith('Lab') ? c.room : `Room ${c.room}`}` : ""}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm font-medium tabular-nums text-foreground">{formatTime12h(c.startTime)} - {formatTime12h(c.endTime)}</div>
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            ) : (
-               <div className="text-muted-foreground text-sm mb-6 bg-muted/20 p-8 text-center rounded-lg border border-dashed border-border/40 flex-1 flex items-center justify-center">No classes scheduled for today.</div>
-            )}
-            <Link href="/admin/routine" className="inline-flex items-center gap-2 text-sm font-medium text-primary mt-auto hover:underline w-fit cursor-pointer">
-              View Full Routine <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+          <AdminTodaySchedule
+            classes={todaysClasses}
+            currentTime={nptTime}
+            initialSemester={selectedSemester}
+          />
           
           {/* Recent Activity Card */}
           <div className="rounded-xl border border-border/40 bg-card p-6">

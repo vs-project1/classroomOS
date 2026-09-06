@@ -30,7 +30,7 @@ export type ResourceWithDetails = {
   teacherName: string | null;
 };
 
-export const getStudentAccessibleSubjectIds = cache(async (studentId: string): Promise<string[]> => {
+const getStudentAccessibleSubjectIds = cache(async (studentId: string): Promise<string[]> => {
   // 1. Check direct enrollments
   const enrolledRows = await db
     .select({ subjectId: enrollments.subjectId })

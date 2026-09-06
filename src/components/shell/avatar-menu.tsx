@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { KeyRound, LogOut, UserRound } from "lucide-react";
+import { Bot, KeyRound, LogOut, UserRound } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { logoutAction } from "@/features/auth/actions/auth";
 
@@ -20,9 +20,9 @@ function initialsOf(name: string): string {
 
 /**
  * The topbar avatar opens the account menu: profile page, password change,
- * sign out. Previously the avatar was decorative with no click target.
+ * sign out, and Telegram Bot settings for admins.
  */
-export function AvatarMenu({ name }: { name: string }) {
+export function AvatarMenu({ name, role }: { name: string; role?: string }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -73,6 +73,12 @@ export function AvatarMenu({ name }: { name: string }) {
             <UserRound className="w-3.5 h-3.5 text-muted-foreground" />
             My Profile
           </Link>
+          {role === "ADMIN" && (
+            <Link href="/admin/settings/telegram" role="menuitem" className={itemClass} onClick={() => setOpen(false)}>
+              <Bot className="w-3.5 h-3.5 text-primary" />
+              <span>Telegram Bot</span>
+            </Link>
+          )}
           <Link href="/profile#password" role="menuitem" className={itemClass} onClick={() => setOpen(false)}>
             <KeyRound className="w-3.5 h-3.5 text-muted-foreground" />
             Change Password

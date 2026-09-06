@@ -3,18 +3,20 @@ import { weeklyRoutine, studentProfiles } from "@/db/schema";
 import { asc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
-import { Edit, CalendarDays } from "lucide-react";
+import { Edit, CalendarDays, Plus, AlertTriangle } from "lucide-react";
 import { DeleteRoutineButton } from "@/features/routine/components/delete-routine-button";
 import { getCurrentUser, getPermissions } from "@/lib/auth";
 import { toRoman } from "@/lib/utils/roman";
 import { getNptTimeString } from "@/lib/timezone";
 import { RoutineView } from "@/components/timetable/routine-view";
 import type { RoutineSlotData } from "@/components/timetable/routine-card";
+import { BroadcastRoutineDialog } from "@/features/telegram/components/broadcast-routine-dialog";
+import { getTelegramSettings, getSemesterTelegramConfigs } from "@/features/telegram/queries/telegram-queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function RoutinePage() {
-  const [user, permissions, allRoutine] = await Promise.all([
+  const [user, permissions, allRoutine, telegramSettingsRow, telegramConfigs] = await Promise.all([
     getCurrentUser(),
     getPermissions(),
     db.query.weeklyRoutine.findMany({
@@ -25,6 +27,8 @@ export default async function RoutinePage() {
         },
       },
     }),
+    getTelegramSettings(),
+    getSemesterTelegramConfigs(),
   ]);
 
   let studentProfile = null;
@@ -35,15 +39,31 @@ export default async function RoutinePage() {
   }
 
   let filteredRoutine = allRoutine;
-  if (studentProfile?.semester != null) {
-    const romanSem = toRoman(studentProfile.semester);
-    const semesterRoutines = allRoutine.filter((r) => r.subject?.semester === romanSem);
+  const studentRomanSem = studentProfile?.semester != null ? toRoman(studentProfile.semester) : null;
+  if (studentRomanSem) {
+    const semesterRoutines = allRoutine.filter((r) => r.subject?.semester === studentRomanSem);
     if (semesterRoutines.length > 0) {
       filteredRoutine = semesterRoutines;
     }
   }
 
   const hasRoutine = filteredRoutine.length > 0;
+
+  // Telegram routine change detection
+  const hasBotToken = Boolean(telegramSettingsRow?.botToken);
+  const configuredSemesters = telegramConfigs.filter((c) => Boolean(c.chatId)).map((c) => c.semester);
+
+  const unpublishedSemesters = telegramConfigs
+    .filter((c) => {
+      if (!c.lastRoutineModifiedAt) return false;
+      if (!c.lastRoutinePublishedAt) return true;
+      return new Date(c.lastRoutineModifiedAt).getTime() > new Date(c.lastRoutinePublishedAt).getTime();
+    })
+    .map((c) => c.semester);
+
+  const hasUnpublishedChanges = studentRomanSem
+    ? unpublishedSemesters.includes(studentRomanSem)
+    : unpublishedSemesters.length > 0;
 
   // Current NPT time formatted as 24h string ("HH:mm") for accurate routine slot status
   const nptTime = new Intl.DateTimeFormat("en-GB", {
@@ -71,7 +91,48 @@ export default async function RoutinePage() {
             View scheduled lectures, lab practicals, and room assignments.
           </p>
         </div>
+        {permissions.canManageRoutine && (
+          <div className="flex flex-wrap items-center gap-2">
+            <BroadcastRoutineDialog
+              currentSemester={studentRomanSem || "All"}
+              configuredSemesters={configuredSemesters}
+              hasBotToken={hasBotToken}
+              hasUnpublishedChanges={hasUnpublishedChanges}
+              unpublishedSemesters={unpublishedSemesters}
+            />
+            <Link href="/routine/new" className={buttonVariants({ variant: "default", size: "sm" })}>
+              <Plus className="w-4 h-4 mr-2" /> Add Class Slot
+            </Link>
+          </div>
+        )}
       </div>
+
+      {/* Unpublished Changes Alert Banner for Managers */}
+      {hasUnpublishedChanges && permissions.canManageRoutine && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-200 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold font-fira-sans">
+                Unpublished Routine Changes {studentRomanSem ? `— Semester ${studentRomanSem}` : `(${unpublishedSemesters.map((s) => `Sem ${s}`).join(", ")})`}
+              </h4>
+              <p className="text-xs opacity-90 mt-0.5">
+                Timetable modifications have been saved. Click &ldquo;Publish Changes&rdquo; to broadcast the updated schedule notice to the Telegram group.
+              </p>
+            </div>
+          </div>
+          <BroadcastRoutineDialog
+            currentSemester={studentRomanSem || "All"}
+            configuredSemesters={configuredSemesters}
+            hasBotToken={hasBotToken}
+            hasUnpublishedChanges={true}
+            unpublishedSemesters={unpublishedSemesters}
+            triggerVariant="banner"
+          />
+        </div>
+      )}
 
       {!hasRoutine ? (
         <div className="flex flex-col items-center justify-center py-16 space-y-4 max-w-md mx-auto text-center border rounded-xl border-dashed bg-card/50">

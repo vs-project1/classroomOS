@@ -43,6 +43,11 @@ export async function getPermissions(): Promise<RolePermissions> {
 export const resolveCurrentStudent = cache(async function resolveCurrentStudent() {
   const user = await getCurrentUser();
   if (user) {
+    const byUserId = await db.query.students.findFirst({
+      where: (s, { eq }) => eq(s.userId, user.id),
+    });
+    if (byUserId) return byUserId;
+
     if (user.studentProfileId) {
       const profile = await db.query.studentProfiles.findFirst({
         where: (sp, { eq }) => eq(sp.id, user.studentProfileId!),

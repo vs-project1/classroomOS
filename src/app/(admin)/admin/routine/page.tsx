@@ -2,11 +2,13 @@ import { db } from "@/db";
 import { weeklyRoutine } from "@/db/schema";
 import { asc } from "drizzle-orm";
 import Link from "next/link";
-import { Plus, Edit, CalendarRange } from "lucide-react";
+import { Plus, Edit, CalendarRange, AlertTriangle } from "lucide-react";
 import { getPermissions } from "@/lib/auth";
 import { TimelineRiver, type TimelineRiverSlot } from "@/components/timetable/timeline-river";
 import { DeleteRoutineButton } from "@/features/routine/components/delete-routine-button";
 import { buttonVariants } from "@/components/ui/button";
+import { BroadcastRoutineDialog } from "@/features/telegram/components/broadcast-routine-dialog";
+import { getTelegramSettings, getSemesterTelegramConfigs } from "@/features/telegram/queries/telegram-queries";
 
 export const dynamic = "force-dynamic";
 
@@ -74,8 +76,30 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
   }).format(new Date());
   const todayIndex = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(nptWeekday);
 
+  const [telegramSettingsRow, telegramConfigs] = await Promise.all([
+    getTelegramSettings(),
+    getSemesterTelegramConfigs(),
+  ]);
+  const hasBotToken = Boolean(telegramSettingsRow?.botToken);
+  const configuredSemesters = telegramConfigs.filter((c) => Boolean(c.chatId)).map((c) => c.semester);
+
+  // Semesters with unpublished modifications:
+  // (lastRoutineModifiedAt exists AND (lastRoutinePublishedAt is null OR modified > published))
+  const unpublishedSemesters = telegramConfigs
+    .filter((c) => {
+      if (!c.lastRoutineModifiedAt) return false;
+      if (!c.lastRoutinePublishedAt) return true;
+      return new Date(c.lastRoutineModifiedAt).getTime() > new Date(c.lastRoutinePublishedAt).getTime();
+    })
+    .map((c) => c.semester);
+
+  const hasUnpublishedChanges =
+    selectedSemester === "All"
+      ? unpublishedSemesters.length > 0
+      : unpublishedSemesters.includes(selectedSemester);
+
   return (
-    <div className="flex-1 space-y-8 max-w-6xl mx-auto w-full">
+    <div className="flex-1 space-y-6 max-w-6xl mx-auto w-full">
       {/* Header & Controls */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-border/40">
         <div className="flex flex-col gap-1.5">
@@ -86,31 +110,74 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
             Manage weekly timetable schedules, room allocations, and teacher assignments across all semesters.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {permissions.canManageRoutine && (
-            <Link href="/routine/new" className={buttonVariants({ variant: "default", size: "sm" })}>
-              <Plus className="w-4 h-4 mr-2" /> Add Class Slot
-            </Link>
+            <>
+              <BroadcastRoutineDialog
+                currentSemester={selectedSemester}
+                configuredSemesters={configuredSemesters}
+                hasBotToken={hasBotToken}
+                hasUnpublishedChanges={hasUnpublishedChanges}
+                unpublishedSemesters={unpublishedSemesters}
+              />
+              <Link href="/routine/new" className={buttonVariants({ variant: "default", size: "sm" })}>
+                <Plus className="w-4 h-4 mr-2" /> Add Class Slot
+              </Link>
+            </>
           )}
         </div>
       </div>
+
+      {/* Unpublished Changes Alert Banner */}
+      {hasUnpublishedChanges && permissions.canManageRoutine && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-200 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold font-fira-sans">
+                Unpublished Routine Changes {selectedSemester !== "All" ? `— Semester ${selectedSemester}` : `(${unpublishedSemesters.map((s) => `Sem ${s}`).join(", ")})`}
+              </h4>
+              <p className="text-xs opacity-90 mt-0.5">
+                Timetable modifications have been saved. Click &ldquo;Publish Changes&rdquo; to broadcast the updated schedule notice to the Telegram group.
+              </p>
+            </div>
+          </div>
+          <BroadcastRoutineDialog
+            currentSemester={selectedSemester}
+            configuredSemesters={configuredSemesters}
+            hasBotToken={hasBotToken}
+            hasUnpublishedChanges={true}
+            unpublishedSemesters={unpublishedSemesters}
+            triggerVariant="banner"
+          />
+        </div>
+      )}
 
       {/* Semester Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-border/20">
         {SEMESTERS.map((sem) => {
           const isActive = selectedSemester === sem;
+          const isUnpub = sem === "All" ? unpublishedSemesters.length > 0 : unpublishedSemesters.includes(sem);
           const href = sem === "All" ? "/admin/routine" : `/admin/routine?semester=${sem}`;
           return (
             <Link
               key={sem}
               href={href}
-              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+              className={`relative px-4 py-2 text-xs font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
                 isActive
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              {sem === "All" ? "All Semesters" : `Semester ${sem}`}
+              <span>{sem === "All" ? "All Semesters" : `Semester ${sem}`}</span>
+              {isUnpub && (
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-amber-300" : "bg-amber-500"}`}
+                  title="Unpublished routine changes pending"
+                />
+              )}
             </Link>
           );
         })}

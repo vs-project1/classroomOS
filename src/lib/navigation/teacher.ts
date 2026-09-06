@@ -1,4 +1,4 @@
-import { Book, CalendarRange, CheckCircle, ClipboardCheck, FileText, FolderOpen, Home, Inbox, Clock } from "lucide-react";
+import { Book, CalendarRange, CheckCircle, FileText, FolderOpen, Home, Inbox, Clock } from "lucide-react";
 import type { RoleNavigation } from "./types";
 
 export const teacherNavigation: RoleNavigation = {

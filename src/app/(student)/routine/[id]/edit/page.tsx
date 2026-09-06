@@ -7,9 +7,12 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
+import { requireAuth } from "@/lib/auth";
+
 export const dynamic = "force-dynamic";
 
 export default async function EditRoutinePage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAuth(["TEACHER", "ADMIN"]);
   const { id } = await params;
 
   const [allSubjects, routine] = await Promise.all([

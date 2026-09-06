@@ -43,7 +43,10 @@ export function MobileBottomNav({ role, badges, subjects }: MobileBottomNavProps
       aria-label="Primary mobile navigation"
       className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border/60 bg-card/95 backdrop-blur-md"
     >
-      <div className="grid grid-cols-4">
+      <div
+        className="grid"
+        style={{ gridTemplateColumns: `repeat(${navigation.mobileTabs.length + 1}, minmax(0, 1fr))` }}
+      >
         {navigation.mobileTabs.map((tab) => {
           const isActive = isNavItemActive(pathname, tab);
           return (

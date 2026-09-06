@@ -174,6 +174,7 @@ export async function createAccountAction(
         // Insert academic student record
         await tx.insert(students).values({
           id: studentId,
+          userId,
           name: data.name,
           rollNumber: data.rollNumber!,
           email: data.email,
@@ -197,6 +198,7 @@ export async function createAccountAction(
         const teacherId = `tch_${crypto.randomUUID()}`;
         await tx.insert(teachers).values({
           id: teacherId,
+          userId,
           name: data.name,
           email: data.email,
           phone: data.phone || null,
@@ -363,12 +365,23 @@ export async function deleteUserAccountAction(userId: string): Promise<AccountAc
   if (admin.id === userId) return { success: false, message: "Cannot delete yourself." };
   
   try {
-    // Drizzle cascade deletes student_profiles, students, teachers when users is deleted
-    await db.delete(users).where(eq(users.id, userId));
+    // Revoke all live sessions immediately
+    await revokeUserSessions(userId);
+
+    // Atomically delete user and linked profile, student, and teacher entities
+    await db.transaction(async (tx) => {
+      await tx.delete(students).where(eq(students.userId, userId));
+      await tx.delete(teachers).where(eq(teachers.userId, userId));
+      await tx.delete(studentProfiles).where(eq(studentProfiles.userId, userId));
+      await tx.delete(users).where(eq(users.id, userId));
+    });
+
     revalidatePath("/admin/accounts");
+    revalidatePath("/admin/students");
+    revalidatePath("/admin/teachers");
     return { success: true, message: "Account deleted successfully." };
   } catch (error) {
-    console.error(error);
+    console.error("Failed to delete user account:", error);
     return { success: false, message: "Failed to delete account." };
   }
 }
@@ -394,7 +407,7 @@ export async function editUserAccountAction(
 
     await db.transaction(async (tx) => {
       await tx.update(users)
-        .set({ email: cleanEmail, role: data.role as any, updatedAt: new Date() })
+        .set({ email: cleanEmail, role: data.role as "ADMIN" | "TEACHER" | "CR" | "STUDENT", updatedAt: new Date() })
         .where(eq(users.id, userId));
       
       if (data.role === "STUDENT" || data.role === "CR") {
@@ -413,6 +426,7 @@ export async function editUserAccountAction(
         const matchingStudent = await tx.query.students.findFirst({
           where: (s, { or, eq }) =>
             or(
+              eq(s.userId, userId),
               eq(s.email, oldEmail),
               eq(s.email, cleanEmail),
               currentRoll ? eq(s.rollNumber, currentRoll) : sql`0 = 1`
@@ -421,17 +435,28 @@ export async function editUserAccountAction(
 
         if (matchingStudent) {
           await tx.update(students)
-            .set({ name: data.name, email: cleanEmail, rollNumber: data.rollNumber || matchingStudent.rollNumber, semester: ordinalSem })
+            .set({
+              userId,
+              name: data.name,
+              email: cleanEmail,
+              rollNumber: data.rollNumber || matchingStudent.rollNumber,
+              semester: ordinalSem
+            })
             .where(eq(students.id, matchingStudent.id));
         }
       } else if (data.role === "TEACHER") {
         const matchingTeacher = await tx.query.teachers.findFirst({
-          where: (t, { or, eq }) => or(eq(t.email, oldEmail), eq(t.email, cleanEmail)),
+          where: (t, { or, eq }) => or(eq(t.userId, userId), eq(t.email, oldEmail), eq(t.email, cleanEmail)),
         });
 
         if (matchingTeacher) {
           await tx.update(teachers)
-            .set({ name: data.name, email: cleanEmail, updatedAt: new Date() })
+            .set({
+              userId,
+              name: data.name,
+              email: cleanEmail,
+              updatedAt: new Date()
+            })
             .where(eq(teachers.id, matchingTeacher.id));
         }
       }

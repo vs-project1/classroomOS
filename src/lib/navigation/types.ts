@@ -47,7 +47,7 @@ export type RoleNavigation = {
  * descendant path at a segment boundary ("/subjects" activates on
  * "/subjects/dbms" but NOT on "/subjects-extra").
  */
-export function isNavActive(pathname: string | null, href: string): boolean {
+function isNavActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
   if (href === "/" || href === "/teacher" || href === "/admin" || href === "/cr") return pathname === href;
   return pathname === href || pathname.startsWith(`${href}/`);

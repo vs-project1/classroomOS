@@ -63,7 +63,7 @@ export default async function NoticesPage() {
                 <h3 className="text-xl font-bold font-fira-sans tracking-tight text-foreground leading-tight">{notice.title}</h3>
                 {permissions.canCreateNotices && (
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-card/80 backdrop-blur-sm p-1 rounded-lg border shadow-sm shrink-0">
-                    <NoticeActions id={notice.id} isPinned={notice.isPinned} />
+                    <NoticeActions id={notice.id} isPinned={notice.isPinned} title={notice.title} />
                   </div>
                 )}
               </div>

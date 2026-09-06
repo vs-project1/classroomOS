@@ -1,24 +1,5 @@
 export const TIMEZONE = "Asia/Kathmandu";
 
-export function getCurrentNptDate(): Date {
-  const now = new Date();
-  const nptString = new Intl.DateTimeFormat("en-US", {
-    timeZone: TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(now);
-  
-  // NPT format string is MM/DD/YYYY, HH:mm:ss
-  const [datePart, timePart] = nptString.split(", ");
-  const [month, day, year] = datePart.split("/");
-  return new Date(`${year}-${month}-${day}T${timePart}+05:45`);
-}
-
 export function getNptTimeString(date: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: TIMEZONE,
@@ -26,17 +7,6 @@ export function getNptTimeString(date: Date = new Date()): string {
     minute: "2-digit",
     hour12: false,
   }).format(date);
-}
-
-export function formatNptDateOnly(date: Date | number | string): string {
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
 }
 
 export function parseAndNormalizeTime(timeStr: string): string | null {
@@ -87,4 +57,14 @@ export function formatTime12h(timeStr: string | null): string {
   const hour12 = hour % 12 || 12;
   const minFormatted = min < 10 ? `0${min}` : min;
   return `${hour12}:${minFormatted} ${ampm}`;
+}
+
+export function nptStartOfDay(d: Date = new Date()): Date {
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+  return new Date(`${ymd}T00:00:00Z`);
 }

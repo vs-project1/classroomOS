@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { subjects, homework, courseUnits, resources } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Link from "next/link";
-import { BookOpen, Layers, ClipboardList, FolderOpen, ArrowRight, ArrowLeft, BookCopy } from "lucide-react";
+import { BookOpen, Layers, ClipboardList, FolderOpen, ArrowRight, ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 

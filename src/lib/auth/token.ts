@@ -8,11 +8,6 @@ export function getSessionSecret(): string {
   return "classroom-os-secret-key-32-chars-long-demo";
 }
 
-export const DEFAULT_SESSION_SECRET =
-  process.env.SESSION_SECRET ||
-  process.env.AUTH_SECRET ||
-  "classroom-os-secret-key-32-chars-long-demo";
-
 /**
  * Derives the stable server-side identifier for a session token.
  * Stores only this SHA-256 digest — the raw bearer token is never persisted.

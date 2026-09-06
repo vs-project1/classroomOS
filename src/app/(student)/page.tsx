@@ -12,7 +12,7 @@ import { Book, Bell, CalendarDays, CheckCircle2, AlertCircle, ArrowRight, Laptop
 import { RecentResourcesWidget } from "@/features/resources/components/recent-resources-widget";
 
 import { getCurrentUser } from "@/lib/auth";
-import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
+import { formatNepaliDate } from "@/lib/nepali-date";
 
 export default async function StudentDashboard() {
   const user = await getCurrentUser();
@@ -53,7 +53,8 @@ export default async function StudentDashboard() {
     todaysClasses,
     pendingHomeworkList,
     latestNotices,
-    attendanceRecords
+    attendanceRecords,
+    dailyRecords
   ] = await Promise.all([
     db.query.weeklyRoutine.findMany({
       where: eq(weeklyRoutine.dayOfWeek, dayOfWeek),
@@ -76,14 +77,23 @@ export default async function StudentDashboard() {
     }),
     db.query.attendance.findMany({
       where: eq(attendance.studentId, student.id)
+    }),
+    db.query.dailyAttendance.findMany({
+      where: eq(dailyAttendance.studentId, student.id)
     })
   ]);
 
   const validNotices = latestNotices.filter(n => !n.expiresAt || n.expiresAt.getTime() > timestampNow);
 
   // Overall Attendance Calculation via Domain Engine
-  const totalClasses = attendanceRecords.length;
-  const presentClasses = attendanceRecords.filter(a => a.status === 'present').length;
+  const lectureTotal = attendanceRecords.length;
+  const lecturePresent = attendanceRecords.filter(a => a.status === 'present').length;
+  const dailyTotal = dailyRecords.length;
+  const dailyPresent = dailyRecords.filter(a => a.status === 'present').length;
+
+  const useLecture = lectureTotal > 0;
+  const totalClasses = useLecture ? lectureTotal : dailyTotal;
+  const presentClasses = useLecture ? lecturePresent : dailyPresent;
   const metrics = calculateAttendanceMetrics(presentClasses, totalClasses, undefined, 80);
 
   // Derived stats
@@ -320,8 +330,17 @@ export default async function StudentDashboard() {
                  (isDangerZone ? "At risk of TU exam disqualification." : `Attend next classes to reach 80%.`)}
               </p>
               <p className="text-xs text-muted-foreground mt-1 font-medium">
-                {presentClasses} of {totalClasses} classes attended
+                {useLecture
+                  ? `${presentClasses} of ${totalClasses} classes attended`
+                  : dailyTotal > 0
+                  ? `${presentClasses} of ${totalClasses} days attended (morning roll call)`
+                  : "0 of 0 classes attended"}
               </p>
+              {useLecture && dailyTotal > 0 && (
+                <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                  Morning Roll Call: {dailyPresent}/{dailyTotal} days
+                </p>
+              )}
             </div>
 
             <Link href="/attendance" className="text-xs font-semibold text-primary hover:underline mt-auto cursor-pointer">

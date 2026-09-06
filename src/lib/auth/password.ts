@@ -28,17 +28,6 @@ export async function hashPassword(plainText: string): Promise<string> {
   return `${salt}:${derivedKey.toString("hex")}`;
 }
 
-/**
- * Synchronous variant for seeding scripts and CLI utilities.
- */
-export function hashPasswordSync(plainText: string): string {
-  if (!plainText || typeof plainText !== "string") {
-    throw new Error("Password must be a non-empty string");
-  }
-  const salt = crypto.randomBytes(SALT_BYTES).toString("hex");
-  const derivedKey = crypto.scryptSync(plainText, salt, KEY_LEN);
-  return `${salt}:${derivedKey.toString("hex")}`;
-}
 
 /**
  * Verifies a plain text password against a stored scrypt hash using timingSafeEqual.
@@ -89,9 +78,3 @@ export function generateMemorablePassword(): string {
   return `${words.join("")}${symbol}${digits}`;
 }
 
-/**
- * Alias for generateMemorablePassword
- */
-export function generateTemporaryPassword(): string {
-  return generateMemorablePassword();
-}

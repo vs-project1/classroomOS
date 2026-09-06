@@ -236,5 +236,3 @@ export function FilePreview({ fileUrl, fileType, title, fileName, className }: F
     </div>
   );
 }
-
-export default FilePreview;

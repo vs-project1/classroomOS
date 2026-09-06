@@ -37,7 +37,7 @@ const StudentSchema = z.object({
       try {
         const number = phoneUtil.parseAndKeepRawInput(val, 'NP'); // Default to Nepal if no country code provided
         return phoneUtil.isValidNumber(number);
-      } catch (error) {
+      } catch {
         return false;
       }
     }, "Invalid phone number"),
@@ -117,16 +117,62 @@ export async function updateStudent(prevState: StudentActionState, formData: For
 
   try {
     const { eq } = await import("drizzle-orm");
-    await db.update(students).set({
-      name,
-      rollNumber,
-      email: email ?? null,
-      phone: phone ?? null,
-      faculty,
-      semester,
-    }).where(eq(students.id, id));
+    const { studentProfiles, users } = await import("@/db/schema");
+
+    const existing = await db.query.students.findFirst({
+      where: eq(students.id, id),
+    });
+
+    if (!existing) {
+      return { success: false, message: "Student record not found." };
+    }
+
+    await db.transaction(async (tx) => {
+      await tx.update(students).set({
+        name,
+        rollNumber,
+        email: email ?? null,
+        phone: phone ?? null,
+        faculty,
+        semester,
+      }).where(eq(students.id, id));
+
+      const userId = existing.userId;
+      if (userId) {
+        if (email) {
+          await tx.update(users).set({ email, updatedAt: new Date() }).where(eq(users.id, userId));
+        }
+        const semDigitMatch = semester.match(/(\d+)/);
+        const semInt = semDigitMatch ? parseInt(semDigitMatch[1], 10) : 1;
+        await tx.update(studentProfiles).set({
+          rollNumber,
+          semester: semInt,
+          phone: phone ?? null,
+          updatedAt: new Date(),
+        }).where(eq(studentProfiles.userId, userId));
+      } else {
+        const profile = await tx.query.studentProfiles.findFirst({
+          where: eq(studentProfiles.rollNumber, existing.rollNumber),
+        });
+        if (profile) {
+          await tx.update(students).set({ userId: profile.userId }).where(eq(students.id, id));
+          const semDigitMatch = semester.match(/(\d+)/);
+          const semInt = semDigitMatch ? parseInt(semDigitMatch[1], 10) : 1;
+          await tx.update(studentProfiles).set({
+            rollNumber,
+            semester: semInt,
+            phone: phone ?? null,
+            updatedAt: new Date(),
+          }).where(eq(studentProfiles.id, profile.id));
+          if (email) {
+            await tx.update(users).set({ email, updatedAt: new Date() }).where(eq(users.id, profile.userId));
+          }
+        }
+      }
+    });
 
     revalidatePath("/admin/students");
+    revalidatePath("/admin/accounts");
     return { success: true, message: "Student updated successfully!" };
   } catch (error: unknown) {
     if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;

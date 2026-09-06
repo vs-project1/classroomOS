@@ -10,6 +10,7 @@ import { and, eq, ne, gte, lte, inArray } from "drizzle-orm";
 import { parseAndNormalizeTime } from "@/lib/timezone";
 import { requireAuth } from "@/lib/auth/session";
 import { notifyMany } from "@/lib/notifications";
+import { markSemesterRoutineModified } from "@/features/telegram/actions/telegram-actions";
 
 const routineSchema = z.object({
   subjectId: z.string().min(1, "Subject is required"),
@@ -24,16 +25,43 @@ const routineSchema = z.object({
   path: ["endTime"]
 });
 
-async function checkOverlap(dayOfWeek: number, startTime: string, endTime: string, excludeId?: string) {
+async function checkOverlap(
+  dayOfWeek: number, 
+  startTime: string, 
+  endTime: string, 
+  subjectId: string,
+  room?: string,
+  teacherName?: string,
+  excludeId?: string
+) {
   const existingRoutines = await db.query.weeklyRoutine.findMany({
     where: excludeId 
       ? and(eq(weeklyRoutine.dayOfWeek, dayOfWeek), ne(weeklyRoutine.id, excludeId))
-      : eq(weeklyRoutine.dayOfWeek, dayOfWeek)
+      : eq(weeklyRoutine.dayOfWeek, dayOfWeek),
+    with: {
+      subject: true
+    }
   });
+
+  const newSubject = await db.query.subjects.findFirst({ where: eq(subjects.id, subjectId) });
 
   for (const r of existingRoutines) {
     if (startTime < r.endTime && endTime > r.startTime) {
-      return r;
+      // 1. Room overlap
+      if (room && r.room && room.trim().toLowerCase() === r.room.trim().toLowerCase()) {
+         return { reason: `Room ${room} is already booked for ${r.subject.name}` };
+      }
+      // 2. Teacher overlap
+      if (teacherName && r.teacherName && teacherName.trim().toLowerCase() === r.teacherName.trim().toLowerCase()) {
+         return { reason: `Teacher ${teacherName} is already teaching ${r.subject.name}` };
+      }
+      if (newSubject?.teacherId && r.subject?.teacherId && newSubject.teacherId === r.subject.teacherId) {
+         return { reason: `The assigned teacher is already teaching ${r.subject.name}` };
+      }
+      // 3. Semester overlap
+      if (newSubject?.semester && r.subject?.semester && newSubject.semester === r.subject.semester) {
+         return { reason: `Semester ${newSubject.semester} already has ${r.subject.name} scheduled at this time` };
+      }
     }
   }
   return null;
@@ -167,7 +195,7 @@ async function syncSessionsForRoutine(params: {
 }
 
 export async function saveRoutine(prevState: any, formData: FormData) {
-  await requireAuth(["TEACHER", "ADMIN"]);
+  const user = await requireAuth(["TEACHER", "ADMIN"]);
 
   const id = formData.get("id")?.toString();
   const rawStartTime = formData.get("startTime")?.toString() || "";
@@ -197,13 +225,26 @@ export async function saveRoutine(prevState: any, formData: FormData) {
   const data = validatedFields.data;
 
   // Check overlap
-  const overlap = await checkOverlap(data.dayOfWeek, data.startTime, data.endTime, id);
+  const overlap = await checkOverlap(data.dayOfWeek, data.startTime, data.endTime, data.subjectId, data.room, data.teacherName, id);
   if (overlap) {
-    const subject = await db.query.subjects.findFirst({ where: (s, { eq }) => eq(s.id, overlap.subjectId) });
     return {
       success: false,
-      message: `This routine overlaps with ${subject?.name || "another class"} from ${overlap.startTime} to ${overlap.endTime}.`
+      message: overlap.reason
     };
+  }
+
+  // Track previous semester if editing
+  let previousSemester: string | null = null;
+  if (id) {
+    try {
+      const existingRoutine = await db.query.weeklyRoutine.findFirst({
+        where: eq(weeklyRoutine.id, id),
+        with: { subject: true },
+      });
+      if (existingRoutine?.subject?.semester) {
+        previousSemester = existingRoutine.subject.semester;
+      }
+    } catch {}
   }
 
   // For update we need the routineId to sync; for insert generate upfront
@@ -247,22 +288,46 @@ export async function saveRoutine(prevState: any, formData: FormData) {
     console.error("[routine] syncSessionsForRoutine failed", e);
   }
 
+  // Routine Intelligence: mark routine modified for Telegram change detection
+  try {
+    const subject = await db.query.subjects.findFirst({ where: eq(subjects.id, data.subjectId) });
+    if (subject?.semester) {
+      await markSemesterRoutineModified(subject.semester);
+    }
+    if (previousSemester && previousSemester !== subject?.semester) {
+      await markSemesterRoutineModified(previousSemester);
+    }
+  } catch (e) {
+    console.error("[routine] markSemesterRoutineModified failed", e);
+  }
+
   revalidatePath("/routine");
   revalidatePath("/teacher/routine");
   revalidatePath("/admin/routine");
+  revalidatePath("/admin/settings/telegram");
   revalidatePath("/");
   revalidatePath("/today");
-  redirect("/routine");
+  const redirectTo = user.role === "ADMIN" ? "/admin/routine" : "/routine";
+  redirect(redirectTo);
 }
 
 export async function deleteRoutine(id: string) {
-  await requireAuth(["TEACHER", "ADMIN"]);
+  const user = await requireAuth(["TEACHER", "ADMIN"]);
 
   // Capture routine for notification + session cleanup before delete
-  let routineForNotify: { subjectId: string; dayOfWeek: number } | null = null;
+  let routineForNotify: { subjectId: string; dayOfWeek: number; semester?: string | null } | null = null;
   try {
-    const found = await db.query.weeklyRoutine.findFirst({ where: eq(weeklyRoutine.id, id) });
-    if (found) routineForNotify = { subjectId: found.subjectId, dayOfWeek: found.dayOfWeek };
+    const found = await db.query.weeklyRoutine.findFirst({
+      where: eq(weeklyRoutine.id, id),
+      with: { subject: true },
+    });
+    if (found) {
+      routineForNotify = {
+        subjectId: found.subjectId,
+        dayOfWeek: found.dayOfWeek,
+        semester: found.subject?.semester ?? null,
+      };
+    }
   } catch {}
 
   try {
@@ -300,14 +365,30 @@ export async function deleteRoutine(id: string) {
       );
     }
 
+    // Mark routine modified for Telegram change detection
+    try {
+      if (routineForNotify?.semester) {
+        await markSemesterRoutineModified(routineForNotify.semester);
+      } else if (routineForNotify?.subjectId) {
+        const subject = await db.query.subjects.findFirst({ where: eq(subjects.id, routineForNotify.subjectId) });
+        if (subject?.semester) {
+          await markSemesterRoutineModified(subject.semester);
+        }
+      }
+    } catch (e) {
+      console.error("[routine] markSemesterRoutineModified failed on delete", e);
+    }
+
     revalidatePath("/routine");
     revalidatePath("/teacher/routine");
     revalidatePath("/admin/routine");
+    revalidatePath("/admin/settings/telegram");
     revalidatePath("/today");
     revalidatePath("/");
   } catch (error) {
     if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;
     console.error("Failed to delete routine:", error);
   }
-  redirect("/routine");
+  const redirectTo = user.role === "ADMIN" ? "/admin/routine" : "/routine";
+  redirect(redirectTo);
 }

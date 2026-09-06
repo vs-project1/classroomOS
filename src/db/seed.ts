@@ -197,6 +197,7 @@ async function seedAll() {
   const teachersData = [
     {
       id: "tch_rajesh_01",
+      userId: "usr_teacher_rajesh",
       name: "Prof. Rajesh Shrestha",
       email: "rajesh.shrestha@classroom.os",
       phone: "+977-9841234567",
@@ -205,6 +206,7 @@ async function seedAll() {
     },
     {
       id: "tch_nikunja_05",
+      userId: "usr_teacher_nikunja",
       name: "Er. Nikunja Sir",
       email: "nikunja@classroom.os",
       phone: "+977-9841234571",
@@ -213,6 +215,7 @@ async function seedAll() {
     },
     {
       id: "tch_ashish_06",
+      userId: "usr_teacher_ashish",
       name: "Er. Ashish Sir",
       email: "ashish@classroom.os",
       phone: "+977-9841234572",
@@ -221,6 +224,7 @@ async function seedAll() {
     },
     {
       id: "tch_mohit_07",
+      userId: "usr_teacher_mohit",
       name: "Mr. Mohit Sir",
       email: "mohit@classroom.os",
       phone: "+977-9841234573",
@@ -229,6 +233,7 @@ async function seedAll() {
     },
     {
       id: "tch_sudeep_08",
+      userId: "usr_teacher_sudeep",
       name: "Sudeep Sir",
       email: "sudeep@classroom.os",
       phone: "+977-9841234574",
@@ -237,6 +242,7 @@ async function seedAll() {
     },
     {
       id: "tch_saddam_09",
+      userId: "usr_teacher_saddam",
       name: "Er. MD Saddam Sir",
       email: "saddam@classroom.os",
       phone: "+977-9841234575",
@@ -306,6 +312,7 @@ async function seedAll() {
 
     studentsToInsert.push({
       id: s.id,
+      userId,
       name: s.name,
       rollNumber: s.roll,
       email: s.email,

@@ -64,7 +64,7 @@ export function ShellTopbar({ role, name, badges, subjects }: ShellTopbarProps) 
             <span className="hidden sm:inline">Sign Out</span>
           </button>
         </form>
-        <AvatarMenu name={name} />
+        <AvatarMenu name={name} role={role} />
       </div>
     </header>
   );

@@ -182,5 +182,3 @@ export function Dropzone({
     </div>
   );
 }
-
-export default Dropzone;

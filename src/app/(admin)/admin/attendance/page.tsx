@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { attendanceCorrectionRequests, attendance, classSessions, subjects, students } from "@/db/schema";
 import { eq, desc, count } from "drizzle-orm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DisputeActions } from "./dispute-actions";
+import { DisputeActions } from "@/features/attendance/components/dispute-actions";
 import { formatNepaliDate } from "@/lib/nepali-date";
 
 export default async function AdminAttendancePage() {

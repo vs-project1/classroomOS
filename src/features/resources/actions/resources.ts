@@ -180,7 +180,7 @@ export async function createResourceAction(prevState: any, formData: FormData) {
 
     revalidatePath("/teacher/resources");
     revalidatePath("/resources");
-    revalidatePath("/cr/resources");
+    revalidatePath("/cr");
     revalidatePath("/subjects");
     return { success: true, message: "Resource uploaded successfully" };
   } catch (error: any) {

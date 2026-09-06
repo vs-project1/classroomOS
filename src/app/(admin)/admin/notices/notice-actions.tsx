@@ -4,8 +4,17 @@ import { useTransition } from "react";
 import { deleteNotice, togglePinNotice } from "@/features/notices/actions/notice-actions";
 import { Button } from "@/components/ui/button";
 import { Pin, PinOff, Trash2 } from "lucide-react";
+import { BroadcastNoticeDialog } from "@/features/telegram/components/broadcast-notice-dialog";
 
-export function NoticeActions({ id, isPinned }: { id: string, isPinned: boolean }) {
+export function NoticeActions({
+  id,
+  isPinned,
+  title,
+}: {
+  id: string;
+  isPinned: boolean;
+  title?: string;
+}) {
   const [isPending, startTransition] = useTransition();
 
   const handleTogglePin = () => {
@@ -23,11 +32,12 @@ export function NoticeActions({ id, isPinned }: { id: string, isPinned: boolean 
   };
 
   return (
-    <div className="flex gap-2">
-      <Button variant="ghost" size="icon" onClick={handleTogglePin} disabled={isPending} title={isPinned ? "Unpin" : "Pin"}>
+    <div className="flex items-center gap-1">
+      <BroadcastNoticeDialog noticeId={id} noticeTitle={title || "Campus Notice"} />
+      <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={handleTogglePin} disabled={isPending} title={isPinned ? "Unpin" : "Pin"}>
         {isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
       </Button>
-      <Button variant="ghost" size="icon" onClick={handleDelete} disabled={isPending} title="Delete">
+      <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={handleDelete} disabled={isPending} title="Delete">
         <Trash2 className="h-4 w-4 text-red-500" />
       </Button>
     </div>

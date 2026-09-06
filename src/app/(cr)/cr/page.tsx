@@ -439,7 +439,7 @@ export default async function CRDashboard() {
           </div>
 
           {/* Recent Study Materials Widget */}
-          <RecentResourcesWidget href="/cr/resources" />
+          <RecentResourcesWidget href="/resources" />
         </div>
 
         {/* Right Column */}

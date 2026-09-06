@@ -145,9 +145,15 @@ export default async function StudentsPage({ searchParams }: Props) {
                         <span className="text-xs uppercase tracking-wider font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-md border border-primary/20">
                           {student.faculty || "BCA"}
                         </span>
-                        <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground bg-muted px-2.5 py-0.5 rounded-md border border-border">
-                          Sem {student.semester || "1"}
-                        </span>
+                        {(() => {
+                          const s = student.semester || "1";
+                          const displayStr = s.toUpperCase().includes('SEM') ? s : `Sem ${s}`;
+                          return (
+                            <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground bg-muted px-2.5 py-0.5 rounded-md border border-border">
+                              {displayStr}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td className="px-6 py-4 align-top text-right text-xs text-muted-foreground font-fira-code">

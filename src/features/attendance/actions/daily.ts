@@ -54,7 +54,7 @@ export async function submitDailyAttendanceAction(
   date: Date,
   records: { studentId: string; status: "present" | "absent" | "late" | "excused" }[]
 ) {
-  const user = await requireAuth(["CR", "ADMIN"]);
+  const user = await requireAuth(["CR", "ADMIN", "TEACHER"]);
   const normalizedDate = nptStartOfDay(date);
 
   try {
@@ -98,8 +98,13 @@ export async function submitDailyAttendanceAction(
       }
     });
 
+    revalidatePath("/");
+    revalidatePath("/today");
+    revalidatePath("/teacher/attendance");
     revalidatePath("/cr/take-attendance");
     revalidatePath("/attendance/monthly");
+    revalidatePath("/cr/attendance/monthly");
+    revalidatePath("/admin/attendance/monthly");
     revalidatePath("/attendance");
     revalidatePath("/cr");
 

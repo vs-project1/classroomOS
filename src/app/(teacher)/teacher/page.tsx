@@ -3,9 +3,8 @@ import { db } from "@/db";
 import { subjects, weeklyRoutine, homework, assignmentSubmissions } from "@/db/schema";
 import { eq, and, inArray, count } from "drizzle-orm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarRange, BookOpen, Clock, ClipboardCheck } from "lucide-react";
+import { CalendarRange, BookOpen, Clock } from "lucide-react";
 import Link from "next/link";
-import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export default async function TeacherDashboard() {
   const user = await requireAuth(["TEACHER", "ADMIN"]);

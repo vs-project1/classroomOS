@@ -6,6 +6,8 @@ import { sqliteTable, text, integer, unique, index, check } from "drizzle-orm/sq
 
 export const teachers = sqliteTable("teachers", {
   id: text("id").primaryKey(),
+  userId: text("user_id")
+    .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   email: text("email").unique(),
   phone: text("phone"),
@@ -34,6 +36,8 @@ export const subjects = sqliteTable("subjects", {
 
 export const students = sqliteTable("students", {
   id: text("id").primaryKey(),
+  userId: text("user_id")
+    .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   rollNumber: text("roll_number").notNull().unique(),
   email: text("email").unique(),
@@ -563,7 +567,11 @@ export const subjectGradeWeights = sqliteTable("subject_grade_weights", {
 
 // --- Drizzle Relations ---
 
-export const teachersRelations = relations(teachers, ({ many }) => ({
+export const teachersRelations = relations(teachers, ({ one, many }) => ({
+  user: one(users, {
+    fields: [teachers.userId],
+    references: [users.id],
+  }),
   subjects: many(subjects),
   assignmentSubmissionsGraded: many(assignmentSubmissions),
   resources: many(resources),
@@ -591,7 +599,11 @@ export const subjectGradeWeightsRelations = relations(subjectGradeWeights, ({ on
   }),
 }));
 
-export const studentsRelations = relations(students, ({ many }) => ({
+export const studentsRelations = relations(students, ({ one, many }) => ({
+  user: one(users, {
+    fields: [students.userId],
+    references: [users.id],
+  }),
   attendance: many(attendance),
   enrollments: many(enrollments),
   assignmentSubmissions: many(assignmentSubmissions),
@@ -683,6 +695,14 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   studentProfile: one(studentProfiles, {
     fields: [users.id],
     references: [studentProfiles.userId],
+  }),
+  student: one(students, {
+    fields: [users.id],
+    references: [students.userId],
+  }),
+  teacher: one(teachers, {
+    fields: [users.id],
+    references: [teachers.userId],
   }),
   notifications: many(notifications),
   sessions: many(sessions),
@@ -951,3 +971,64 @@ export const dailyAttendanceRelations = relations(dailyAttendance, ({ one }) => 
     references: [students.id],
   }),
 }));
+
+// --- 14. Telegram Bot Integration & Semester Routing ---
+
+export const telegramSettings = sqliteTable("telegram_settings", {
+  id: text("id").primaryKey(),
+  botToken: text("bot_token").notNull(),
+  botUsername: text("bot_username"),
+  isEnabled: integer("is_enabled", { mode: "boolean" }).notNull().default(true),
+  morningBriefTime: text("morning_brief_time").notNull().default("05:30"),
+  eveningBriefTime: text("evening_brief_time").notNull().default("20:00"),
+  weekendDays: text("weekend_days", { mode: "json" }).$type<number[]>().notNull().default(sql`'[0, 6]'`), // 0: Sunday, 6: Saturday
+  cronSecret: text("cron_secret").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+});
+
+export const semesterTelegramConfigs = sqliteTable("semester_telegram_configs", {
+  id: text("id").primaryKey(),
+  semester: text("semester").notNull().unique(), // Roman numeral: "I" through "VIII"
+  chatId: text("chat_id").notNull(),
+  messageThreadId: integer("message_thread_id"), // Optional forum topic thread ID
+  chatTitle: text("chat_title"),
+  autoMorningBrief: integer("auto_morning_brief", { mode: "boolean" }).notNull().default(true),
+  autoEveningBrief: integer("auto_evening_brief", { mode: "boolean" }).notNull().default(true),
+  autoNotices: integer("auto_notices", { mode: "boolean" }).notNull().default(true),
+  lastRoutineModifiedAt: integer("last_routine_modified_at", { mode: "timestamp" }),
+  lastRoutinePublishedAt: integer("last_routine_published_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+});
+
+export const telegramBroadcastLogs = sqliteTable("telegram_broadcast_logs", {
+  id: text("id").primaryKey(),
+  semester: text("semester").notNull(),
+  type: text("type").notNull(), // 'routine_broadcast' | 'notice_broadcast' | 'morning_brief' | 'evening_brief' | 'test_message'
+  messageText: text("message_text").notNull(),
+  status: text("status").notNull(), // 'success' | 'failed'
+  errorMessage: text("error_message"),
+  sentByUserId: text("sent_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+}, (table) => [
+  index("idx_telegram_broadcast_logs_created").on(table.createdAt),
+  index("idx_telegram_broadcast_logs_semester").on(table.semester),
+]);
+
+export const telegramBroadcastLogsRelations = relations(telegramBroadcastLogs, ({ one }) => ({
+  sender: one(users, {
+    fields: [telegramBroadcastLogs.sentByUserId],
+    references: [users.id],
+  }),
+}));
+
+export type TelegramSettings = typeof telegramSettings.$inferSelect;
+export type NewTelegramSettings = typeof telegramSettings.$inferInsert;
+
+export type SemesterTelegramConfig = typeof semesterTelegramConfigs.$inferSelect;
+export type NewSemesterTelegramConfig = typeof semesterTelegramConfigs.$inferInsert;
+
+export type TelegramBroadcastLog = typeof telegramBroadcastLogs.$inferSelect;
+export type NewTelegramBroadcastLog = typeof telegramBroadcastLogs.$inferInsert;
+

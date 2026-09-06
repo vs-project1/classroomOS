@@ -38,7 +38,7 @@ const TeacherSchema = z.object({
       try {
         const number = phoneUtil.parseAndKeepRawInput(val, 'NP'); // Default to Nepal if no country code provided
         return phoneUtil.isValidNumber(number);
-      } catch (error) {
+      } catch {
         return false;
       }
     }, "Invalid phone number"),
@@ -50,7 +50,7 @@ const TeacherSchema = z.object({
   semesters: z.array(z.string()).default([]),
 });
 
-export async function saveTeacher(prevState: any, formData: FormData): Promise<TeacherActionState> {
+export async function saveTeacher(prevState: TeacherActionState, formData: FormData): Promise<TeacherActionState> {
   await requireAuth(["ADMIN"]);
 
   const id = formData.get("id")?.toString();
@@ -74,17 +74,38 @@ export async function saveTeacher(prevState: any, formData: FormData): Promise<T
   const data = validatedFields.data;
 
   try {
+    const { users } = await import("@/db/schema");
     if (id) {
-      await db.update(teachers)
-        .set({
-          name: data.name,
-          email: data.email || null,
-          phone: data.phone || null,
-          faculties: data.faculties,
-          semesters: data.semesters,
-          updatedAt: new Date(),
-        })
-        .where(eq(teachers.id, id));
+      const existing = await db.query.teachers.findFirst({
+        where: eq(teachers.id, id),
+      });
+
+      await db.transaction(async (tx) => {
+        await tx.update(teachers)
+          .set({
+            name: data.name,
+            email: data.email || null,
+            phone: data.phone || null,
+            faculties: data.faculties,
+            semesters: data.semesters,
+            updatedAt: new Date(),
+          })
+          .where(eq(teachers.id, id));
+
+        const targetUserId = existing?.userId;
+        if (targetUserId && data.email) {
+          await tx.update(users).set({ email: data.email, updatedAt: new Date() }).where(eq(users.id, targetUserId));
+        } else if (existing?.email && data.email && existing.email !== data.email) {
+          const matchingUser = await tx.query.users.findFirst({ where: eq(users.email, existing.email) });
+          if (matchingUser) {
+            await tx.update(users).set({ email: data.email, updatedAt: new Date() }).where(eq(users.id, matchingUser.id));
+            await tx.update(teachers).set({ userId: matchingUser.id }).where(eq(teachers.id, id));
+          }
+        }
+      });
+      revalidatePath("/admin/teachers");
+      revalidatePath("/admin/accounts");
+      revalidatePath("/teacher");
     } else {
       await db.insert(teachers).values({
         id: crypto.randomUUID(),
@@ -94,6 +115,7 @@ export async function saveTeacher(prevState: any, formData: FormData): Promise<T
         faculties: data.faculties,
         semesters: data.semesters,
       });
+      revalidatePath("/admin/teachers");
     }
   } catch (error: unknown) {
     if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;

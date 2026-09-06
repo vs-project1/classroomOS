@@ -2,7 +2,6 @@ import { test as base, type Page, type BrowserContext } from "@playwright/test";
 import { createClient } from "@libsql/client";
 import { TEST_PERSONAS } from "./seed-data";
 import { createSessionToken, getSessionTokenId } from "../../src/lib/auth/token";
-import { sessions } from "../../src/db/schema";
 
 /**
  * Persists the session row required by server-side session validation.
@@ -56,7 +55,7 @@ export type AuthPersonas = {
  * Creates an active session token and injects HTTP-only cookies into the browser context.
  * Sets both `auth_session` and legacy compatibility cookies (`APP_ROLE`, `DEMO_STUDENT_ID`).
  */
-export async function injectAuthSession(
+async function injectAuthSession(
   context: BrowserContext,
   persona: typeof TEST_PERSONAS[keyof typeof TEST_PERSONAS],
   baseURL: string = "http://localhost:3001"

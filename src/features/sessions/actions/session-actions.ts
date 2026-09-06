@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { classSessions, lectureLogs, attendance, subjects, students, homework, enrollments, studentProfiles } from "@/db/schema";
+import { classSessions, lectureLogs, subjects, students, homework, enrollments, studentProfiles, weeklyRoutine, attendance, type AttendanceStatus } from "@/db/schema";
 import { toRoman } from "@/lib/utils/roman";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -25,16 +25,8 @@ export type SessionActionState = {
     homework?: string[];
     homeworkDueDate?: string[];
     notes?: string[];
-    attendance?: string[];
   };
 };
-
-const AttendanceSchema = z.array(
-  z.object({
-    studentId: z.string().min(1, "Student ID is required"),
-    status: z.enum(["present", "absent", "late", "excused"]),
-  })
-).min(1, "Attendance must have at least one student");
 
 const SessionSchema = z.object({
   subjectId: z.string().trim().min(1, "Subject is required"),
@@ -58,17 +50,6 @@ const SessionSchema = z.object({
   homeworkDueDate: z.string().optional(),
   notes: z.string().trim().min(1, "Notes are required"),
   routineId: z.string().optional(),
-  attendanceJson: z.string().refine(
-    (val) => {
-      try {
-        JSON.parse(val);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    { message: "Invalid JSON format for attendance" }
-  ),
 }).refine(data => data.endTime > data.startTime, {
   message: "End time must be after start time",
   path: ["endTime"],
@@ -150,38 +131,6 @@ async function getSubjectAccessError(
   return "You do not have permission to access this subject.";
 }
 
-export async function getStudentsBySubject(subjectId: string) {
-  const user = await requireAuth(["CR", "TEACHER", "ADMIN"]);
-
-  const subjectRows = await db
-    .select({ teacherId: subjects.teacherId })
-    .from(subjects)
-    .where(eq(subjects.id, subjectId))
-    .limit(1);
-
-  if (subjectRows.length === 0) {
-    return [];
-  }
-
-  const accessError = await getSubjectAccessError(user, subjectId, subjectRows[0].teacherId);
-  if (accessError) {
-    return [];
-  }
-
-  const enrolledStudents = await db
-    .select({
-      id: students.id,
-      name: students.name,
-      rollNumber: students.rollNumber,
-    })
-    .from(enrollments)
-    .innerJoin(students, eq(enrollments.studentId, students.id))
-    .where(eq(enrollments.subjectId, subjectId))
-    .orderBy(asc(students.rollNumber));
-
-  return enrolledStudents;
-}
-
 export async function createSession(prevState: SessionActionState, formData: FormData): Promise<SessionActionState> {
   const user = await requireAuth(["CR", "TEACHER", "ADMIN"]);
 
@@ -200,7 +149,6 @@ export async function createSession(prevState: SessionActionState, formData: For
     homework: formData.get("homework"),
     homeworkDueDate: formData.get("homeworkDueDate"),
     notes: formData.get("notes"),
-    attendanceJson: formData.get("attendanceJson"),
   });
 
   if (!validatedFields.success) {
@@ -210,22 +158,7 @@ export async function createSession(prevState: SessionActionState, formData: For
     };
   }
 
-  const { subjectId, sessionDate, startTime, endTime, routineId, topicsCovered, homework: homeworkDesc, homeworkDueDate, notes, attendanceJson } = validatedFields.data;
-
-  // Validate the parsed JSON attendance array
-  let parsedAttendance: unknown;
-  try {
-    parsedAttendance = JSON.parse(attendanceJson);
-  } catch {
-    return { success: false, message: "Attendance data is corrupted." };
-  }
-
-  const validatedAttendance = AttendanceSchema.safeParse(parsedAttendance);
-  if (!validatedAttendance.success) {
-    return { success: false, message: "Attendance data is invalid." };
-  }
-
-  const submittedAttendance = validatedAttendance.data;
+  const { subjectId, sessionDate, startTime, endTime, routineId, topicsCovered, homework: homeworkDesc, homeworkDueDate, notes } = validatedFields.data;
 
   // Server-side Integrity Checks
   const sessionId = crypto.randomUUID();
@@ -244,36 +177,72 @@ export async function createSession(prevState: SessionActionState, formData: For
       return { success: false, message: accessError };
     }
 
-    // 2. Fetch enrolled students for this subject
-    const enrolledStudents = await db
-      .select({ studentId: enrollments.studentId })
-      .from(enrollments)
-      .where(eq(enrollments.subjectId, subjectId));
-    const enrolledStudentIds = new Set(enrolledStudents.map(s => s.studentId));
-    
-    // 3. Confirm submitted students match exactly
-    const submittedStudentIds = new Set(submittedAttendance.map(a => a.studentId));
-
-    if (submittedStudentIds.size !== submittedAttendance.length) {
-      return { success: false, message: "Duplicate student entries found in attendance." };
-    }
-
-    for (const submittedId of submittedStudentIds) {
-      if (!enrolledStudentIds.has(submittedId)) {
-        return { success: false, message: `Student ID ${submittedId} is not enrolled in this subject.` };
+    // 1c. If TEACHER, enforce that they have a scheduled class on that day of week
+    if (user.role === "TEACHER") {
+      const sessionDay = new Date(sessionDate).getDay();
+      const matchingRoutine = await db.query.weeklyRoutine.findFirst({
+        where: and(
+          eq(weeklyRoutine.subjectId, subjectId),
+          eq(weeklyRoutine.dayOfWeek, sessionDay)
+        ),
+      });
+      if (!matchingRoutine) {
+        const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        return {
+          success: false,
+          message: `You do not have a scheduled class for this subject on ${days[sessionDay]}.`,
+        };
       }
-    }
-
-    if (submittedStudentIds.size !== enrolledStudentIds.size) {
-      return { success: false, message: "Missing or extra students in attendance submission." };
     }
 
     // Determine if homework is provided
     const hasHomework = homeworkDesc && homeworkDesc.trim().length > 0;
 
+    // Parse lecture attendance records
+    type AttendanceEntry = { studentId: string; status: AttendanceStatus };
+    let attendanceList: AttendanceEntry[] = [];
+    const rawAttendance = formData.get("attendanceRecords")?.toString();
+
+    if (rawAttendance) {
+      try {
+        const parsed = JSON.parse(rawAttendance);
+        if (Array.isArray(parsed)) {
+          attendanceList = parsed.filter(
+            (item): item is AttendanceEntry =>
+              Boolean(item) &&
+              typeof item.studentId === "string" &&
+              ["present", "absent", "late", "excused"].includes(item.status)
+          );
+        }
+      } catch {
+        // ignore malformed JSON
+      }
+    }
+
+    // Auto-populate roster with default 'present' if no explicit records were submitted
+    if (attendanceList.length === 0) {
+      const enrolled = await db
+        .select({ studentId: enrollments.studentId })
+        .from(enrollments)
+        .where(eq(enrollments.subjectId, subjectId));
+
+      if (enrolled.length > 0) {
+        attendanceList = enrolled.map((e) => ({
+          studentId: e.studentId,
+          status: "present" as AttendanceStatus,
+        }));
+      } else {
+        const allStudents = await db.select({ id: students.id }).from(students);
+        attendanceList = allStudents.map((s) => ({
+          studentId: s.id,
+          status: "present" as AttendanceStatus,
+        }));
+      }
+    }
+
     // Execution: Database Transaction
     await db.transaction(async (tx) => {
-      // Insert Session
+      // 1. Insert Session
       await tx.insert(classSessions).values({
         id: sessionId,
         subjectId,
@@ -283,7 +252,7 @@ export async function createSession(prevState: SessionActionState, formData: For
         endTime,
       });
 
-      // Insert Lecture Log
+      // 2. Insert Lecture Log
       await tx.insert(lectureLogs).values({
         id: logId,
         classSessionId: sessionId,
@@ -292,7 +261,19 @@ export async function createSession(prevState: SessionActionState, formData: For
         notes,
       });
 
-      // Insert Homework Assignment (only if homework is provided)
+      // 3. Batch Insert Lecture Attendance Records
+      if (attendanceList.length > 0) {
+        await tx.insert(attendance).values(
+          attendanceList.map((att) => ({
+            id: crypto.randomUUID(),
+            classSessionId: sessionId,
+            studentId: att.studentId,
+            status: att.status,
+          }))
+        );
+      }
+
+      // 4. Insert Homework Assignment (only if homework is provided)
       if (hasHomework && homeworkDueDate) {
         await tx.insert(homework).values({
           id: crypto.randomUUID(),
@@ -307,16 +288,6 @@ export async function createSession(prevState: SessionActionState, formData: For
           updatedAt: new Date(),
         });
       }
-
-      // Insert Attendance Records
-      const attendanceValues = submittedAttendance.map(a => ({
-        id: crypto.randomUUID(),
-        classSessionId: sessionId,
-        studentId: a.studentId,
-        status: a.status,
-      }));
-
-      await tx.insert(attendance).values(attendanceValues);
     });
 
   } catch (error: unknown) {
@@ -330,7 +301,19 @@ export async function createSession(prevState: SessionActionState, formData: For
     return { success: false, message: "Something went wrong. Please try again." };
   }
 
+  // Cross-role cache revalidation across Student, Teacher, CR, and Admin portals
   revalidatePath("/sessions");
+  revalidatePath("/lecture-logs");
+  revalidatePath("/teacher/lecture-logs");
+  revalidatePath("/teacher/attendance");
+  revalidatePath("/teacher/attendance/roster");
+  revalidatePath("/attendance");
+  revalidatePath("/attendance/monthly");
+  revalidatePath("/cr/attendance/monthly");
+  revalidatePath("/admin/attendance/monthly");
+  revalidatePath("/admin/attendance");
+  revalidatePath("/cr");
   revalidatePath("/");
+  revalidatePath("/today");
   redirect(`/sessions/${sessionId}`);
 }

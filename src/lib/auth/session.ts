@@ -1,7 +1,7 @@
-﻿import { cache } from "react";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import { users, studentProfiles, students, teachers, sessions } from "@/db/schema";
 import { createSessionToken, verifySessionToken, getSessionTokenId } from "./token";
@@ -267,16 +267,23 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Ses
     });
     if (profile) {
       studentProfileId = profile.id;
-      const student = await db.query.students.findFirst({
-        where: eq(students.rollNumber, profile.rollNumber),
-      });
-      if (student?.name) {
-        name = student.name;
-      }
+    }
+    const student = await db.query.students.findFirst({
+      where: or(
+        eq(students.userId, user.id),
+        profile ? eq(students.rollNumber, profile.rollNumber) : undefined,
+        eq(students.email, user.email)
+      ),
+    });
+    if (student?.name) {
+      name = student.name;
     }
   } else if (user.role === "TEACHER") {
     const teacher = await db.query.teachers.findFirst({
-      where: eq(teachers.email, user.email),
+      where: or(
+        eq(teachers.userId, user.id),
+        eq(teachers.email, user.email)
+      ),
     });
     if (teacher) {
       teacherId = teacher.id;

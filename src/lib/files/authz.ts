@@ -80,35 +80,3 @@ export async function assertCanRead(courseId: string, userId: string): Promise<v
   // CR is also a student; same enrollment check above covers CR.
   throw new Error(`Forbidden: user ${userId} has no read access to course ${courseId}`);
 }
-
-/**
- * Assert the user can WRITE to the given course (subject).
- * Allowed if:
- * - ADMIN
- * - Teacher of the subject
- * Students / CR cannot write even if enrolled.
- */
-export async function assertCanWrite(courseId: string, userId: string): Promise<void> {
-  if (!courseId || !userId) {
-    throw new Error("Forbidden: missing course or user");
-  }
-
-  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
-  if (!user || !user.isActive) {
-    throw new Error("Forbidden: user not found or inactive");
-  }
-
-  if (user.role === "ADMIN") return;
-
-  const subject = await db.query.subjects.findFirst({ where: eq(subjects.id, courseId) });
-  if (!subject) {
-    throw new Error(`Forbidden: course ${courseId} not found`);
-  }
-
-  const teacherId = await resolveTeacherId(userId);
-  if (teacherId && subject.teacherId === teacherId) {
-    return;
-  }
-
-  throw new Error(`Forbidden: user ${userId} has no write access to course ${courseId}`);
-}

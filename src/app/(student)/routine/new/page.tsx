@@ -6,9 +6,13 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
+import { requireAuth } from "@/lib/auth";
+
 export const dynamic = "force-dynamic";
 
 export default async function NewRoutinePage() {
+  await requireAuth(["TEACHER", "ADMIN"]);
+
   const allSubjects = await db.query.subjects.findMany({
     orderBy: [asc(subjects.name)],
   });
