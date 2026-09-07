@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "tsx scripts/maintenance/migrate-schema-sync.ts && next build",
     "start": "next start",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:sync": "tsx scripts/maintenance/migrate-schema-sync.ts",
     "db:studio": "drizzle-kit studio",
     "db:verify": "tsx --env-file=.env.local scripts/verify-db.ts",
     "db:seed": "tsx --env-file=.env.local src/db/seed.ts",
