@@ -65,7 +65,7 @@ test.describe("CR Daily Attendance — Morning Roll Call", () => {
     await expect(
       crPage.locator("h1", { hasText: /Good (morning|afternoon|evening), Aashish/i }),
     ).toBeVisible({ timeout: 30000 });
-    const morningRollCallLink = crPage.getByRole("link", { name: /Morning Roll Call/i });
+    const morningRollCallLink = crPage.getByRole("link", { name: /(Take Attendance|Morning Roll Call)/i });
     await expect(morningRollCallLink).toBeVisible({ timeout: 10000 });
 
     // Step 2: navigate to the roll-call form

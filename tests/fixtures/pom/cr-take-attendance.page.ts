@@ -27,10 +27,9 @@ export class CRTakeAttendancePage extends BasePage {
 
   constructor(page: Page) {
     super(page);
-    // The page renders <h1>Morning Roll Call</h1> at the top of the
-    // take-attendance route. Use a strict text match to avoid picking up
-    // unrelated H1s.
-    this.pageTitle = page.locator("h1", { hasText: /^Morning Roll Call$/ });
+    // The page renders <h1>Daily Attendance</h1> at the top of the
+    // take-attendance route.
+    this.pageTitle = page.locator("h1", { hasText: /(Daily Attendance|Take Attendance|Morning Roll Call)/i });
 
     // Roster rows: each <div class="...flex justify-between items-center...">
     // contains a <p class="font-semibold"> with the student name and a
@@ -49,7 +48,7 @@ export class CRTakeAttendancePage extends BasePage {
       return row.getByRole("button", { name: new RegExp(`^${cap(status)}$`, "i") });
     };
 
-    this.submitButton = page.getByRole("button", { name: /Submit Roll Call/i });
+    this.submitButton = page.getByRole("button", { name: /(Submit Attendance|Submit Roll Call)/i });
     // The banner is a single leaf <div> with the result-classes combo. Match
     // by the data-attribute we render so this stays specific even when the
     // banner is a sibling of an unrelated <div> on the page.
