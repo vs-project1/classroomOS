@@ -3,8 +3,18 @@ export type { NavBadgeKey, NavBadges };
 
 import { and, count, eq, gt, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { assignmentSubmissions, enrollments, homework, notifications, subjects } from "@/db/schema";
+import {
+  assignmentSubmissions,
+  enrollments,
+  homework,
+  notifications,
+  subjects,
+  attendanceCorrectionRequests,
+  dailyAttendance,
+  dailySessions,
+} from "@/db/schema";
 import { getCurrentUser, resolveCurrentStudent, type SessionUser } from "@/lib/auth";
+import { getSemesterVariants } from "@/lib/utils/roman";
 
 /**
  * Server-resolved navigation badge counts for the current session user.
@@ -29,7 +39,7 @@ async function getRoleBadges(user: SessionUser): Promise<NavBadges> {
     case "CR":
       return getAssignmentsDueBadge();
     case "TEACHER":
-      return getPendingGradingBadge(user);
+      return getPendingDisputesBadge(user);
     case "ADMIN":
     default:
       return {};
@@ -75,16 +85,31 @@ async function getAssignmentsDueBadge(): Promise<NavBadges> {
   return assignmentsDue > 0 ? { assignmentsDue } : {};
 }
 
-async function getPendingGradingBadge(user: SessionUser): Promise<NavBadges> {
+async function getPendingDisputesBadge(user: SessionUser): Promise<NavBadges> {
   if (!user.teacherId) return {};
+
+  const assignedSubjects = await db
+    .select({ semester: subjects.semester })
+    .from(subjects)
+    .where(eq(subjects.teacherId, user.teacherId));
+
+  const teacherSemesters = [...new Set(assignedSubjects.map((s) => s.semester))];
+  const teacherSemesterVariants = teacherSemesters.flatMap((sem) => getSemesterVariants(sem));
+
+  if (teacherSemesterVariants.length === 0) return {};
 
   const rows = await db
     .select({ value: count() })
-    .from(assignmentSubmissions)
-    .innerJoin(homework, eq(assignmentSubmissions.homeworkId, homework.id))
-    .innerJoin(subjects, eq(homework.subjectId, subjects.id))
-    .where(and(eq(subjects.teacherId, user.teacherId), inArray(assignmentSubmissions.status, ["submitted", "late"])));
+    .from(attendanceCorrectionRequests)
+    .innerJoin(dailyAttendance, eq(attendanceCorrectionRequests.attendanceId, dailyAttendance.id))
+    .innerJoin(dailySessions, eq(dailyAttendance.dailySessionId, dailySessions.id))
+    .where(
+      and(
+        eq(attendanceCorrectionRequests.status, "pending"),
+        inArray(dailySessions.semester, teacherSemesterVariants)
+      )
+    );
 
-  const pendingGrading = Number(rows[0]?.value ?? 0);
-  return pendingGrading > 0 ? { pendingGrading } : {};
+  const pendingDisputes = Number(rows[0]?.value ?? 0);
+  return pendingDisputes > 0 ? { pendingDisputes } : {};
 }

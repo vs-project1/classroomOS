@@ -4,7 +4,6 @@ import {
   subjects,
   weeklyRoutine,
   homework,
-  assignmentSubmissions,
   attendanceCorrectionRequests,
   dailyAttendance,
   dailySessions,
@@ -34,20 +33,6 @@ export default async function TeacherDashboard() {
     .select()
     .from(subjects)
     .where(eq(subjects.teacherId, user.teacherId));
-
-  // Pending grading: submitted/late submissions on this teacher's subjects
-  const [pendingRow] = await db
-    .select({ value: count() })
-    .from(assignmentSubmissions)
-    .innerJoin(homework, eq(assignmentSubmissions.homeworkId, homework.id))
-    .innerJoin(subjects, eq(homework.subjectId, subjects.id))
-    .where(
-      and(
-        eq(subjects.teacherId, user.teacherId),
-        inArray(assignmentSubmissions.status, ["submitted", "late"])
-      )
-    );
-  const pendingGrading = Number(pendingRow?.value ?? 0);
 
   // Pending disputes: pending attendance correction requests for teacher's semesters
   const teacherSemesters = [...new Set(assignedSubjects.map((s) => s.semester))];
@@ -105,7 +90,7 @@ export default async function TeacherDashboard() {
       <p className="text-muted-foreground">Welcome to the Teacher Portal, {user.name}.</p>
 
       {/* Pending Actions Alert Section */}
-      {(pendingDisputes > 0 || pendingGrading > 0) && (
+      {pendingDisputes > 0 && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -113,44 +98,25 @@ export default async function TeacherDashboard() {
               <h2 className="text-base font-bold text-foreground">Pending Actions Required</h2>
             </div>
             <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-              {pendingDisputes + pendingGrading} item{pendingDisputes + pendingGrading > 1 ? "s" : ""}
+              {pendingDisputes} dispute{pendingDisputes > 1 ? "s" : ""}
             </span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            {pendingDisputes > 0 && (
-              <Link
-                href="/teacher/attendance"
-                className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border/60 hover:border-primary/50 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-sm border border-amber-500/20">
-                    {pendingDisputes}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Attendance Disputes</p>
-                    <p className="text-xs text-muted-foreground">Student correction requests to review</p>
-                  </div>
+          <div className="pt-1">
+            <Link
+              href="/teacher/attendance"
+              className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border/60 hover:border-primary/50 transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-sm border border-amber-500/20">
+                  {pendingDisputes}
                 </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              </Link>
-            )}
-            {pendingGrading > 0 && (
-              <Link
-                href="/admin/homework"
-                className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border/60 hover:border-primary/50 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm border border-blue-500/20">
-                    {pendingGrading}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Pending Grading</p>
-                    <p className="text-xs text-muted-foreground">Assignment submissions waiting for review</p>
-                  </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Attendance Disputes</p>
+                  <p className="text-xs text-muted-foreground">Student correction requests awaiting your review</p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              </Link>
-            )}
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </Link>
           </div>
         </div>
       )}

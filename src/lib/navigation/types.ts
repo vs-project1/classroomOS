@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 
 export type UserRole = "STUDENT" | "TEACHER" | "CR" | "ADMIN";
 
-export type NavBadgeKey = "assignmentsDue" | "pendingGrading" | "notifications";
+export type NavBadgeKey = "assignmentsDue" | "pendingDisputes" | "notifications";
 
 export type NavItem = {
   label: string;
@@ -30,7 +30,7 @@ export type NavBadges = Partial<Record<NavBadgeKey, number>>;
 
 export const badgeUnitLabels: Record<NavBadgeKey, string> = {
   assignmentsDue: "due",
-  pendingGrading: "to grade",
+  pendingDisputes: "pending",
   notifications: "unread",
 };
 

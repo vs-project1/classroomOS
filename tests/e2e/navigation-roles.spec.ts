@@ -99,15 +99,14 @@ test.describe("Navigation IA: role-aware shells", () => {
       await expect(sidebar.getByText("Teacher Portal").first()).toBeVisible();
       await expect(sidebar.getByText("Student Portal")).toHaveCount(0);
 
-      // TEACHING section incl. Grading under WORK
+      // TEACHING section incl. Attendance with pending disputes
       await expect(sidebar.getByText("TEACHING")).toBeVisible();
       await expect(sidebar.getByText("WORK")).toBeVisible();
       await expect(sidebar.locator("a[href='/today']").first()).toBeVisible();
-      await expect(sidebar.locator("a[href='/subjects']").first()).toBeVisible();
+      await expect(sidebar.locator("a[href='/teacher/subjects']").first()).toBeVisible();
       await expect(sidebar.locator("a[href='/teacher/attendance']").first()).toBeVisible();
       await expect(sidebar.locator("a[href='/teacher/lecture-logs']").first()).toBeVisible();
       await expect(sidebar.locator("a[href='/teacher/resources']").first()).toBeVisible();
-      await expect(sidebar.locator("a[href='/teacher/grading']").first()).toBeVisible();
 
       // Student-only destinations must not leak into teacher navigation
       await expect(sidebar.locator("a[href='/homework']").first()).toHaveCount(0);
@@ -116,9 +115,7 @@ test.describe("Navigation IA: role-aware shells", () => {
       await expect(sidebar.locator("a[href='/events']").first()).toHaveCount(0);
     });
 
-    // Seed-e2e guarantees one ungraded status='submitted' submission for the
-    // assigned teacher, so Grading carries a real pendingGrading count.
-    test("TC-NAV-ROLE-05: Grading nav item renders a live pending-grading badge", async ({
+    test("TC-NAV-ROLE-05: Attendance nav item renders in teacher navigation", async ({
       teacherPage,
     }) => {
       await teacherPage.setViewportSize({ width: 1280, height: 800 });
@@ -126,12 +123,8 @@ test.describe("Navigation IA: role-aware shells", () => {
       await teacherPage.waitForLoadState("domcontentloaded");
 
       const sidebar = teacherPage.locator("aside").filter({ hasText: /Classroom OS/i }).first();
-      const gradingLink = sidebar.locator("a[href='/teacher/grading']").first();
-      await expect(gradingLink).toBeVisible({ timeout: 10000 });
-
-      const badge = gradingLink.locator("[data-slot='nav-badge']");
-      await expect(badge).toBeVisible();
-      await expect(badge).toHaveText(/^\d+(\+)?$/);
+      const attendanceLink = sidebar.locator("a[href='/teacher/attendance']").first();
+      await expect(attendanceLink).toBeVisible({ timeout: 10000 });
     });
   });
 

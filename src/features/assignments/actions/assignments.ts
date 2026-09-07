@@ -392,3 +392,41 @@ export async function updateHomeworkStatus(
     console.error("Failed to update status:", error);
   }
 }
+
+/**
+ * Toggles a student's personal completion status for an assigned homework
+ * (Handwritten workflow in Nepal: completed in physical notebook).
+ */
+export async function toggleHomeworkCompletionAction(
+  homeworkId: string
+): Promise<{ success: boolean; completed: boolean; message?: string }> {
+  await requireAuth(["STUDENT", "CR"]);
+  const studentId = await resolveCurrentStudentId();
+
+  const existing = await db.query.assignmentSubmissions.findFirst({
+    where: and(
+      eq(assignmentSubmissions.homeworkId, homeworkId),
+      eq(assignmentSubmissions.studentId, studentId)
+    ),
+  });
+
+  if (existing) {
+    await db.delete(assignmentSubmissions).where(eq(assignmentSubmissions.id, existing.id));
+    revalidatePath("/homework");
+    revalidatePath("/");
+    return { success: true, completed: false, message: "Marked as pending." };
+  } else {
+    await db.insert(assignmentSubmissions).values({
+      id: `sub_${crypto.randomUUID()}`,
+      homeworkId,
+      studentId,
+      status: "submitted",
+      content: "Completed in notebook",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    revalidatePath("/homework");
+    revalidatePath("/");
+    return { success: true, completed: true, message: "Marked as completed in notebook." };
+  }
+}

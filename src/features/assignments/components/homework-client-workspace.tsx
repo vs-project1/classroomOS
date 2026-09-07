@@ -1,51 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
-import { saveSubmissionDraftAction, submitAssignmentAction, SubmissionActionResult } from "@/features/assignments/actions/assignments";
-import { uploadFiles } from "@/utils/uploadthing";
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { toggleHomeworkCompletionAction } from "@/features/assignments/actions/assignments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Book,
   Clock,
   CheckCircle2,
-  AlertTriangle,
-  Award,
-  UploadCloud,
-  FileText,
-  Trash2,
-  Calendar,
-  Layers,
-  Send,
-  Save,
-  Check,
-  FileCheck,
+  PenTool,
+  ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
+import { formatNepaliDateTime } from "@/lib/nepali-date";
 
 interface SubmissionInfo {
   id: string;
-  status: string; // 'draft' | 'submitted' | 'graded' | 'late'
+  status: string;
   content?: string | null;
-  fileUrl?: string | null;
-  fileName?: string | null;
-  fileSize?: number | null;
-  grade?: string | null;
-  score?: number | null;
-  feedback?: string | null;
   submittedAt?: Date | string | null;
-  gradedAt?: Date | string | null;
-  gradedByTeacher?: {
-    name: string;
-  } | null;
 }
 
 interface HomeworkItem {
@@ -54,7 +29,7 @@ interface HomeworkItem {
   description: string | null;
   assignedDate: Date | string;
   dueDate: Date | string;
-  status: string; // 'active' | 'completed' | 'archived'
+  status: string;
   subject: {
     id: string;
     name: string;
@@ -74,206 +49,112 @@ export function HomeworkClientWorkspace({
   currentStudentId,
   currentUserRole,
 }: HomeworkClientWorkspaceProps) {
-  const [selectedHw, setSelectedHw] = useState<HomeworkItem | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("active");
-
-  // Form State inside Dialog
-  const [content, setContent] = useState("");
-  const [fileUrl, setFileUrl] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [fileSize, setFileSize] = useState<number | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [completedMap, setCompletedMap] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const hw of allHomework) {
+      const hasSubmission = (hw.submissions && hw.submissions.length > 0) || hw.status === "completed";
+      if (hasSubmission) {
+        initial[hw.id] = true;
+      }
+    }
+    return initial;
+  });
 
   const [isPending, startTransition] = useTransition();
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const now = new Date();
   const fortyEightHoursMs = 48 * 60 * 60 * 1000;
 
-  // Helper to open modal for an assignment
-  const openSubmissionModal = (hw: HomeworkItem) => {
-    setSelectedHw(hw);
-    const existingSub = hw.submissions?.[0];
-    setContent(existingSub?.content || "");
-    setFileUrl(existingSub?.fileUrl || null);
-    setFileName(existingSub?.fileName || null);
-    setFileSize(existingSub?.fileSize || null);
-    setSubmitSuccess(false);
-    setModalOpen(true);
+  const handleToggle = (homeworkId: string) => {
+    const previousState = !!completedMap[homeworkId];
+    const nextState = !previousState;
+
+    // Optimistic update
+    setCompletedMap((prev) => ({ ...prev, [homeworkId]: nextState }));
+    setLoadingId(homeworkId);
+
+    startTransition(async () => {
+      try {
+        const res = await toggleHomeworkCompletionAction(homeworkId);
+        if (res.success) {
+          toast.success(res.message ?? (nextState ? "Marked as completed in notebook." : "Marked as pending."));
+        } else {
+          // Revert
+          setCompletedMap((prev) => ({ ...prev, [homeworkId]: previousState }));
+          toast.error("Failed to update status. Please try again.");
+        }
+      } catch (err) {
+        setCompletedMap((prev) => ({ ...prev, [homeworkId]: previousState }));
+        toast.error("An error occurred while updating homework status.");
+      } finally {
+        setLoadingId(null);
+      }
+    });
   };
 
-  // Classify Homework
+  // Classify Homework based on handwritten status
   const activeList: HomeworkItem[] = [];
   const dueSoonList: HomeworkItem[] = [];
   const overdueList: HomeworkItem[] = [];
-  const submittedList: HomeworkItem[] = [];
-  const gradedList: HomeworkItem[] = [];
+  const completedList: HomeworkItem[] = [];
 
   for (const hw of allHomework) {
-    const sub = hw.submissions?.[0];
+    const isCompleted = !!completedMap[hw.id];
     const dueDate = new Date(hw.dueDate);
-    const isSubmitted = sub?.status === "submitted" || sub?.status === "late" || (hw.status === "completed" && !sub?.grade);
-    const isGraded = sub?.status === "graded" || sub?.score != null || (hw.status === "completed" && sub?.grade);
-    const isDueSoon = !isSubmitted && !isGraded && dueDate.getTime() >= now.getTime() && dueDate.getTime() <= now.getTime() + fortyEightHoursMs;
-    const isOverdue = !isSubmitted && !isGraded && dueDate.getTime() < now.getTime();
+    const isDueSoon = !isCompleted && dueDate.getTime() >= now.getTime() && dueDate.getTime() <= now.getTime() + fortyEightHoursMs;
+    const isOverdue = !isCompleted && dueDate.getTime() < now.getTime();
 
-    if (isGraded) {
-      gradedList.push(hw);
-    } else if (isSubmitted) {
-      submittedList.push(hw);
+    if (isCompleted) {
+      completedList.push(hw);
     } else {
-      // Pending / Active
       activeList.push(hw);
       if (isDueSoon) dueSoonList.push(hw);
       if (isOverdue) overdueList.push(hw);
     }
   }
 
-  // Handle Real File Upload (uploadthing `assignmentSubmission` route).
-  // The previous implementation stored a fabricated utfs.io URL with no
-  // validation — files never actually left the browser.
-  const [isUploading, setIsUploading] = useState(false);
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 16 * 1024 * 1024) {
-      toast.error("File exceeds the 16MB limit.");
-      e.target.value = "";
-      return;
-    }
-
-    setFileName(file.name);
-    setFileSize(file.size);
-    setIsUploading(true);
-    try {
-      const res = await uploadFiles("assignmentSubmission", { files: [file] });
-      const uploaded = res[0];
-      setFileUrl(uploaded.url ?? (uploaded.key ? `https://utfs.io/f/${uploaded.key}` : null));
-      toast.success("Attachment ready.");
-    } catch (err) {
-      console.error("Upload failed:", err);
-      setFileName(null);
-      setFileSize(null);
-      setFileUrl(null);
-      toast.error("Upload failed. Check your connection — only PDF, image, and text/code files up to 16MB are accepted.");
-    } finally {
-      setIsUploading(false);
-      e.target.value = "";
-    }
-  };
-
-  const handleSaveDraft = () => {
-    if (!selectedHw) return;
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.set("homeworkId", selectedHw.id);
-      formData.set("content", content);
-      if (fileUrl) formData.set("fileUrl", fileUrl);
-      if (fileName) formData.set("fileName", fileName);
-      if (fileSize) formData.set("fileSize", fileSize.toString());
-
-      const res = await saveSubmissionDraftAction(null, formData);
-      if (res.success) {
-        toast.success("Draft saved.");
-      } else {
-        toast.error(res.message || "Failed to save draft.");
-      }
-    });
-  };
-
-  const handleSubmitWork = () => {
-    if (!selectedHw) return;
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.set("homeworkId", selectedHw.id);
-      formData.set("content", content);
-      if (fileUrl) formData.set("fileUrl", fileUrl);
-      if (fileName) formData.set("fileName", fileName);
-      if (fileSize) formData.set("fileSize", fileSize.toString());
-
-      const res = await submitAssignmentAction(null, formData);
-      if (res.success) {
-        toast.success("Assignment submitted.", { description: "Your instructor can now review it." });
-        setSubmitSuccess(true);
-      } else {
-        toast.error(res.message || "Failed to submit assignment.");
-      }
-    });
-  };
-
-  const handleViewStatus = () => {
-    const hwId = selectedHw?.id;
-    setModalOpen(false);
-    setSubmitSuccess(false);
-    setActiveTab("submitted");
-    setTimeout(() => {
-      document.getElementById(`assignment-${hwId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 150);
-  };
-
-  const handleSubmitAnother = () => {
-    setContent("");
-    setFileUrl(null);
-    setFileName(null);
-    setFileSize(null);
-    setSubmitSuccess(false);
-  };
-
-  // Move focus to the success heading when the form swaps to the success
-  // panel, so keyboard and screen-reader users don't lose their place.
-  const successHeadingRef = useRef<HTMLParagraphElement>(null);
-  useEffect(() => {
-    if (submitSuccess) {
-      successHeadingRef.current?.focus();
-    }
-  }, [submitSuccess]);
-
-  const renderCard = (hw: HomeworkItem, defaultBadge?: string) => {
-    const sub = hw.submissions?.[0];
+  const renderCard = (hw: HomeworkItem) => {
+    const isCompleted = !!completedMap[hw.id];
     const dueDate = new Date(hw.dueDate);
-    const isDueSoon = dueDate.getTime() >= now.getTime() && dueDate.getTime() <= now.getTime() + fortyEightHoursMs;
-    const isOverdue = dueDate.getTime() < now.getTime();
-    const isSubmitted = sub?.status === "submitted" || sub?.status === "late";
-    const isGraded = sub?.status === "graded" || sub?.score != null;
-
+    const isDueSoon = !isCompleted && dueDate.getTime() >= now.getTime() && dueDate.getTime() <= now.getTime() + fortyEightHoursMs;
+    const isOverdue = !isCompleted && dueDate.getTime() < now.getTime();
     const dueDateFormatted = formatNepaliDateTime(dueDate);
+    const isThisLoading = loadingId === hw.id;
 
     return (
       <div
         key={hw.id}
         id={`assignment-${hw.id}`}
         data-testid="assignment-card"
-        className="flex flex-col justify-between rounded-xl border bg-card p-5 shadow-sm hover:shadow-md transition-all text-card-foreground"
+        className={`flex flex-col justify-between rounded-2xl border bg-card p-5 shadow-sm transition-all hover:shadow-md text-card-foreground ${
+          isCompleted ? "border-emerald-500/20 bg-emerald-500/[0.02]" : "border-border/60"
+        }`}
       >
         <div>
           {/* Header Badges */}
-          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
             <span className="px-2.5 py-0.5 rounded-md text-xs font-bold bg-primary/10 text-primary font-mono border border-primary/20">
               {hw.subject.code}
             </span>
 
-            {/* Status Chips */}
-            {isGraded ? (
-              <span className="badge px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                Graded
-              </span>
-            ) : isSubmitted ? (
-              <span className="badge px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                Submitted
+            {/* Status Badges */}
+            {isCompleted ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <CheckCircle2 className="w-3 h-3" /> Done in Notebook
               </span>
             ) : isOverdue ? (
-              <span className="badge px-2.5 py-0.5 rounded-full text-xs font-bold bg-destructive/10 text-destructive border border-destructive/20">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-destructive/10 text-destructive border border-destructive/20">
                 Overdue
               </span>
             ) : isDueSoon ? (
-              <span className="badge px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                 Due Soon
               </span>
             ) : (
-              <span className="badge px-2.5 py-0.5 rounded-full text-xs font-bold bg-muted text-muted-foreground">
-                Active
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground">
+                To Do
               </span>
             )}
           </div>
@@ -281,69 +162,56 @@ export function HomeworkClientWorkspace({
           <h3 className="font-bold text-base text-foreground leading-snug mb-1">
             {hw.title}
           </h3>
-          <p className="text-xs text-muted-foreground font-medium mb-2">
+          <p className="text-xs text-muted-foreground font-medium mb-3">
             {hw.subject.name}
           </p>
 
           {hw.description && (
-            <p className="text-xs text-muted-foreground line-clamp-2 mb-4 leading-relaxed">
+            <p className="text-xs text-muted-foreground line-clamp-3 mb-4 leading-relaxed bg-muted/30 p-2.5 rounded-lg border border-border/20">
               {hw.description}
             </p>
           )}
-
-          {/* Graded Card Feedback Section */}
-          {isGraded && sub && (
-            <div
-              data-testid="grade-feedback-card"
-              className="mt-3 p-3.5 rounded-xl border bg-emerald-500/5 border-emerald-500/20 space-y-2 mb-3"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <Award className="w-4 h-4" /> Grade & Feedback
-                </span>
-                <div className="flex items-center gap-2">
-                  {sub.score != null && (
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold text-xs tabular-nums">
-                      Score: {sub.score}/100
-                    </span>
-                  )}
-                  {sub.grade && (
-                    <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-bold text-xs">
-                      Grade: {sub.grade}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {sub.feedback && (
-                <p className="text-xs text-foreground/90 italic bg-card/60 p-2.5 rounded-lg border border-border/30">
-                  "{sub.feedback}"
-                </p>
-              )}
-
-              {sub.gradedByTeacher && (
-                <p className="text-xs text-muted-foreground font-medium">
-                  Graded by {sub.gradedByTeacher.name}
-                </p>
-              )}
-            </div>
-          )}
         </div>
 
-        {/* Footer Meta & Button */}
-        <div className="pt-4 border-t border-border/40 flex items-center justify-between text-xs">
-          <span className="text-muted-foreground font-medium flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5" /> Due: {dueDateFormatted}
-          </span>
+        {/* Footer Meta & Actions */}
+        <div className="pt-4 border-t border-border/40 space-y-3">
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
+            <span className="flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" /> Due: {dueDateFormatted}
+            </span>
+            <Link
+              href={`/homework/${hw.id}`}
+              className={buttonVariants({ variant: "ghost", size: "xs" })}
+            >
+              Details <ArrowRight className="w-3 h-3 ml-0.5" />
+            </Link>
+          </div>
 
-          <Button
-            size="sm"
-            variant={isGraded ? "outline" : isSubmitted ? "secondary" : "default"}
-            onClick={() => openSubmissionModal(hw)}
-            className="cursor-pointer"
-          >
-            {isGraded ? "View Grade & Feedback" : isSubmitted ? "Edit Submission" : "Submit Assignment"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={isCompleted ? "outline" : "default"}
+              disabled={isPending && isThisLoading}
+              onClick={() => handleToggle(hw.id)}
+              className={`w-full gap-1.5 font-semibold text-xs cursor-pointer ${
+                isCompleted
+                  ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                  : ""
+              }`}
+            >
+              {isCompleted ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  Completed in Notebook (Undo)
+                </>
+              ) : (
+                <>
+                  <PenTool className="w-3.5 h-3.5" />
+                  Mark as Done in Notebook
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -357,20 +225,25 @@ export function HomeworkClientWorkspace({
           <div className="flex items-center gap-2 mb-1">
             <Book className="w-6 h-6 text-primary" />
             <h2 className="text-2xl md:text-3xl font-bold font-fira-sans tracking-tight text-foreground">
-              Assignments
+              Homework & Assignments
             </h2>
           </div>
           <p className="text-muted-foreground text-sm max-w-2xl">
-            Track module coursework, submit lab writeups & code files, save drafts, and view instructor grading remarks.
+            Track questions and deliverables assigned by your teachers. Complete them by hand in your physical notebooks and keep your study diary organized.
           </p>
+        </div>
+
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/15 text-xs text-primary font-medium">
+          <Sparkles className="w-4 h-4" />
+          <span>Handwritten Study Tracker</span>
         </div>
       </div>
 
-      {/* 5 Filter Tabs */}
+      {/* 4 Filter Tabs */}
       <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 w-full h-auto p-1 bg-muted/60 rounded-xl">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full h-auto p-1 bg-muted/60 rounded-xl">
           <TabsTrigger value="active" className="py-2.5 font-semibold text-xs cursor-pointer">
-            Active ({activeList.length})
+            To Do ({activeList.length})
           </TabsTrigger>
           <TabsTrigger value="dueSoon" className="py-2.5 font-semibold text-xs cursor-pointer">
             Due Soon ({dueSoonList.length})
@@ -378,15 +251,12 @@ export function HomeworkClientWorkspace({
           <TabsTrigger value="overdue" className="py-2.5 font-semibold text-xs cursor-pointer">
             Overdue ({overdueList.length})
           </TabsTrigger>
-          <TabsTrigger value="submitted" className="py-2.5 font-semibold text-xs cursor-pointer">
-            Submitted ({submittedList.length})
-          </TabsTrigger>
-          <TabsTrigger value="graded" className="py-2.5 font-semibold text-xs cursor-pointer">
-            Graded ({gradedList.length})
+          <TabsTrigger value="completed" className="py-2.5 font-semibold text-xs cursor-pointer">
+            Done in Notebook ({completedList.length})
           </TabsTrigger>
         </TabsList>
 
-        {/* 1. Active Tab */}
+        {/* 1. Active / To Do Tab */}
         <TabsContent value="active" className="space-y-4">
           {activeList.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -394,7 +264,7 @@ export function HomeworkClientWorkspace({
             </div>
           ) : (
             <div className="py-16 text-center text-sm text-muted-foreground rounded-xl border border-dashed bg-muted/5">
-              No pending active assignments. All coursework completed!
+              No pending homework! All assigned coursework is marked as done in your notebook.
             </div>
           )}
         </TabsContent>
@@ -407,7 +277,7 @@ export function HomeworkClientWorkspace({
             </div>
           ) : (
             <div className="py-16 text-center text-sm text-muted-foreground rounded-xl border border-dashed bg-muted/5">
-              No assignments due within the next 48 hours.
+              No homework due within the next 48 hours.
             </div>
           )}
         </TabsContent>
@@ -420,192 +290,24 @@ export function HomeworkClientWorkspace({
             </div>
           ) : (
             <div className="py-16 text-center text-sm text-muted-foreground rounded-xl border border-dashed bg-muted/5">
-              No overdue assignments. Great job staying on schedule!
+              No overdue homework. Great job staying on schedule!
             </div>
           )}
         </TabsContent>
 
-        {/* 4. Submitted Tab */}
-        <TabsContent value="submitted" className="space-y-4">
-          {submittedList.length > 0 ? (
+        {/* 4. Completed Tab */}
+        <TabsContent value="completed" className="space-y-4">
+          {completedList.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {submittedList.map((hw) => renderCard(hw))}
+              {completedList.map((hw) => renderCard(hw))}
             </div>
           ) : (
             <div className="py-16 text-center text-sm text-muted-foreground rounded-xl border border-dashed bg-muted/5">
-              No submitted assignments pending grading.
-            </div>
-          )}
-        </TabsContent>
-
-        {/* 5. Graded Tab */}
-        <TabsContent value="graded" className="space-y-4">
-          {gradedList.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {gradedList.map((hw) => renderCard(hw))}
-            </div>
-          ) : (
-            <div className="py-16 text-center text-sm text-muted-foreground rounded-xl border border-dashed bg-muted/5">
-              No graded assignments yet. Evaluated work will show here.
+              No assignments marked as completed yet. Once you write them in your notebook, mark them here.
             </div>
           )}
         </TabsContent>
       </Tabs>
-
-      {/* Submission & Draft Modal Dialog */}
-      <Dialog
-        open={modalOpen}
-        onOpenChange={(open) => {
-          setModalOpen(open);
-          if (!open) setSubmitSuccess(false);
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedHw?.title || "Submit Assignment"}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedHw?.subject.name} ({selectedHw?.subject.code}) — Provide your solution text and attach your project files.
-            </DialogDescription>
-          </DialogHeader>
-
-          {submitSuccess ? (
-            <div className="flex flex-col items-center gap-4 py-6 text-center" data-testid="submission-success" role="status">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500 shrink-0" />
-              <div className="space-y-1">
-                <p ref={successHeadingRef} tabIndex={-1} className="text-base font-bold text-foreground outline-none focus:outline-none">
-                  Assignment submitted!
-                </p>
-                <p className="text-xs text-muted-foreground font-medium max-w-xs">
-                  Your submission for &ldquo;{selectedHw?.title}&rdquo; has been received and is awaiting grading.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 pt-1">
-                <Button size="sm" variant="outline" onClick={handleViewStatus} className="gap-1 text-xs cursor-pointer">
-                  <FileCheck className="w-3.5 h-3.5" />
-                  View Status
-                </Button>
-                <Button size="sm" variant="default" onClick={handleSubmitAnother} className="gap-1 text-xs cursor-pointer">
-                  <Send className="w-3.5 h-3.5" />
-                  Edit Submission
-                </Button>
-              </div>
-            </div>
-          ) : (
-          <>
-          <div className="space-y-4 pt-1">
-            {/* Written Text Solution */}
-            <div>
-              <label htmlFor="content" className="block text-xs font-semibold text-foreground mb-1.5">
-                Written Solution / Code Analysis
-              </label>
-              <textarea
-                name="content"
-                id="content"
-                rows={4}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Enter your solution analysis or code writeup..."
-                className="w-full rounded-lg border border-input bg-background p-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none font-mono"
-              />
-            </div>
-
-            {/* File Upload Dropzone */}
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
-                File Attachment (PDF, image, or text/code file up to 16MB)
-              </label>
-
-              <div
-                data-testid="file-upload-dropzone"
-                className="relative border-2 border-dashed border-border/60 hover:border-primary/50 rounded-xl p-5 text-center bg-muted/10 transition-colors flex flex-col items-center justify-center cursor-pointer"
-              >
-                <input
-                  type="file"
-                  id="file-upload-input"
-                  name="file"
-                  onChange={handleFileChange}
-                  disabled={isUploading}
-                  aria-label="Upload assignment file (PDF, image, or text/code, max 16MB)"
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10 disabled:cursor-wait"
-                />
-
-                <UploadCloud className="w-8 h-8 text-primary mb-2 opacity-80" />
-                <p className="text-xs font-semibold text-foreground">
-                  {isUploading ? "Uploading…" : "Click or drag files here to upload"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5 font-medium">
-                  PDF, image, or code/text file (max 16MB)
-                </p>
-              </div>
-
-              {/* Uploaded File Chip */}
-              {fileName && (
-                <div className="mt-2.5 p-2.5 rounded-lg border bg-card flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2 truncate">
-                    <FileText className="w-4 h-4 text-primary shrink-0" />
-                    <span className="font-medium text-foreground truncate">{fileName}</span>
-                    {fileSize && (
-                      <span className="text-muted-foreground text-xs font-medium">
-                        ({Math.round(fileSize / 1024)} KB)
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFileName(null);
-                      setFileUrl(null);
-                      setFileSize(null);
-                    }}
-                    className="p-1 text-muted-foreground hover:text-destructive rounded transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/40">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setModalOpen(false)}
-              >
-                Cancel
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isPending || isUploading}
-                onClick={handleSaveDraft}
-                className="gap-1 text-xs"
-              >
-                <Save className="w-3.5 h-3.5" />
-                Save Draft
-              </Button>
-
-              <Button
-                type="submit"
-                size="sm"
-                disabled={isPending || isUploading || (!content && !fileName && !fileUrl)}
-                onClick={handleSubmitWork}
-                className="gap-1 text-xs"
-              >
-                <Send className="w-3.5 h-3.5" />
-                Submit Assignment
-              </Button>
-            </div>
-          </div>
-          </>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

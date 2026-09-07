@@ -62,9 +62,6 @@ export default async function HomeworkDetailPage({ params }: Props) {
             ? {
                 id: existingSubmission.id,
                 content: existingSubmission.content,
-                fileUrl: existingSubmission.fileUrl,
-                fileName: existingSubmission.fileName,
-                fileSize: existingSubmission.fileSize,
                 status: existingSubmission.status,
               }
             : null
