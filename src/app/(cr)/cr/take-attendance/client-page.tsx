@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useTransition, useMemo, useEffect } from "react";
 import { 
@@ -202,7 +202,7 @@ export function DailyAttendanceClient({ roster, semester, initialNepaliDate, ini
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                 <Clock className="w-3.5 h-3.5" />
-                Morning Roll Call
+                Daily Attendance
               </span>
               {existingSessionInfo ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
@@ -212,16 +212,16 @@ export function DailyAttendanceClient({ roster, semester, initialNepaliDate, ini
               ) : (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
                   <FileEdit className="w-3.5 h-3.5" />
-                  New Roll Call (Not Submitted)
+                  New Attendance (Not Submitted)
                 </span>
               )}
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-              Morning Roll Call
+              Take Attendance
             </h1>
             <p className="text-sm text-muted-foreground">
-              Taking general daily roll call for <strong className="text-foreground">{formattedDates.nepali}</strong>.
+              Taking daily attendance for <strong className="text-foreground">{formattedDates.nepali}</strong>.
             </p>
           </div>
 
@@ -566,7 +566,7 @@ export function DailyAttendanceClient({ roster, semester, initialNepaliDate, ini
           ) : existingSessionInfo ? (
             `Update Attendance for ${selectedIsoDate}`
           ) : (
-            `Submit Roll Call for ${selectedIsoDate}`
+            `Submit Attendance for ${selectedIsoDate}`
           )}
         </Button>
       </div>

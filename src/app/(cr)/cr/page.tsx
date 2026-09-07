@@ -213,7 +213,13 @@ export default async function CRDashboard() {
               "bg-primary text-primary-foreground shadow-sm shadow-primary/30 hover:opacity-90"
             )}
           >
-            <Users className="w-4 h-4" /> Morning Roll Call
+            <Users className="w-4 h-4" /> Take Attendance
+          </Link>
+          <Link
+            href="/cr/attendance"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border border-border/60 bg-background hover:bg-muted transition-all"
+          >
+            <CheckCircle2 className="w-4 h-4" /> Cohort Attendance
           </Link>
           <Link
             href="/cr/log-session"

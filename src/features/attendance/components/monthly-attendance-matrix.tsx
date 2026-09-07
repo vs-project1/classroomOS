@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useMemo, useTransition } from "react";
 import { 
@@ -123,7 +123,7 @@ export function MonthlyAttendanceMatrix({ initialData, availableSemesters, curre
             Monthly Attendance Ledger
           </h1>
           <p className="text-sm text-muted-foreground">
-            Complete day-by-day morning roll call matrix for {data.monthName} {selectedYear}.
+            Complete day-by-day attendance matrix for {data.monthName} {selectedYear}.
           </p>
         </div>
 
@@ -176,7 +176,7 @@ export function MonthlyAttendanceMatrix({ initialData, availableSemesters, curre
         </div>
 
         <div className="bg-card border rounded-xl p-4 flex flex-col justify-between shadow-xs">
-          <span className="text-xs font-medium text-muted-foreground">Roll Calls Taken</span>
+          <span className="text-xs font-medium text-muted-foreground">Attendance Days</span>
           <div className="flex items-baseline justify-between mt-2">
             <span className="text-2xl font-bold text-primary">{data.stats.totalSessions} Days</span>
             <Calendar className="w-4 h-4 text-primary/60" />

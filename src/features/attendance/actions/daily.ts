@@ -1,6 +1,6 @@
 "use server";
 import { db } from "@/db";
-import { dailySessions, dailyAttendance, students, users } from "@/db/schema";
+import { dailySessions, dailyAttendance, students, users, studentProfiles } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/session";
 import crypto from "node:crypto";
 import { eq, and } from "drizzle-orm";
@@ -22,12 +22,20 @@ function nptStartOfDay(d: Date): Date {
 }
 
 export async function getDailyAttendanceForDateAction(semester: string, date: Date | string) {
-  await requireAuth(["CR", "ADMIN", "TEACHER"]);
+  const user = await requireAuth(["CR", "ADMIN", "TEACHER"]);
+  let activeSemester = semester;
+  if (user.role === "CR") {
+    const crProfile = await db.query.studentProfiles.findFirst({
+      where: eq(studentProfiles.userId, user.id),
+    });
+    const crSemInt = crProfile?.semester || 1;
+    activeSemester = `${crSemInt}${crSemInt === 1 ? 'st' : crSemInt === 2 ? 'nd' : crSemInt === 3 ? 'rd' : 'th'} Semester`;
+  }
   const targetDate = nptStartOfDay(typeof date === "string" ? new Date(date) : date);
 
   const session = await db.query.dailySessions.findFirst({
     where: and(
-      eq(dailySessions.semester, semester),
+      eq(dailySessions.semester, activeSemester),
       eq(dailySessions.date, targetDate)
     ),
   });
@@ -55,6 +63,14 @@ export async function submitDailyAttendanceAction(
   records: { studentId: string; status: "present" | "absent" | "late" | "excused" }[]
 ) {
   const user = await requireAuth(["CR", "ADMIN", "TEACHER"]);
+  let targetSemester = semester;
+  if (user.role === "CR") {
+    const crProfile = await db.query.studentProfiles.findFirst({
+      where: eq(studentProfiles.userId, user.id),
+    });
+    const crSemInt = crProfile?.semester || 1;
+    targetSemester = `${crSemInt}${crSemInt === 1 ? 'st' : crSemInt === 2 ? 'nd' : crSemInt === 3 ? 'rd' : 'th'} Semester`;
+  }
   const normalizedDate = nptStartOfDay(date);
 
   try {
@@ -64,7 +80,7 @@ export async function submitDailyAttendanceAction(
       // Check if session already exists for this date + semester
       const existingSession = await tx.query.dailySessions.findFirst({
         where: and(
-          eq(dailySessions.semester, semester),
+          eq(dailySessions.semester, targetSemester),
           eq(dailySessions.date, normalizedDate)
         ),
       });
@@ -81,7 +97,7 @@ export async function submitDailyAttendanceAction(
         await tx.insert(dailySessions).values({
           id: sessionId,
           date: normalizedDate,
-          semester,
+          semester: targetSemester,
           markedBy: user.id,
         });
       }

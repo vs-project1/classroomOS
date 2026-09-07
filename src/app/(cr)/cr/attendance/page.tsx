@@ -5,8 +5,13 @@ import { eq } from "drizzle-orm";
 import { getMonthlyAttendanceMatrixAction } from "@/features/attendance/actions/monthly";
 import { MonthlyAttendanceMatrix } from "@/features/attendance/components/monthly-attendance-matrix";
 import NepaliDate from "nepali-datetime";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import { CalendarCheck, CalendarDays } from "lucide-react";
 
-export default async function CRMonthlyAttendancePage({
+export const dynamic = "force-dynamic";
+
+export default async function CRAttendancePage({
   searchParams,
 }: {
   searchParams?: Promise<{ semester?: string }>;
@@ -45,6 +50,23 @@ export default async function CRMonthlyAttendancePage({
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <CalendarDays className="h-6 w-6 text-primary" /> Attendance Overview
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            Cohort attendance matrix and daily records for {semesterStr}.
+          </p>
+        </div>
+        <Link
+          href="/cr/take-attendance"
+          className={buttonVariants({ className: "w-full sm:w-auto" })}
+        >
+          <CalendarCheck className="h-4 w-4 mr-2" /> Take Attendance
+        </Link>
+      </div>
+
       <MonthlyAttendanceMatrix
         initialData={initialData}
         currentSemester={semesterStr}
