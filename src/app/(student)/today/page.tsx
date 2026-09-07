@@ -8,13 +8,12 @@ import { formatTime12h } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { DayStripSelector } from "./day-strip-selector";
 import { getTodayDeadlines } from "./queries";
-import { getPermissions, requireAuth } from "@/lib/auth";
+import { getPermissions, requireAuth, resolveCurrentStudent } from "@/lib/auth";
 import { getNavBadges } from "@/lib/navigation/badges";
 import { TimelineRiver, type TimelineRiverSlot } from "@/components/timetable/timeline-river";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 import NepaliDate from "nepali-datetime";
-import { toRoman } from "@/lib/utils/roman";
-import { studentProfiles } from "@/db/schema";
+import { getStudentCohort, getStudentTodaySchedule, getTeacherTodaySchedule } from "@/features/routine/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -104,24 +103,7 @@ export default async function TodayPage({ searchParams }: Props) {
   const greeting = nptHour < 12 ? "Good morning" : nptHour < 17 ? "Good afternoon" : "Good evening";
   const firstName = (user?.name ?? "").split(/\s+/)[0];
 
-  // Fetch student profile for fallback
-  let profile = null;
-  if (isClassMember && user.studentProfileId) {
-    profile = await db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.id, user.studentProfileId),
-    });
-  }
-
-  const [dayRoutinesRaw, loggedSessions, permissions, deadlines, navBadges] = await Promise.all([
-    db.query.weeklyRoutine.findMany({
-      where: eq(weeklyRoutine.dayOfWeek, dayOfWeek),
-      orderBy: [asc(weeklyRoutine.startTime)],
-      with: {
-        subject: {
-          with: { teacher: true },
-        },
-      },
-    }),
+  const [loggedSessions, permissions, deadlines, navBadges] = await Promise.all([
     db.query.classSessions.findMany({
       where: and(
         gte(classSessions.sessionDate, dayStart),
@@ -133,14 +115,41 @@ export default async function TodayPage({ searchParams }: Props) {
     getNavBadges(),
   ]);
 
-  let dayRoutines = dayRoutinesRaw;
-  if (isClassMember && profile && profile.semester != null) {
-    const semesterRoman = toRoman(profile.semester);
-    dayRoutines = dayRoutinesRaw.filter((r) => r.subject?.semester === semesterRoman);
+  let dayRoutines: {
+    id: string;
+    dayOfWeek: number;
+    subjectId: string;
+    startTime: string;
+    endTime: string;
+    room?: string | null;
+    notes?: string | null;
+    teacherName?: string | null;
+    subject: {
+      name: string;
+      code: string;
+      teacher?: { name: string } | null;
+    };
+  }[] = [];
+
+  if (isClassMember) {
+    const student = await resolveCurrentStudent();
+    const cohort = await getStudentCohort(student?.id, user.id);
+    dayRoutines = await getStudentTodaySchedule({
+      allowedSubjectIds: cohort.allowedSubjectIds,
+      dayOfWeek,
+    });
   } else if (role === "TEACHER" && user.teacherId) {
-    dayRoutines = dayRoutinesRaw.filter(
-      (r) => r.subject?.teacherId === user.teacherId || r.teacherName === user.name
-    );
+    dayRoutines = await getTeacherTodaySchedule(user.teacherId, dayOfWeek);
+  } else {
+    dayRoutines = await db.query.weeklyRoutine.findMany({
+      where: eq(weeklyRoutine.dayOfWeek, dayOfWeek),
+      orderBy: [asc(weeklyRoutine.startTime)],
+      with: {
+        subject: {
+          with: { teacher: true },
+        },
+      },
+    });
   }
 
   const routinesWithStatus = dayRoutines.map((routine) => {

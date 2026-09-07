@@ -1,50 +1,67 @@
 import { db } from "@/db";
-import { weeklyRoutine, studentProfiles } from "@/db/schema";
-import { asc, eq } from "drizzle-orm";
+import { weeklyRoutine } from "@/db/schema";
+import { asc } from "drizzle-orm";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Edit, CalendarDays, Plus, AlertTriangle } from "lucide-react";
 import { DeleteRoutineButton } from "@/features/routine/components/delete-routine-button";
-import { getCurrentUser, getPermissions } from "@/lib/auth";
+import { getCurrentUser, getPermissions, resolveCurrentStudent } from "@/lib/auth";
 import { toRoman } from "@/lib/utils/roman";
-import { getNptTimeString } from "@/lib/timezone";
 import { RoutineView } from "@/components/timetable/routine-view";
 import type { RoutineSlotData } from "@/components/timetable/routine-card";
 import { BroadcastRoutineDialog } from "@/features/telegram/components/broadcast-routine-dialog";
 import { getTelegramSettings, getSemesterTelegramConfigs } from "@/features/telegram/queries/telegram-queries";
+import {
+  getStudentCohort,
+  getStudentWeeklyRoutine,
+  getTeacherWeeklyRoutine,
+} from "@/features/routine/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function RoutinePage() {
-  const [user, permissions, allRoutine, telegramSettingsRow, telegramConfigs] = await Promise.all([
+  const [user, permissions, telegramSettingsRow, telegramConfigs] = await Promise.all([
     getCurrentUser(),
     getPermissions(),
-    db.query.weeklyRoutine.findMany({
+    getTelegramSettings(),
+    getSemesterTelegramConfigs(),
+  ]);
+
+  let filteredRoutine: {
+    id: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    room?: string | null;
+    notes?: string | null;
+    teacherName?: string | null;
+    subject: {
+      name: string;
+      code: string;
+      teacher?: { name: string } | null;
+    };
+  }[] = [];
+
+  let studentRomanSem: string | null = null;
+  const isStudentOrCr = user?.role === "STUDENT" || user?.role === "CR";
+
+  if (isStudentOrCr) {
+    const student = await resolveCurrentStudent();
+    const cohort = await getStudentCohort(student?.id, user?.id);
+    studentRomanSem = cohort.semester ? toRoman(cohort.semester) : null;
+    filteredRoutine = await getStudentWeeklyRoutine(cohort.allowedSubjectIds);
+  } else if (user?.role === "TEACHER" && user.teacherId) {
+    filteredRoutine = await getTeacherWeeklyRoutine(user.teacherId);
+  } else {
+    // Admin / Manager view: all routine entries
+    filteredRoutine = await db.query.weeklyRoutine.findMany({
       orderBy: [asc(weeklyRoutine.dayOfWeek), asc(weeklyRoutine.startTime)],
       with: {
         subject: {
           with: { teacher: true },
         },
       },
-    }),
-    getTelegramSettings(),
-    getSemesterTelegramConfigs(),
-  ]);
-
-  let studentProfile = null;
-  if (user?.studentProfileId) {
-    studentProfile = await db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.id, user.studentProfileId),
     });
-  }
-
-  let filteredRoutine = allRoutine;
-  const studentRomanSem = studentProfile?.semester != null ? toRoman(studentProfile.semester) : null;
-  if (studentRomanSem) {
-    const semesterRoutines = allRoutine.filter((r) => r.subject?.semester === studentRomanSem);
-    if (semesterRoutines.length > 0) {
-      filteredRoutine = semesterRoutines;
-    }
   }
 
   const hasRoutine = filteredRoutine.length > 0;
@@ -85,10 +102,10 @@ export default async function RoutinePage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-border/60">
         <div className="flex flex-col gap-1">
           <h1 className="text-xl md:text-2xl font-bold font-fira-sans tracking-tight text-foreground">
-            Weekly Routine
+            Weekly Routine {studentRomanSem ? `(Semester ${studentRomanSem})` : ""}
           </h1>
           <p className="text-xs text-muted-foreground max-w-2xl">
-            View scheduled lectures, lab practicals, and room assignments.
+            View scheduled lectures, lab practicals, and room assignments for your cohort.
           </p>
         </div>
         {permissions.canManageRoutine && (
@@ -135,13 +152,15 @@ export default async function RoutinePage() {
       )}
 
       {!hasRoutine ? (
-        <div className="flex flex-col items-center justify-center py-16 space-y-4 max-w-md mx-auto text-center border rounded-xl border-dashed bg-card/50">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4 max-w-md mx-auto text-center border rounded-2xl border-dashed bg-card/50">
           <div className="h-14 w-14 bg-muted/40 rounded-full flex items-center justify-center mb-1 text-muted-foreground">
             <CalendarDays className="w-7 h-7 stroke-[1.5]" />
           </div>
-          <h3 className="text-lg font-semibold font-fira-sans tracking-tight">No Classes Scheduled</h3>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            There are no classes scheduled in the weekly routine yet.
+          <h3 className="text-lg font-semibold font-fira-sans tracking-tight">
+            {studentRomanSem ? `No Classes for Semester ${studentRomanSem}` : "No Classes Scheduled"}
+          </h3>
+          <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">
+            There are no timetable slots registered for your cohort yet. Once your semester routine is published, it will appear here.
           </p>
         </div>
       ) : (

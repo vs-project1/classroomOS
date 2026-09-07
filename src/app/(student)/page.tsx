@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { weeklyRoutine, homework, notices, dailyAttendance } from "@/db/schema";
-import { desc, eq, asc } from "drizzle-orm";
+import { notices, dailyAttendance } from "@/db/schema";
+import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { resolveCurrentStudent } from "@/lib/auth";
 import { formatTime12h } from "@/lib/timezone";
@@ -10,6 +10,7 @@ import { ArcGauge } from "@/components/attendance/arc-gauge";
 import { Book, Bell, CalendarDays, CheckCircle2, AlertCircle, ArrowRight, Laptop, Lock, AlertTriangle } from "lucide-react";
 
 import { RecentResourcesWidget } from "@/features/resources/components/recent-resources-widget";
+import { getStudentCohort, getStudentTodaySchedule, getStudentActiveHomework } from "@/features/routine/queries";
 
 import { getCurrentUser } from "@/lib/auth";
 import { formatNepaliDate } from "@/lib/nepali-date";
@@ -48,6 +49,9 @@ export default async function StudentDashboard() {
   const nptTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kathmandu', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
   const timestampNow = new Date().getTime();
 
+  // Cohort Resolution for Strict Timetable & Homework Isolation
+  const cohort = await getStudentCohort(student.id, user?.id);
+
   // Queries
   const [
     todaysClasses,
@@ -55,20 +59,13 @@ export default async function StudentDashboard() {
     latestNotices,
     dailyRecords
   ] = await Promise.all([
-    db.query.weeklyRoutine.findMany({
-      where: eq(weeklyRoutine.dayOfWeek, dayOfWeek),
-      orderBy: [asc(weeklyRoutine.startTime)],
-      with: {
-        subject: {
-          with: { teacher: true }
-        }
-      }
+    getStudentTodaySchedule({
+      allowedSubjectIds: cohort.allowedSubjectIds,
+      dayOfWeek,
     }),
-    db.query.homework.findMany({
-      where: eq(homework.status, 'active'),
-      orderBy: [asc(homework.dueDate)],
+    getStudentActiveHomework({
+      allowedSubjectIds: cohort.allowedSubjectIds,
       limit: 5,
-      with: { subject: true }
     }),
     db.query.notices.findMany({
       orderBy: [desc(notices.isPinned), desc(notices.createdAt)],
@@ -198,7 +195,7 @@ export default async function StudentDashboard() {
                       key={cls.id} 
                       data-testid={isCurrent ? "live-class-card" : undefined}
                       className={cn(
-                        "relative flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg transition-colors border",
+                        "relative flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl transition-all border",
                         isCurrent 
                           ? "bg-primary/5 border-primary/30 shadow-sm" 
                           : isPast 
@@ -206,28 +203,28 @@ export default async function StudentDashboard() {
                           : "bg-muted/10 border-border/30 hover:bg-muted/30"
                       )}
                     >
-                      <div className="flex items-start gap-4">
-                        <div className="flex flex-col items-center justify-center sm:w-28 shrink-0 text-center">
+                      <div className="flex items-start sm:items-center gap-3.5 sm:gap-4">
+                        <div className="flex flex-col items-start sm:items-center justify-center w-24 sm:w-28 shrink-0 text-left sm:text-center rounded-lg bg-background/60 p-1.5 sm:p-0 border border-border/30 sm:border-0">
                           <span className={cn("text-xs font-semibold tabular-nums", isPast ? "line-through text-muted-foreground" : "text-foreground")}>
                             {formatTime12h(cls.startTime)}
                           </span>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-[11px] sm:text-xs text-muted-foreground">
                             to {formatTime12h(cls.endTime)}
                           </span>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <h3 className={cn("font-bold text-base leading-tight", isPast ? "text-muted-foreground line-through" : "text-foreground")}>
                               {cls.subject.name}
                             </h3>
                             {isCurrent && (
-                              <span className="px-2.5 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-bold tracking-wider animate-pulse">
+                              <span className="px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] sm:text-xs font-bold tracking-wider animate-pulse">
                                 NOW
                               </span>
                             )}
                           </div>
-                          <p className="text-xs font-medium text-muted-foreground flex items-center gap-2">
-                            {cls.subject.teacher?.name || "TBA"} 
+                          <p className="text-xs font-medium text-muted-foreground flex items-center gap-2 flex-wrap">
+                            <span>{cls.subject.teacher?.name || "TBA"}</span>
                             {cls.room && (
                               <>
                                 <span className="opacity-40">•</span> 
@@ -238,7 +235,7 @@ export default async function StudentDashboard() {
                         </div>
                       </div>
                       
-                      <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-2">
+                      <div className="mt-3 sm:mt-0 sm:ml-4 flex items-center gap-2 self-start sm:self-center">
                         {(cls.subject.name.toLowerCase().includes("lab") || cls.subject.name.toLowerCase().includes("practical")) && (
                           <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-medium">
                             <Laptop className="w-3 h-3" /> Lab
