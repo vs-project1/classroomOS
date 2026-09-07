@@ -1,14 +1,15 @@
 import { db } from "@/db";
-import { attendance, subjects, enrollments } from "@/db/schema";
+import { dailyAttendance, dailySessions } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { resolveCurrentStudent, getCurrentUser } from "@/lib/auth";
 import { calculateAttendanceMetrics } from "@/features/attendance/calculations/attendance-projection";
-import { Activity, ShieldAlert, CheckCircle2, AlertTriangle } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { Activity, ShieldAlert, CheckCircle2, AlertTriangle, Calendar, CalendarCheck2, History } from "lucide-react";
 import { ArcGauge } from "@/components/attendance/arc-gauge";
 import { WhatIfCalculator } from "@/features/attendance/components/what-if-calculator";
 import { CorrectionDialog } from "@/features/attendance/components/correction-dialog";
+import { formatNepaliDate } from "@/lib/nepali-date";
 import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -28,105 +29,64 @@ export default async function AttendancePage() {
         </div>
         <h3 className="text-xl font-semibold font-fira-sans tracking-tight">No Student Context Found</h3>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Please log in as a student to view your attendance barometer and lecture records.
+          Please log in as a student to view your attendance barometer and records.
         </p>
       </div>
     );
   }
 
-  // Fetch all attendance for this student with relations
-  const records = await db.query.attendance.findMany({
-    where: eq(attendance.studentId, student.id),
-    orderBy: [desc(attendance.createdAt)],
-    with: {
-      classSession: {
-        with: {
-          subject: true,
-        },
-      },
-    },
-  });
+  // Fetch daily attendance joined with dailySessions for this student, ordered by date descending
+  const records = await db
+    .select({
+      id: dailyAttendance.id,
+      dailySessionId: dailyAttendance.dailySessionId,
+      studentId: dailyAttendance.studentId,
+      status: dailyAttendance.status,
+      createdAt: dailyAttendance.createdAt,
+      date: dailySessions.date,
+      semester: dailySessions.semester,
+    })
+    .from(dailyAttendance)
+    .innerJoin(dailySessions, eq(dailyAttendance.dailySessionId, dailySessions.id))
+    .where(eq(dailyAttendance.studentId, student.id))
+    .orderBy(desc(dailySessions.date), desc(dailyAttendance.createdAt));
 
   const presentCount = records.filter((r) => r.status === "present").length;
   const lateCount = records.filter((r) => r.status === "late").length;
   const excusedCount = records.filter((r) => r.status === "excused").length;
   const absentCount = records.filter((r) => r.status === "absent").length;
   const totalCount = records.length;
+
   // Late counts as attended (present), excused excluded from denominator per TU guidance
   const attendedForMetrics = presentCount + lateCount;
   const effectiveTotal = Math.max(attendedForMetrics, totalCount - excusedCount);
 
-  const metrics = calculateAttendanceMetrics(attendedForMetrics, effectiveTotal, {
-    late: lateCount,
-    excused: excusedCount,
-    absent: absentCount,
-  }, 80);
+  const metrics = calculateAttendanceMetrics(
+    attendedForMetrics,
+    effectiveTotal,
+    {
+      late: lateCount,
+      excused: excusedCount,
+      absent: absentCount,
+    },
+    80
+  );
 
-  // Group stats by subject
-  const subjectStats: Record<string, { id: string; name: string; code: string; total: number; present: number }> = {};
-
-  // First fetch enrolled subjects to ensure all subjects are listed even if 0 sessions
-  const studentEnrollments = await db.query.enrollments.findMany({
-    where: eq(enrollments.studentId, student.id),
-    with: { subject: true },
-  });
-
-  for (const enr of studentEnrollments) {
-    if (enr.subject) {
-      subjectStats[enr.subject.id] = {
-        id: enr.subject.id,
-        name: enr.subject.name,
-        code: enr.subject.code,
-        total: 0,
-        present: 0,
-      };
-    }
-  }
-
-  // If no enrollments found, show empty state — never fall back to full catalog
-  // (prevents leaking every subject at 0/0 → 100% SAFE). Records for unenrolled
-  // subjects still surface via the loop below if attendance exists.
-
-  for (const record of records) {
-    const subj = record.classSession?.subject;
-    if (subj) {
-      if (!subjectStats[subj.id]) {
-        subjectStats[subj.id] = { id: subj.id, name: subj.name, code: subj.code, total: 0, present: 0 };
-      }
-      // Excused excluded from denominator; late counts as present
-      if (record.status === "excused") continue;
-      subjectStats[subj.id].total++;
-      if (record.status === "present" || record.status === "late") {
-        subjectStats[subj.id].present++;
-      }
-    }
-  }
-
-  const subjectList = Object.values(subjectStats)
-    .map((stat) => {
-      const subMetrics = calculateAttendanceMetrics(stat.present, stat.total, undefined, 80);
-      return {
-        ...stat,
-        metrics: subMetrics,
-      };
-    })
-    .sort((a, b) => b.metrics.percentage - a.metrics.percentage);
-
-  // Format session list for dispute selection
-  const sessionOptions = records.map((r) => {
-    const sessionDate = r.classSession?.sessionDate
-      ? new Intl.DateTimeFormat("en-US", {
-          timeZone: "Asia/Kathmandu",
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        }).format(new Date(r.classSession.sessionDate))
-      : "Unknown Date";
+  // Format daily sessions list for dispute selection
+  const recentSessions = records.map((r) => {
+    const d = new Date(r.date);
+    const bsDate = formatNepaliDate(d, "YYYY MMMM DD");
+    const enDate = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kathmandu",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }).format(d);
 
     return {
       id: r.id,
-      dateFormatted: sessionDate,
-      subjectName: r.classSession?.subject?.name || "Lecture Session",
+      dateFormatted: `${bsDate} (${enDate})`,
+      subjectName: "Daily Attendance",
       status: r.status,
     };
   });
@@ -144,11 +104,11 @@ export default async function AttendancePage() {
             Attendance
           </h2>
           <p className="text-muted-foreground text-sm mt-1 max-w-2xl">
-            Track lecture presence across your subjects and monitor your 80% TU mandatory exam threshold.
+            Track daily presence and monitor your 80% TU mandatory exam threshold.
           </p>
         </div>
         <div>
-          <CorrectionDialog recentSessions={sessionOptions} />
+          <CorrectionDialog recentSessions={recentSessions} />
         </div>
       </div>
 
@@ -176,14 +136,16 @@ export default async function AttendancePage() {
             </span>
           </div>
 
-            <div className="flex flex-col items-center justify-center py-2 text-center">
-              <div className="flex justify-center py-2">
-                <ArcGauge value={metrics.percentage} category={metrics.category} />
-              </div>
+          <div className="flex flex-col items-center justify-center py-2 text-center">
+            <div className="flex justify-center py-2">
+              <ArcGauge value={metrics.percentage} category={metrics.category} />
+            </div>
 
             <div className="w-full bg-muted/30 rounded-xl p-3.5 border border-border/40">
               {totalCount === 0 ? (
-                <p className="text-xs text-muted-foreground font-medium">No lectures logged yet — your TU 80% projection starts after the first session.</p>
+                <p className="text-xs text-muted-foreground font-medium">
+                  No attendance logged yet — your TU 80% projection starts after the first day.
+                </p>
               ) : (
                 <>
                   <p className="text-xs font-semibold text-foreground">
@@ -196,12 +158,12 @@ export default async function AttendancePage() {
                       }
                     >
                       {isSafe
-                        ? `+${metrics.missableSessions} Missable Session${metrics.missableSessions === 1 ? "" : "s"}`
-                        : `Need ${metrics.classesNeededToRecover} class${metrics.classesNeededToRecover === 1 ? "" : "es"} to recover (At Risk <80%)`}
+                        ? `+${metrics.missableSessions} Missable Day${metrics.missableSessions === 1 ? "" : "s"}`
+                        : `Need ${metrics.classesNeededToRecover} day${metrics.classesNeededToRecover === 1 ? "" : "s"} to recover (At Risk <80%)`}
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground mt-1 font-medium">
-                    {metrics.attendedSessions} attended of {metrics.totalSessions} logged lectures (
+                    {metrics.attendedSessions} attended of {metrics.totalSessions} logged days (
                     {metrics.absentSessions} absent, {metrics.lateSessions} late, {metrics.excusedSessions} excused)
                   </p>
                 </>
@@ -219,77 +181,119 @@ export default async function AttendancePage() {
         </div>
       </div>
 
-      {/* Subject Breakdown Table */}
+      {/* Chronological Attendance History Ledger */}
       <div className="rounded-xl border bg-card overflow-hidden shadow-sm flex flex-col">
         <div className="px-6 py-4 border-b border-border/50 bg-muted/10 flex items-center justify-between">
-          <h3 className="font-semibold text-xs tracking-wider uppercase text-muted-foreground">
-            Subject Breakdown Matrix
-          </h3>
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold text-sm tracking-tight text-foreground font-fira-sans">
+              Attendance History Ledger
+            </h3>
+          </div>
           <span className="text-xs text-muted-foreground font-medium">
-            {subjectList.length} Enrolled Subject{subjectList.length === 1 ? "" : "s"}
+            {records.length} Recorded Day{records.length === 1 ? "" : "s"}
           </span>
         </div>
-        {subjectList.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">
-            <p>No enrollments found. Contact administration to get enrolled in subjects.</p>
-            <p className="text-xs mt-1">Once enrolled, your per-subject attendance will appear here.</p>
+
+        {records.length === 0 ? (
+          <div className="p-12 text-center text-sm text-muted-foreground flex flex-col items-center justify-center space-y-2">
+            <CalendarCheck2 className="w-10 h-10 text-muted-foreground/60 mb-1" />
+            <p className="font-semibold text-foreground">No attendance records logged yet</p>
+            <p className="text-xs text-muted-foreground max-w-sm">
+              Attendance records marked by your Class Representative will appear here chronologically.
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-muted/10 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th className="px-6 py-3 border-b">Module</th>
-                  <th className="px-6 py-3 border-b text-right">Attended</th>
-                  <th className="px-6 py-3 border-b text-right">Total</th>
-                  <th className="px-6 py-3 border-b">Progress</th>
-                  <th className="px-6 py-3 border-b text-right">Status</th>
+                  <th className="px-6 py-3 border-b">Date (B.S.)</th>
+                  <th className="px-6 py-3 border-b">English Date & Day</th>
+                  <th className="px-6 py-3 border-b">Semester</th>
+                  <th className="px-6 py-3 border-b text-center">Status</th>
+                  <th className="px-6 py-3 border-b text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {subjectList.map((subj) => {
-                  const subSafe = subj.metrics.category === "SAFE";
-                  const subDanger = subj.metrics.category === "DANGER";
+                {records.map((r) => {
+                  const d = new Date(r.date);
+                  const nepaliDate = formatNepaliDate(d, "YYYY MMMM DD");
+                  const nepaliWeekday = formatNepaliDate(d, "dddd");
+                  const englishDate = new Intl.DateTimeFormat("en-US", {
+                    timeZone: "Asia/Kathmandu",
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  }).format(d);
+
+                  const isDisputable = r.status === "absent" || r.status === "late";
+
                   return (
-                    <tr key={subj.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-6 py-4 font-medium text-foreground">
+                    <tr key={r.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-6 py-4 font-medium text-foreground whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <span>{subj.name}</span>
-                          <span className="text-xs bg-muted text-foreground px-2 py-0.5 rounded-md font-bold border border-border/40">
-                            {subj.code}
-                          </span>
+                          <Calendar className="w-4 h-4 text-primary shrink-0" />
+                          <span className="font-semibold">{nepaliDate}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-right tabular-nums text-muted-foreground font-medium">
-                        {subj.present}
+                      <td className="px-6 py-4 text-muted-foreground whitespace-nowrap">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-foreground">{englishDate}</span>
+                          <span className="text-xs text-muted-foreground">{nepaliWeekday}</span>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 text-right tabular-nums text-muted-foreground font-medium">
-                        {subj.total}
-                      </td>
-                      <td className="px-6 py-4 w-40">
-                        <Progress
-                          value={subj.metrics.percentage}
-                          className={`h-1.5 rounded-full bg-muted ${
-                            subSafe
-                              ? "[&>div]:bg-emerald-500"
-                              : subDanger
-                              ? "[&>div]:bg-destructive"
-                              : "[&>div]:bg-amber-500"
-                          }`}
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums ${
-                            subSafe
-                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                              : subDanger
-                              ? "bg-destructive/10 text-destructive"
-                              : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                          }`}
-                        >
-                          {subj.metrics.percentage}%
+                      <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
+                        <span className="text-xs font-semibold bg-muted px-2 py-0.5 rounded-md border border-border/40">
+                          {r.semester}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-center whitespace-nowrap">
+                        {r.status === "present" && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Present
+                          </span>
+                        )}
+                        {r.status === "late" && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                            Late
+                          </span>
+                        )}
+                        {r.status === "excused" && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            Excused
+                          </span>
+                        )}
+                        {r.status === "absent" && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-destructive/10 text-destructive border border-destructive/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
+                            Absent
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        {isDisputable ? (
+                          <CorrectionDialog
+                            recentSessions={recentSessions}
+                            defaultAttendanceId={r.id}
+                            trigger={
+                              <Button
+                                variant="outline"
+                                size="xs"
+                                className="text-xs text-amber-700 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:text-amber-400 dark:border-amber-800 gap-1.5 cursor-pointer"
+                              >
+                                <ShieldAlert className="w-3 h-3" />
+                                Dispute
+                              </Button>
+                            }
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground/60">—</span>
+                        )}
                       </td>
                     </tr>
                   );

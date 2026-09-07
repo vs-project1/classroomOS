@@ -36,19 +36,19 @@ export function WhatIfCalculator({ initialAttended, initialTotal }: WhatIfCalcul
         </div>
 
         <p className="text-xs text-muted-foreground mb-6 leading-relaxed">
-          Simulate how attending or missing future lectures will dynamically shift your TU 80% examination eligibility.
+          Simulate how attending or missing upcoming college days will shift your TU 80% examination eligibility.
         </p>
 
         {/* Inputs */}
         <div className="space-y-4">
           <div>
             <label htmlFor="what-if-attend" className="flex justify-between text-xs font-medium mb-1.5 cursor-pointer">
-              <span>Future Classes to Attend</span>
-              <span className="font-bold tabular-nums text-emerald-700 dark:text-emerald-400">+{plannedAttended} classes</span>
+              <span>Future Days to Attend</span>
+              <span className="font-bold tabular-nums text-emerald-700 dark:text-emerald-400">+{plannedAttended} days</span>
             </label>
             <input
               id="what-if-attend"
-              aria-label="Future Classes to Attend"
+              aria-label="Future Days to Attend"
               type="range"
               min="0"
               max="20"
@@ -62,12 +62,12 @@ export function WhatIfCalculator({ initialAttended, initialTotal }: WhatIfCalcul
 
           <div>
             <label htmlFor="what-if-miss" className="flex justify-between text-xs font-medium mb-1.5 cursor-pointer">
-              <span>Future Classes to Miss</span>
-              <span className="font-bold tabular-nums text-destructive">+{plannedMissed} missed</span>
+              <span>Future Days to Miss</span>
+              <span className="font-bold tabular-nums text-destructive">+{plannedMissed} days</span>
             </label>
             <input
               id="what-if-miss"
-              aria-label="Future Classes to Miss"
+              aria-label="Future Days to Miss"
               type="range"
               min="0"
               max="20"
@@ -111,8 +111,8 @@ export function WhatIfCalculator({ initialAttended, initialTotal }: WhatIfCalcul
           </div>
           <span className="text-xs text-muted-foreground font-medium">
             {projected.category === "SAFE"
-              ? `+${projected.missableSessions} missable classes`
-              : `Need ${projected.classesNeededToRecover} classes to recover`}
+              ? `+${projected.missableSessions} missable days`
+              : `Need ${projected.classesNeededToRecover} days to recover`}
           </span>
         </div>
       </div>

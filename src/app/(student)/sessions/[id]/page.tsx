@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { attendance, classSessions, type Student, type AttendanceStatus } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { dailySessions, dailyAttendance, classSessions, type Student, type AttendanceStatus } from "@/db/schema";
+import { and, eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { ArrowLeft, BookOpen, Clock, Users } from "lucide-react";
 import { formatTime12h } from "@/lib/timezone";
 import { getCurrentUser, resolveCurrentStudent } from "@/lib/auth";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
+import { getSemesterVariants } from "@/lib/utils/roman";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,25 @@ export default async function SessionDetailsPage({ params }: { params: Promise<{
     notFound();
   }
 
+  // Find daily session for this date and semester to fetch attendance
+  const sessionDateObj = new Date(session.sessionDate);
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kathmandu",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(sessionDateObj);
+  const targetDate = new Date(`${ymd}T00:00:00Z`);
+
+  const semVariants = getSemesterVariants(session.subject?.semester);
+
+  const dailySession = await db.query.dailySessions.findFirst({
+    where: and(
+      inArray(dailySessions.semester, semVariants),
+      eq(dailySessions.date, targetDate)
+    ),
+  });
+
   // Students only ever see their own attendance record — never the roster.
   let ownAttendance: { status: AttendanceStatus } | null = null;
   type RosterRecord = {
@@ -40,38 +60,38 @@ export default async function SessionDetailsPage({ params }: { params: Promise<{
   let totals: { present: number; absent: number; late: number; excused: number } | null = null;
   let groupedAttendance: Record<string, RosterRecord[]> | null = null;
 
-  if (isStudentOnly) {
-    const student = await resolveCurrentStudent();
-    if (student) {
-      const record = await db.query.attendance.findFirst({
-        where: and(
-          eq(attendance.classSessionId, id),
-          eq(attendance.studentId, student.id)
-        ),
+  if (dailySession) {
+    if (isStudentOnly) {
+      const student = await resolveCurrentStudent();
+      if (student) {
+        const record = await db.query.dailyAttendance.findFirst({
+          where: and(
+            eq(dailyAttendance.dailySessionId, dailySession.id),
+            eq(dailyAttendance.studentId, student.id)
+          ),
+        });
+        ownAttendance = record ? { status: record.status as AttendanceStatus } : null;
+      }
+    } else {
+      const rows = await db.query.dailyAttendance.findMany({
+        where: eq(dailyAttendance.dailySessionId, dailySession.id),
+        with: { student: true },
       });
-      ownAttendance = record ? { status: record.status as AttendanceStatus } : null;
+
+      totals = {
+        present: rows.filter((a) => a.status === "present").length,
+        absent: rows.filter((a) => a.status === "absent").length,
+        late: rows.filter((a) => a.status === "late").length,
+        excused: rows.filter((a) => a.status === "excused").length,
+      };
+
+      groupedAttendance = {
+        present: rows.filter((a) => a.status === "present").sort((a, b) => a.student.name.localeCompare(b.student.name)),
+        late: rows.filter((a) => a.status === "late").sort((a, b) => a.student.name.localeCompare(b.student.name)),
+        absent: rows.filter((a) => a.status === "absent").sort((a, b) => a.student.name.localeCompare(b.student.name)),
+        excused: rows.filter((a) => a.status === "excused").sort((a, b) => a.student.name.localeCompare(b.student.name)),
+      };
     }
-  } else {
-    const rows = await db.query.attendance.findMany({
-      where: eq(attendance.classSessionId, id),
-      with: { student: true },
-    });
-
-    // Aggregate attendance
-    totals = {
-      present: rows.filter(a => a.status === 'present').length,
-      absent: rows.filter(a => a.status === 'absent').length,
-      late: rows.filter(a => a.status === 'late').length,
-      excused: rows.filter(a => a.status === 'excused').length,
-    };
-
-    // Group students
-    groupedAttendance = {
-      present: rows.filter(a => a.status === 'present').sort((a, b) => a.student.name.localeCompare(b.student.name)),
-      late: rows.filter(a => a.status === 'late').sort((a, b) => a.student.name.localeCompare(b.student.name)),
-      absent: rows.filter(a => a.status === 'absent').sort((a, b) => a.student.name.localeCompare(b.student.name)),
-      excused: rows.filter(a => a.status === 'excused').sort((a, b) => a.student.name.localeCompare(b.student.name)),
-    };
   }
 
   return (
@@ -115,12 +135,12 @@ export default async function SessionDetailsPage({ params }: { params: Promise<{
           <div className="rounded-xl border bg-card p-6">
             <div className="flex items-center gap-2 mb-6">
               <Users className="h-5 w-5 text-muted-foreground" />
-              <h3 className="font-medium text-lg">Your Attendance</h3>
+              <h3 className="font-medium text-lg">Daily Attendance</h3>
             </div>
             {ownAttendance ? (
               <div className="space-y-3">
                 <span
-                  className={`px-2.5 py-1 text-xs font-medium rounded-md border ${
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md border capitalize ${
                     ownAttendance.status === "present"
                       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                       : ownAttendance.status === "absent"
@@ -133,64 +153,88 @@ export default async function SessionDetailsPage({ params }: { params: Promise<{
                   {ownAttendance.status}
                 </span>
                 <p className="text-sm text-muted-foreground">
-                  Your attendance for this session is shown above. Class-wide details are not available to students.
+                  Your attendance for this date is shown above.
                 </p>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No attendance has been recorded for you in this session yet.</p>
+              <p className="text-sm text-muted-foreground">No attendance has been recorded for you on this date yet.</p>
             )}
           </div>
         ) : (
           <div className="rounded-xl border bg-card p-6">
-            <div className="flex items-center gap-2 mb-6">
-              <Users className="h-5 w-5 text-muted-foreground" />
-              <h3 className="font-medium text-lg">Attendance Summary</h3>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                <h3 className="font-medium text-lg">Daily Attendance</h3>
+              </div>
+              <Link
+                href={`/cr/take-attendance`}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Take Attendance &rarr;
+              </Link>
             </div>
 
-            <div className="grid grid-cols-4 gap-4 mb-8">
-              <div className="flex flex-col">
-                <span className="text-2xl font-semibold text-emerald-600">{totals!.present}</span>
-                <span className="text-xs font-medium text-muted-foreground">Present</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-2xl font-semibold text-red-600">{totals!.absent}</span>
-                <span className="text-xs font-medium text-muted-foreground">Absent</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-2xl font-semibold text-amber-600">{totals!.late}</span>
-                <span className="text-xs font-medium text-muted-foreground">Late</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-2xl font-semibold text-blue-600">{totals!.excused}</span>
-                <span className="text-xs font-medium text-muted-foreground">Excused</span>
-              </div>
-            </div>
-
-            <div className="space-y-6 border-t pt-6">
-              {Object.entries(groupedAttendance!).map(([status, records]) => {
-                if (records.length === 0) return null;
-
-                const statusColors = {
-                  present: "bg-emerald-50 text-emerald-700 border-emerald-200",
-                  absent: "bg-red-50 text-red-700 border-red-200",
-                  late: "bg-amber-50 text-amber-700 border-amber-200",
-                  excused: "bg-blue-50 text-blue-700 border-blue-200"
-                };
-
-                return (
-                  <div key={status}>
-                    <h4 className="text-xs uppercase tracking-wider font-medium text-muted-foreground mb-3">{status} ({records.length})</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {records.map(record => (
-                        <span key={record.id} className={`px-2.5 py-1 text-xs font-medium rounded-md border ${statusColors[status as keyof typeof statusColors]}`}>
-                          {record.student.name}
-                        </span>
-                      ))}
-                    </div>
+            {!totals ? (
+              <p className="text-sm text-muted-foreground">
+                Daily attendance has not been recorded for this date yet.
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-4 gap-4 mb-8">
+                  <div className="flex flex-col">
+                    <span className="text-2xl font-semibold text-emerald-600">{totals.present}</span>
+                    <span className="text-xs font-medium text-muted-foreground">Present</span>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="flex flex-col">
+                    <span className="text-2xl font-semibold text-red-600">{totals.absent}</span>
+                    <span className="text-xs font-medium text-muted-foreground">Absent</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-2xl font-semibold text-amber-600">{totals.late}</span>
+                    <span className="text-xs font-medium text-muted-foreground">Late</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-2xl font-semibold text-blue-600">{totals.excused}</span>
+                    <span className="text-xs font-medium text-muted-foreground">Excused</span>
+                  </div>
+                </div>
+
+                <div className="space-y-6 border-t pt-6">
+                  {groupedAttendance &&
+                    Object.entries(groupedAttendance).map(([status, records]) => {
+                      if (records.length === 0) return null;
+
+                      const statusColors = {
+                        present: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                        absent: "bg-red-50 text-red-700 border-red-200",
+                        late: "bg-amber-50 text-amber-700 border-amber-200",
+                        excused: "bg-blue-50 text-blue-700 border-blue-200",
+                      };
+
+                      return (
+                        <div key={status}>
+                          <h4 className="text-xs uppercase tracking-wider font-medium text-muted-foreground mb-3">
+                            {status} ({records.length})
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {records.map((record) => (
+                              <span
+                                key={record.id}
+                                className={`px-2.5 py-1 text-xs font-medium rounded-md border ${
+                                  statusColors[status as keyof typeof statusColors]
+                                }`}
+                              >
+                                {record.student.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

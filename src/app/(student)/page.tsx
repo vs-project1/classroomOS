@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { weeklyRoutine, homework, notices, attendance, dailyAttendance } from "@/db/schema";
+import { weeklyRoutine, homework, notices, dailyAttendance } from "@/db/schema";
 import { desc, eq, asc } from "drizzle-orm";
 import Link from "next/link";
 import { resolveCurrentStudent } from "@/lib/auth";
@@ -53,7 +53,6 @@ export default async function StudentDashboard() {
     todaysClasses,
     pendingHomeworkList,
     latestNotices,
-    attendanceRecords,
     dailyRecords
   ] = await Promise.all([
     db.query.weeklyRoutine.findMany({
@@ -75,9 +74,6 @@ export default async function StudentDashboard() {
       orderBy: [desc(notices.isPinned), desc(notices.createdAt)],
       limit: 3
     }),
-    db.query.attendance.findMany({
-      where: eq(attendance.studentId, student.id)
-    }),
     db.query.dailyAttendance.findMany({
       where: eq(dailyAttendance.studentId, student.id)
     })
@@ -85,16 +81,20 @@ export default async function StudentDashboard() {
 
   const validNotices = latestNotices.filter(n => !n.expiresAt || n.expiresAt.getTime() > timestampNow);
 
-  // Overall Attendance Calculation via Domain Engine
-  const lectureTotal = attendanceRecords.length;
-  const lecturePresent = attendanceRecords.filter(a => a.status === 'present').length;
-  const dailyTotal = dailyRecords.length;
-  const dailyPresent = dailyRecords.filter(a => a.status === 'present').length;
+  // Overall Attendance Calculation via Single Canonical Daily Attendance
+  const totalDays = dailyRecords.length;
+  const presentDays = dailyRecords.filter(a => a.status === 'present').length;
+  const lateDays = dailyRecords.filter(a => a.status === 'late').length;
+  const excusedDays = dailyRecords.filter(a => a.status === 'excused').length;
+  const absentDays = dailyRecords.filter(a => a.status === 'absent').length;
 
-  const useLecture = lectureTotal > 0;
-  const totalClasses = useLecture ? lectureTotal : dailyTotal;
-  const presentClasses = useLecture ? lecturePresent : dailyPresent;
-  const metrics = calculateAttendanceMetrics(presentClasses, totalClasses, undefined, 80);
+  const attendedDays = presentDays + lateDays;
+  const effectiveTotalDays = Math.max(attendedDays, totalDays - excusedDays);
+  const metrics = calculateAttendanceMetrics(attendedDays, effectiveTotalDays, {
+    late: lateDays,
+    excused: excusedDays,
+    absent: absentDays,
+  }, 80);
 
   // Derived stats
   const firstName = student.name.split(' ')[0];
@@ -325,22 +325,11 @@ export default async function StudentDashboard() {
                 {isSafeZone ? <CheckCircle2 className="w-3.5 h-3.5" /> : (isDangerZone ? <AlertTriangle className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />)}
                 {isSafeZone ? "SAFE ZONE" : (isDangerZone ? "DANGER" : "CAUTION")}
               </div>
-              <p className="text-xs font-medium text-muted-foreground">
-                {isSafeZone ? "You're above the TU 80% requirement." : 
-                 (isDangerZone ? "At risk of TU exam disqualification." : `Attend next classes to reach 80%.`)}
+              <p className="text-xs font-medium text-muted-foreground mt-1">
+                {totalDays > 0
+                  ? `${attendedDays} of ${totalDays} days attended`
+                  : "No attendance logged yet"}
               </p>
-              <p className="text-xs text-muted-foreground mt-1 font-medium">
-                {useLecture
-                  ? `${presentClasses} of ${totalClasses} classes attended`
-                  : dailyTotal > 0
-                  ? `${presentClasses} of ${totalClasses} days attended (morning roll call)`
-                  : "0 of 0 classes attended"}
-              </p>
-              {useLecture && dailyTotal > 0 && (
-                <p className="text-[11px] text-muted-foreground/80 mt-0.5">
-                  Morning Roll Call: {dailyPresent}/{dailyTotal} days
-                </p>
-              )}
             </div>
 
             <Link href="/attendance" className="text-xs font-semibold text-primary hover:underline mt-auto cursor-pointer">

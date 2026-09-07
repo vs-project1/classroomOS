@@ -23,11 +23,13 @@ interface SessionOption {
 
 interface CorrectionDialogProps {
   recentSessions: SessionOption[];
+  trigger?: React.ReactElement;
+  defaultAttendanceId?: string;
 }
 
 const initialState: AttendanceActionState = { success: false };
 
-export function CorrectionDialog({ recentSessions }: CorrectionDialogProps) {
+export function CorrectionDialog({ recentSessions, trigger, defaultAttendanceId }: CorrectionDialogProps) {
   const [open, setOpen] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [state, formAction, isPending] = useActionState(submitAttendanceCorrectionAction, initialState);
@@ -54,17 +56,19 @@ export function CorrectionDialog({ recentSessions }: CorrectionDialogProps) {
     <Dialog key={resetKey} open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
-          <Button variant="outline" size="sm" className="gap-2 text-xs font-medium cursor-pointer" />
+          trigger ?? (
+            <Button variant="outline" size="sm" className="gap-2 text-xs font-medium cursor-pointer">
+              <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+              Report Incorrect Attendance
+            </Button>
+          )
         }
-      >
-        <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
-        Report Incorrect Attendance
-      </DialogTrigger>
+      />
       <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Request Attendance Correction</DialogTitle>
           <DialogDescription>
-            Submit an attendance dispute if a session was mistakenly marked absent or late.
+            Submit an attendance dispute if a day was mistakenly marked absent or late.
           </DialogDescription>
         </DialogHeader>
 
@@ -96,7 +100,7 @@ export function CorrectionDialog({ recentSessions }: CorrectionDialogProps) {
 
             <div>
               <label htmlFor="attendanceId" className="block text-xs font-semibold text-foreground mb-1">
-                Select Lecture Session
+                Select Attendance Date
               </label>
               {(() => {
                 const disputable = recentSessions.filter((s) => s.status === "absent" || s.status === "late");
@@ -105,18 +109,19 @@ export function CorrectionDialog({ recentSessions }: CorrectionDialogProps) {
                   name="attendanceId"
                   id="attendanceId"
                   required
+                  defaultValue={defaultAttendanceId || disputable[0]?.id}
                   className="w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                 >
                   {disputable.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.subjectName} ({s.dateFormatted}) — Marked {s.status.toUpperCase()}
+                      {s.subjectName === "Daily Attendance" ? s.dateFormatted : `${s.subjectName} (${s.dateFormatted})`} — Marked {s.status.toUpperCase()}
                     </option>
                   ))}
                 </select>
                 ) : (
                 <div className="text-xs text-muted-foreground p-2 rounded border bg-muted/20">
                   {recentSessions.length > 0
-                    ? "No disputable records — only absent/late sessions can be disputed. Present/excused sessions are not shown."
+                    ? "No disputable records — only absent/late records can be disputed. Present/excused days are not shown."
                     : "No attendance records available to dispute."}
                 </div>
                 );

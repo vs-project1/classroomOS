@@ -2,9 +2,9 @@
 
 import { db } from "@/db";
 import {
-  attendance,
+  dailyAttendance,
+  dailySessions,
   attendanceCorrectionRequests,
-  classSessions,
   students,
   studentProfiles,
   subjects,
@@ -13,7 +13,8 @@ import {
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/session";
 import { notify } from "@/lib/notifications";
-import { eq, and } from "drizzle-orm";
+import { toRoman } from "@/lib/utils/roman";
+import { eq, and, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import crypto from "node:crypto";
@@ -87,11 +88,11 @@ export async function submitAttendanceCorrectionAction(
 
   const { attendanceId, requestedStatus, reason } = parsed.data;
 
-  // Verify attendance record
-  const targetAttendance = await db.query.attendance.findFirst({
+  // Verify attendance record against dailyAttendance
+  const targetAttendance = await db.query.dailyAttendance.findFirst({
     where: and(
-      eq(attendance.id, attendanceId),
-      eq(attendance.studentId, studentId)
+      eq(dailyAttendance.id, attendanceId),
+      eq(dailyAttendance.studentId, studentId)
     ),
   });
 
@@ -112,33 +113,55 @@ export async function submitAttendanceCorrectionAction(
       updatedAt: new Date(),
     });
 
-    // Notify the subject teacher so the request isn't invisible.
-    // notifications.userId references users.id; bridge legacy ids via email
-    // (students/teachers tables have no userId column).
+    // Notify teachers who teach subjects in the student's semester
     try {
-      const [recipient] = await db
-        .select({ userId: users.id })
-        .from(attendance)
-        .innerJoin(classSessions, eq(classSessions.id, attendance.classSessionId))
-        .innerJoin(subjects, eq(subjects.id, classSessions.subjectId))
-        .innerJoin(teachers, eq(teachers.id, subjects.teacherId))
-        .innerJoin(users, eq(users.email, teachers.email))
-        .where(eq(attendance.id, targetAttendance.id))
-        .limit(1);
+      const session = await db.query.dailySessions.findFirst({
+        where: eq(dailySessions.id, targetAttendance.dailySessionId),
+      });
 
-      if (recipient) {
-        await notify({
-          userId: recipient.userId,
-          type: "attendance",
-          title: "New attendance correction request submitted",
-          link: "/attendance",
-        });
+      if (session) {
+        let semRoman = "I";
+        const numMatch = session.semester.match(/\d+/);
+        if (numMatch) {
+          semRoman = toRoman(parseInt(numMatch[0], 10));
+        } else {
+          const upper = session.semester.trim().toUpperCase();
+          if (/^(VIII|VII|VI|IV|V|III|II|I)$/.test(upper)) {
+            semRoman = upper;
+          }
+        }
+
+        const teacherUsers = await db
+          .selectDistinct({ userId: users.id })
+          .from(subjects)
+          .innerJoin(teachers, eq(teachers.id, subjects.teacherId))
+          .innerJoin(users, or(eq(users.id, teachers.userId), eq(users.email, teachers.email)))
+          .where(
+            or(
+              eq(subjects.semester, semRoman),
+              eq(subjects.semester, session.semester)
+            )
+          );
+
+        for (const t of teacherUsers) {
+          if (t.userId) {
+            await notify({
+              userId: t.userId,
+              type: "attendance",
+              title: "New attendance correction request submitted",
+              link: "/teacher/attendance",
+            });
+          }
+        }
       }
     } catch (notifyError) {
       console.error("Failed to send dispute submission notification:", notifyError);
     }
 
     revalidatePath("/attendance");
+    revalidatePath("/teacher/attendance");
+    revalidatePath("/admin/attendance");
+    revalidatePath("/missed");
     return {
       success: true,
       message: "Attendance correction request submitted successfully. Status: Pending review.",
