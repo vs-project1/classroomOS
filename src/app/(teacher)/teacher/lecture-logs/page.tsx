@@ -4,7 +4,9 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
 import { formatTime12h } from "@/lib/timezone";
-import { FileText, Calendar, Clock, BookOpen } from "lucide-react";
+import { FileText, Calendar, Clock, BookOpen, Plus } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { formatNepaliDate } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
@@ -72,8 +74,14 @@ export default async function TeacherLectureLogsPage({ searchParams }: Props) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold font-fira-sans tracking-tight text-foreground">Lecture Logs</h1>
-          <p className="text-muted-foreground mt-1">Review topics covered in your classes.</p>
+          <p className="text-muted-foreground mt-1 text-sm">Review topics covered in your classes or record lecture notes.</p>
         </div>
+        <Link
+          href="/cr/log-session"
+          className={buttonVariants({ variant: "default", size: "sm", className: "gap-1.5 font-semibold" })}
+        >
+          <Plus className="w-4 h-4" /> Log Class Session
+        </Link>
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-2">
@@ -93,7 +101,7 @@ export default async function TeacherLectureLogsPage({ searchParams }: Props) {
             href={`/teacher/lecture-logs?subject=${subj.id}`}
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
               subject === subj.id
-                ? "bg-primary text-primary-foreground shadow-sm"
+                ? "bg-primary text-primary-foreground shadow-sm" 
                 : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
@@ -105,7 +113,7 @@ export default async function TeacherLectureLogsPage({ searchParams }: Props) {
       <div className="grid gap-4">
         {logs.length === 0 ? (
           <div className="py-12 text-center text-sm text-muted-foreground rounded-2xl border border-dashed border-border/40 bg-card">
-            No lecture logs found. Class representatives will log sessions here.
+            No lecture logs found. You and class representatives can log session topics and homework here.
           </div>
         ) : (
           logs.map((session) => {
@@ -130,9 +138,12 @@ export default async function TeacherLectureLogsPage({ searchParams }: Props) {
                     </h3>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mt-2">
                       <div className="flex items-center gap-1.5">
-                        <Calendar className="h-4 w-4" />
-                        <time dateTime={session.sessionDate.toISOString()}>
-                          {nptDayFormatter.format(session.sessionDate)}
+                        <Calendar className="h-4 w-4 text-primary" />
+                        <span className="font-semibold text-foreground">
+                          {formatNepaliDate(session.sessionDate)}
+                        </span>
+                        <time dateTime={session.sessionDate.toISOString()} className="text-xs text-muted-foreground">
+                          ({nptDayFormatter.format(session.sessionDate)})
                         </time>
                       </div>
                       <div className="flex items-center gap-1.5">

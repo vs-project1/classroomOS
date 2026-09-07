@@ -1,6 +1,3 @@
-import { db } from "@/db";
-import { weeklyRoutine } from "@/db/schema";
-import { asc, inArray } from "drizzle-orm";
 import { CalendarDays, Edit } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
@@ -8,6 +5,7 @@ import { requireAuth, getPermissions } from "@/lib/auth";
 import { RoutineView } from "@/components/timetable/routine-view";
 import { DeleteRoutineButton } from "@/features/routine/components/delete-routine-button";
 import type { RoutineSlotData } from "@/components/timetable/routine-card";
+import { getTeacherWeeklyRoutine } from "@/features/routine/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -26,25 +24,7 @@ export default async function TeacherRoutinePage() {
     );
   }
 
-  // Find all subjects this teacher teaches
-  const teacherSubjects = await db.query.subjects.findMany({
-    where: (subjects, { eq }) => eq(subjects.teacherId, user.teacherId!),
-  });
-
-  const subjectIds = teacherSubjects.map((s) => s.id);
-
-  let allRoutine: any[] = [];
-  if (subjectIds.length > 0) {
-    allRoutine = await db.query.weeklyRoutine.findMany({
-      where: inArray(weeklyRoutine.subjectId, subjectIds),
-      orderBy: [asc(weeklyRoutine.dayOfWeek), asc(weeklyRoutine.startTime)],
-      with: {
-        subject: {
-          with: { teacher: true },
-        },
-      },
-    });
-  }
+  const allRoutine = await getTeacherWeeklyRoutine(user.teacherId);
 
   const hasRoutine = allRoutine.length > 0;
 
