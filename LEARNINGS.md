@@ -80,4 +80,5 @@ This file is a permanent, evolving knowledge base. Every agent working on Classr
 Before completing any task or claiming success, you MUST:
 1. **Check Cross-Role Sync:** Does this change affect CR, Student, Teacher, or Admin? Are their views synchronized?
 2. **Run Strict Typecheck:** Execute `npx tsc --noEmit`. Zero TypeScript errors allowed.
-3. **Log Learnings:** If a bug or design flaw was fixed, append the finding to this `LEARNINGS.md` file.
+3. **Eliminate Dead Code & Orphaned Artifacts:** After every implementation, systematically inspect and delete any unreferenced components, dead helper functions, obsolete types, or commented-out code blocks.
+4. **Log Learnings:** If a bug or design flaw was fixed, append the finding to this `LEARNINGS.md` file.
