@@ -1,20 +1,39 @@
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/db";
-import { subjects, enrollments, attendanceCorrectionRequests, attendance, classSessions, students } from "@/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import {
+  subjects,
+  students,
+  dailySessions,
+  dailyAttendance,
+  attendanceCorrectionRequests,
+} from "@/db/schema";
+import { eq, and, desc, inArray, count } from "drizzle-orm";
 import Link from "next/link";
-import { CheckCircle, Users, AlertCircle, ArrowRight } from "lucide-react";
+import {
+  Users,
+  AlertCircle,
+  ArrowRight,
+  CalendarCheck,
+  Clock,
+  CheckCircle2,
+  Calendar,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { DisputeActions } from "@/features/attendance/components/dispute-actions";
 import { formatNepaliDate } from "@/lib/nepali-date";
+import {
+  toRoman,
+  toOrdinalSemester,
+  getSemesterVariants,
+} from "@/lib/utils/roman";
 
 export const dynamic = "force-dynamic";
 
 export default async function TeacherAttendancePage() {
   const user = await requireAuth(["TEACHER", "ADMIN"]);
 
-  if (!user.teacherId) {
+  if (!user.teacherId && user.role !== "ADMIN") {
     return (
       <div className="flex-1 space-y-6 max-w-5xl">
         <h1 className="text-3xl font-bold font-fira-sans tracking-tight text-foreground">Attendance Dashboard</h1>
@@ -26,20 +45,80 @@ export default async function TeacherAttendancePage() {
     );
   }
 
-  // Get subjects taught by this teacher and pending disputes in parallel
-  const [teacherSubjects, pendingDisputes] = await Promise.all([
-    db.query.subjects.findMany({
+  // Get subjects taught by this teacher to find taught semesters
+  let teacherSubjects: Array<{ id: string; name: string; code: string; semester: string }> = [];
+  if (user.teacherId) {
+    teacherSubjects = await db.query.subjects.findMany({
       where: eq(subjects.teacherId, user.teacherId),
-      with: {
-        enrollments: {
-          with: {
-            student: true,
-          },
-        },
-        classSessions: true,
-      },
-    }),
-    db
+    });
+  } else if (user.role === "ADMIN") {
+    // Admin without teacherId sees all subjects
+    teacherSubjects = await db.query.subjects.findMany();
+  }
+
+  const distinctSemesters = [...new Set(teacherSubjects.map((s) => s.semester))];
+
+  // Current start of day in NPT (Asia/Kathmandu)
+  const now = new Date();
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kathmandu",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+  const todayStartNpt = new Date(`${ymd}T00:00:00Z`);
+
+  // For each distinct semester, fetch enrolled students count and today's daily session
+  const semesterSummaries = await Promise.all(
+    distinctSemesters.map(async (semester) => {
+      const variants = getSemesterVariants(semester);
+
+      // Query enrolled students count
+      const [studentCountRow] = await db
+        .select({ value: count() })
+        .from(students)
+        .where(inArray(students.semester, variants));
+
+      const enrolledCount = Number(studentCountRow?.value ?? 0);
+
+      // Query today's daily session
+      const todaySession = await db.query.dailySessions.findFirst({
+        where: and(
+          inArray(dailySessions.semester, variants),
+          eq(dailySessions.date, todayStartNpt)
+        ),
+      });
+
+      const semesterSubjects = teacherSubjects.filter((s) => s.semester === semester);
+
+      return {
+        semester,
+        enrolledCount,
+        hasLoggedToday: Boolean(todaySession),
+        todaySessionId: todaySession?.id,
+        subjectsCount: semesterSubjects.length,
+      };
+    })
+  );
+
+  // Teacher's taught semester variants for filtering disputes
+  const allTaughtVariants = distinctSemesters.flatMap((s) => getSemesterVariants(s));
+
+  // Query pending disputes joined with dailyAttendance and dailySessions
+  let pendingDisputes: Array<{
+    id: string;
+    requestedStatus: string;
+    reason: string;
+    status: string;
+    createdAt: Date;
+    studentName: string;
+    studentRoll: string;
+    semester: string;
+    sessionDate: Date;
+  }> = [];
+
+  if (user.role === "ADMIN" || allTaughtVariants.length > 0) {
+    pendingDisputes = await db
       .select({
         id: attendanceCorrectionRequests.id,
         requestedStatus: attendanceCorrectionRequests.requestedStatus,
@@ -48,25 +127,21 @@ export default async function TeacherAttendancePage() {
         createdAt: attendanceCorrectionRequests.createdAt,
         studentName: students.name,
         studentRoll: students.rollNumber,
-        subjectName: subjects.name,
-        subjectCode: subjects.code,
-        sessionDate: classSessions.sessionDate,
-        startTime: classSessions.startTime,
-        endTime: classSessions.endTime,
+        semester: dailySessions.semester,
+        sessionDate: dailySessions.date,
       })
       .from(attendanceCorrectionRequests)
-      .innerJoin(attendance, eq(attendanceCorrectionRequests.attendanceId, attendance.id))
-      .innerJoin(classSessions, eq(attendance.classSessionId, classSessions.id))
-      .innerJoin(subjects, eq(classSessions.subjectId, subjects.id))
+      .innerJoin(dailyAttendance, eq(attendanceCorrectionRequests.attendanceId, dailyAttendance.id))
+      .innerJoin(dailySessions, eq(dailyAttendance.dailySessionId, dailySessions.id))
       .innerJoin(students, eq(attendanceCorrectionRequests.studentId, students.id))
       .where(
         and(
           eq(attendanceCorrectionRequests.status, "pending"),
-          user.role === "ADMIN" ? undefined : eq(subjects.teacherId, user.teacherId)
+          user.role === "ADMIN" ? undefined : inArray(dailySessions.semester, allTaughtVariants)
         )
       )
-      .orderBy(desc(attendanceCorrectionRequests.createdAt)),
-  ]);
+      .orderBy(desc(attendanceCorrectionRequests.createdAt));
+  }
 
   return (
     <div className="flex-1 space-y-8 max-w-5xl">
@@ -75,76 +150,96 @@ export default async function TeacherAttendancePage() {
           Attendance Dashboard
         </h1>
         <p className="text-muted-foreground text-base max-w-2xl">
-          Manage attendance rosters and monitor class participation.
+          Manage attendance rosters and monitor class participation across your semesters.
         </p>
       </div>
 
-      {teacherSubjects.length === 0 ? (
+      {semesterSummaries.length === 0 ? (
         <div className="py-20 text-center flex flex-col items-center justify-center border border-dashed border-border/50 rounded-3xl bg-muted/20">
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-            <CheckCircle className="w-8 h-8 text-primary" />
+            <CheckCircle2 className="w-8 h-8 text-primary" />
           </div>
-          <h2 className="text-xl font-bold text-foreground">No classes found</h2>
+          <h2 className="text-xl font-bold text-foreground">No assigned semesters found</h2>
           <p className="text-muted-foreground mt-2 max-w-sm">
-            You don't have any assigned subjects yet. Once you do, you'll be able to manage attendance here.
+            You don&apos;t have any assigned subjects yet. Once subjects are assigned, their semester attendance rosters will appear here.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {teacherSubjects.map((subject) => {
-            const studentCount = subject.enrollments?.length || 0;
-            const sessionCount = subject.classSessions?.length || 0;
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold font-fira-sans tracking-tight text-foreground">
+              Semester Rosters
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {semesterSummaries.length} semester{semesterSummaries.length > 1 ? "s" : ""} taught
+            </span>
+          </div>
 
-            return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {semesterSummaries.map((summary) => (
               <div
-                key={subject.id}
-                className="group flex flex-col overflow-hidden rounded-3xl border border-border/50 bg-card p-6 shadow-sm transition-all"
+                key={summary.semester}
+                className="group flex flex-col overflow-hidden rounded-3xl border border-border/50 bg-card p-6 shadow-sm transition-all hover:border-primary/40"
               >
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1">
                     <span className="inline-flex h-7 items-center rounded-full bg-primary/10 px-3 text-[11px] font-bold uppercase tracking-wider text-primary">
-                      {subject.code}
+                      Semester {toRoman(summary.semester)}
                     </span>
                     <h3 className="font-fira-sans text-xl font-bold leading-tight text-foreground">
-                      {subject.name}
+                      {toOrdinalSemester(summary.semester)}
                     </h3>
+                  </div>
+
+                  <div>
+                    {summary.hasLoggedToday ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <CalendarCheck className="w-3.5 h-3.5" />
+                        Logged Today
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                        <Clock className="w-3.5 h-3.5" />
+                        Not Logged Today
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="mt-6 mb-8 flex gap-6">
+                <div className="mt-6 mb-8 grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Students</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Enrolled Students</p>
                     <p className="text-2xl font-bold text-foreground flex items-center gap-2">
                       <Users className="h-5 w-5 text-primary" />
-                      {studentCount}
+                      {summary.enrolledCount}
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sessions</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Taught Subjects</p>
                     <p className="text-2xl font-bold text-foreground flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-emerald-500" />
-                      {sessionCount}
+                      <Calendar className="h-5 w-5 text-muted-foreground" />
+                      {summary.subjectsCount}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-auto flex flex-wrap gap-3 pt-4 border-t border-border/40">
                   <Link
-                    href={`/teacher/attendance/roster?subjectId=${subject.id}`}
+                    href={`/teacher/attendance/roster?semester=${encodeURIComponent(summary.semester)}`}
                     className={cn(buttonVariants({ variant: "default" }), "rounded-xl font-semibold")}
                   >
                     View Roster <ArrowRight className="ml-1.5 h-4 w-4" />
                   </Link>
                   <Link
-                    href={`/teacher/lecture-logs?subject=${subject.id}`}
+                    href={`/cr/take-attendance?semester=${encodeURIComponent(toOrdinalSemester(summary.semester))}`}
                     className={cn(buttonVariants({ variant: "outline" }), "rounded-xl font-semibold")}
                   >
-                    Class History
+                    Take Attendance
                   </Link>
                 </div>
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
       )}
 
@@ -163,14 +258,14 @@ export default async function TeacherAttendancePage() {
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Review and resolve attendance correction requests submitted by students for your lectures.
+              Review and resolve student attendance correction requests for your semesters.
             </p>
           </div>
         </div>
 
         {pendingDisputes.length === 0 ? (
           <div className="p-8 text-center border border-dashed border-border/50 rounded-2xl bg-muted/10">
-            <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-80" />
+            <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-80" />
             <p className="text-sm font-semibold text-foreground">No pending disputes</p>
             <p className="text-xs text-muted-foreground mt-1">All attendance correction requests have been addressed.</p>
           </div>
@@ -187,11 +282,11 @@ export default async function TeacherAttendancePage() {
                       <span className="font-bold text-foreground">{dispute.studentName}</span>
                       <span className="text-xs text-muted-foreground font-mono">({dispute.studentRoll})</span>
                       <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary">
-                        {dispute.subjectCode}
+                        {toOrdinalSemester(dispute.semester)}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {dispute.subjectName} • {formatNepaliDate(dispute.sessionDate, "YYYY MMMM DD")} ({dispute.startTime} - {dispute.endTime})
+                      Session Date: {formatNepaliDate(dispute.sessionDate, "YYYY MMMM DD")} (B.S.)
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

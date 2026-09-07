@@ -1,17 +1,29 @@
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/db";
-import { subjects, classSessions, attendance, enrollments, students } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { subjects, dailySessions, dailyAttendance, students } from "@/db/schema";
+import { eq, asc, inArray } from "drizzle-orm";
 import Link from "next/link";
-import { ArrowLeft, Users, UserCheck, AlertCircle } from "lucide-react";
+import { ArrowLeft, Users, CalendarCheck, AlertCircle, Sparkles } from "lucide-react";
 import { notFound } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  toRoman,
+  toOrdinalSemester,
+  getSemesterVariants,
+  areSemestersEqual,
+} from "@/lib/utils/roman";
 
 export const dynamic = "force-dynamic";
 
-export default async function TeacherRosterPage({ searchParams }: { searchParams: Promise<{ subjectId?: string }> }) {
+export default async function TeacherRosterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ semester?: string }>;
+}) {
   const user = await requireAuth(["TEACHER", "ADMIN"]);
-  
-  if (!user.teacherId) {
+
+  if (!user.teacherId && user.role !== "ADMIN") {
     return (
       <div className="flex-1 space-y-6 max-w-5xl">
         <div className="p-5 bg-destructive/10 text-destructive-foreground rounded-2xl border border-destructive/20 text-sm font-medium">
@@ -21,136 +33,235 @@ export default async function TeacherRosterPage({ searchParams }: { searchParams
     );
   }
 
-  const { subjectId } = await searchParams;
-
-  if (!subjectId) {
-    return notFound();
-  }
-
-  // Verify the subject belongs to this teacher
-  const subject = await db.query.subjects.findFirst({
-    where: and(
-      eq(subjects.id, subjectId),
-      eq(subjects.teacherId, user.teacherId)
-    )
-  });
-
-  if (!subject) {
-    return notFound();
-  }
-
-  // Get total sessions for this subject
-  const sessions = await db.query.classSessions.findMany({
-    where: eq(classSessions.subjectId, subjectId)
-  });
-  const totalSessions = sessions.length;
-  const sessionIds = sessions.map(s => s.id);
-
-  // Get enrolled students
-  let enrolled = await db
-    .select({
-      student: students,
-    })
-    .from(enrollments)
-    .innerJoin(students, eq(enrollments.studentId, students.id))
-    .where(eq(enrollments.subjectId, subjectId))
-    .orderBy(students.rollNumber);
-
-  if (enrolled.length === 0) {
-    const allStds = await db
-      .select()
-      .from(students)
-      .orderBy(students.rollNumber);
-    enrolled = allStds.map((s) => ({ student: s }));
-  }
-
-  // Get all attendance for these sessions
-  let allAttendance: (typeof attendance.$inferSelect)[] = [];
-  if (sessionIds.length > 0) {
-    // Drizzle doesn't support 'in' well with empty arrays, but we checked length
-    // Using a manual SQL query because inArray has issues sometimes
-    const sessionIdsStr = sessionIds.map(id => `'${id}'`).join(',');
-    allAttendance = await db.query.attendance.findMany({
-      where: sql`class_session_id IN (${sql.raw(sessionIdsStr)})`
+  // Get subjects taught by this teacher to find taught semesters
+  let teacherSubjects: Array<{ id: string; name: string; code: string; semester: string }> = [];
+  if (user.teacherId) {
+    teacherSubjects = await db.query.subjects.findMany({
+      where: eq(subjects.teacherId, user.teacherId),
     });
+  } else if (user.role === "ADMIN") {
+    teacherSubjects = await db.query.subjects.findMany();
   }
 
-  // Compute metrics for each student
-  const roster = enrolled.map(({ student }) => {
-    const studentAttendance = allAttendance.filter(a => a.studentId === student.id);
-    
-    const attendedSessions = studentAttendance.filter(a => a.status === "present" || a.status === "late").length;
-    const absentSessions = studentAttendance.filter(a => a.status === "absent").length;
-    const excusedSessions = studentAttendance.filter(a => a.status === "excused").length;
-    
-    const percentage = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 100;
-    
-    return {
-      student,
-      attendedSessions,
-      absentSessions,
-      excusedSessions,
-      percentage: Math.round(percentage * 10) / 10
-    };
-  });
+  const taughtSemesters = [...new Set(teacherSubjects.map((s) => s.semester))];
 
-  // Sort by lowest attendance first to highlight students at risk
-  roster.sort((a, b) => a.percentage - b.percentage);
-
-  return (
-    <div className="flex-1 space-y-8 max-w-5xl">
-      <div className="flex items-center gap-4">
-        <Link 
-          href="/teacher/attendance"
-          className="p-2 hover:bg-muted rounded-full transition-colors text-muted-foreground"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold font-fira-sans tracking-tight text-foreground">
-            Attendance Roster
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {subject.name} • {subject.code}
+  if (taughtSemesters.length === 0) {
+    return (
+      <div className="flex-1 space-y-6 max-w-5xl">
+        <div className="p-8 text-center border border-dashed border-border/50 rounded-2xl bg-muted/10">
+          <AlertCircle className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-80" />
+          <h2 className="text-lg font-bold text-foreground">No assigned semesters found</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            You do not have any assigned classes or semesters in the system.
           </p>
         </div>
       </div>
+    );
+  }
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-6 rounded-2xl border border-border/40 bg-card shadow-sm flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-muted-foreground font-medium text-sm">
-            <Users className="w-4 h-4" />
-            Total Enrolled
+  const resolvedParams = await searchParams;
+  const rawSemesterParam = resolvedParams?.semester;
+
+  // Fallback to teacher's first semester if none specified
+  const activeSemester = rawSemesterParam || taughtSemesters[0];
+
+  // Verify teacher teaches in that semester (or is ADMIN)
+  if (user.role !== "ADMIN") {
+    const isAuthorized = taughtSemesters.some((s) => areSemestersEqual(s, activeSemester));
+    if (!isAuthorized) {
+      return notFound();
+    }
+  }
+
+  const semVariants = getSemesterVariants(activeSemester);
+
+  // Query all students in that semester ordered by students.rollNumber
+  const studentList = await db
+    .select({
+      id: students.id,
+      name: students.name,
+      rollNumber: students.rollNumber,
+      email: students.email,
+      semester: students.semester,
+    })
+    .from(students)
+    .where(inArray(students.semester, semVariants))
+    .orderBy(asc(students.rollNumber));
+
+  // Query all dailySessions for that semester
+  const sessions = await db
+    .select({
+      id: dailySessions.id,
+      date: dailySessions.date,
+      semester: dailySessions.semester,
+    })
+    .from(dailySessions)
+    .where(inArray(dailySessions.semester, semVariants))
+    .orderBy(asc(dailySessions.date));
+
+  const totalDays = sessions.length;
+  const sessionIds = sessions.map((s) => s.id);
+
+  // Query all dailyAttendance for those session IDs
+  let allAttendance: Array<{
+    id: string;
+    dailySessionId: string;
+    studentId: string;
+    status: string;
+  }> = [];
+
+  if (sessionIds.length > 0) {
+    allAttendance = await db
+      .select({
+        id: dailyAttendance.id,
+        dailySessionId: dailyAttendance.dailySessionId,
+        studentId: dailyAttendance.studentId,
+        status: dailyAttendance.status,
+      })
+      .from(dailyAttendance)
+      .where(inArray(dailyAttendance.dailySessionId, sessionIds));
+  }
+
+  // Compute metrics for each student
+  const roster = studentList.map((student) => {
+    const studentRecords = allAttendance.filter((a) => a.studentId === student.id);
+    const presentDays = studentRecords.filter((r) => r.status === "present").length;
+    const lateDays = studentRecords.filter((r) => r.status === "late").length;
+    const excusedDays = studentRecords.filter((r) => r.status === "excused").length;
+    const absentDays = studentRecords.filter((r) => r.status === "absent").length;
+
+    // Attended days = present + late
+    const attendedDays = presentDays + lateDays;
+    const rawPercentage = totalDays > 0 ? (attendedDays / totalDays) * 100 : 100;
+    const percentage = Math.round(rawPercentage * 10) / 10;
+
+    return {
+      student,
+      presentDays,
+      lateDays,
+      excusedDays,
+      absentDays,
+      attendedDays,
+      percentage,
+    };
+  });
+
+  // Calculate overall average attendance %
+  const totalPercentageSum = roster.reduce((acc, r) => acc + r.percentage, 0);
+  const avgAttendance =
+    roster.length > 0 ? Math.round((totalPercentageSum / roster.length) * 10) / 10 : 100;
+
+  return (
+    <div className="flex-1 space-y-8 max-w-5xl">
+      {/* Header with Navigation */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/teacher/attendance"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "icon" }),
+              "rounded-full hover:bg-muted text-muted-foreground"
+            )}
+            aria-label="Back to Attendance Dashboard"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl md:text-3xl font-bold font-fira-sans tracking-tight text-foreground">
+                Attendance Roster
+              </h1>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
+                Semester {toRoman(activeSemester)}
+              </span>
+            </div>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              {toOrdinalSemester(activeSemester)} • Academic participation and eligibility ledger
+            </p>
           </div>
-          <div className="text-3xl font-bold font-fira-code">{roster.length}</div>
         </div>
-        <div className="p-6 rounded-2xl border border-border/40 bg-card shadow-sm flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-muted-foreground font-medium text-sm">
-            <UserCheck className="w-4 h-4" />
-            Sessions Recorded
-          </div>
-          <div className="text-3xl font-bold font-fira-code">{totalSessions}</div>
-        </div>
-        <div className="p-6 rounded-2xl border border-border/40 bg-card shadow-sm flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-muted-foreground font-medium text-sm">
-            <AlertCircle className="w-4 h-4" />
-            Avg. Attendance
-          </div>
-          <div className="text-3xl font-bold font-fira-code">
-            {roster.length > 0 ? Math.round(roster.reduce((acc, r) => acc + r.percentage, 0) / roster.length) : 0}%
-          </div>
+
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/cr/take-attendance?semester=${encodeURIComponent(toOrdinalSemester(activeSemester))}`}
+            className={cn(buttonVariants({ variant: "outline" }), "rounded-xl font-semibold")}
+          >
+            Take Attendance
+          </Link>
         </div>
       </div>
 
+      {/* Semester Switcher Tabs (if teaching multiple semesters) */}
+      {taughtSemesters.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/40 pb-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-1">
+            Semesters:
+          </span>
+          {taughtSemesters.map((sem) => {
+            const isActive = areSemestersEqual(sem, activeSemester);
+            return (
+              <Link
+                key={sem}
+                href={`/teacher/attendance/roster?semester=${encodeURIComponent(sem)}`}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                {toOrdinalSemester(sem)}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Summary KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="p-6 rounded-2xl border border-border/40 bg-card shadow-sm flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-muted-foreground font-medium text-sm">
+            <Users className="w-4 h-4 text-primary" />
+            Total Students
+          </div>
+          <div className="text-3xl font-bold font-fira-code text-foreground">{studentList.length}</div>
+          <p className="text-xs text-muted-foreground">Enrolled in {toOrdinalSemester(activeSemester)}</p>
+        </div>
+
+        <div className="p-6 rounded-2xl border border-border/40 bg-card shadow-sm flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-muted-foreground font-medium text-sm">
+            <CalendarCheck className="w-4 h-4 text-emerald-500" />
+            Total Days Logged
+          </div>
+          <div className="text-3xl font-bold font-fira-code text-foreground">{totalDays}</div>
+          <p className="text-xs text-muted-foreground">Daily attendance sessions logged</p>
+        </div>
+
+        <div className="p-6 rounded-2xl border border-border/40 bg-card shadow-sm flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-muted-foreground font-medium text-sm">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            Average Attendance %
+          </div>
+          <div className={cn(
+            "text-3xl font-bold font-fira-code",
+            avgAttendance < 80 ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"
+          )}>
+            {avgAttendance}%
+          </div>
+          <p className="text-xs text-muted-foreground">Threshold for TU exam eligibility is 80%</p>
+        </div>
+      </div>
+
+      {/* Roster Table */}
       <div className="rounded-2xl border border-border/40 bg-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-muted/30 text-muted-foreground font-medium border-b border-border/40">
+            <thead className="bg-muted/40 text-muted-foreground font-semibold border-b border-border/40">
               <tr>
                 <th className="px-6 py-4 whitespace-nowrap">Roll No.</th>
                 <th className="px-6 py-4 whitespace-nowrap">Student Name</th>
-                <th className="px-6 py-4 whitespace-nowrap text-center">Attended</th>
-                <th className="px-6 py-4 whitespace-nowrap text-center">Absent</th>
+                <th className="px-6 py-4 whitespace-nowrap text-center">Attended Days</th>
+                <th className="px-6 py-4 whitespace-nowrap text-center">Absent Days</th>
                 <th className="px-6 py-4 whitespace-nowrap text-right">Percentage</th>
               </tr>
             </thead>
@@ -158,39 +269,50 @@ export default async function TeacherRosterPage({ searchParams }: { searchParams
               {roster.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground italic">
-                    No students enrolled in this subject.
+                    No students enrolled in {toOrdinalSemester(activeSemester)}.
                   </td>
                 </tr>
               ) : (
-                roster.map((row) => (
-                  <tr key={row.student.id} className="hover:bg-muted/10 transition-colors">
-                    <td className="px-6 py-4 font-fira-code text-muted-foreground">
-                      {row.student.rollNumber}
-                    </td>
-                    <td className="px-6 py-4 font-medium text-foreground">
-                      {row.student.name}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-medium">
-                        {row.attendedSessions}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      {row.absentSessions > 0 ? (
-                        <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-destructive/10 text-destructive font-medium">
-                          {row.absentSessions}
+                roster.map((row) => {
+                  const isSafe = row.percentage >= 80;
+
+                  return (
+                    <tr key={row.student.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-6 py-4 font-fira-code text-muted-foreground font-medium">
+                        {row.student.rollNumber}
+                      </td>
+                      <td className="px-6 py-4 font-semibold text-foreground">
+                        {row.student.name}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                          {row.attendedDays} / {totalDays}
                         </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className={`font-fira-code font-bold ${row.percentage < 80 ? 'text-destructive' : 'text-emerald-600'}`}>
-                        {row.percentage.toFixed(1)}%
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {row.absentDays > 0 ? (
+                          <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-destructive/10 text-destructive font-bold text-xs">
+                            {row.absentDays}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground font-medium">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span
+                          className={cn(
+                            "font-fira-code font-bold text-sm",
+                            isSafe
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-destructive"
+                          )}
+                        >
+                          {row.percentage.toFixed(1)}%
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

@@ -3,8 +3,9 @@ import { db } from "@/db";
 import { dailySessions, dailyAttendance, students, users, studentProfiles } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/session";
 import crypto from "node:crypto";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { toOrdinalSemester, getSemesterVariants } from "@/lib/utils/roman";
 
 /**
  * Coerce a Date to start-of-day in NPT (Asia/Kathmandu). The `daily_sessions`
@@ -33,9 +34,10 @@ export async function getDailyAttendanceForDateAction(semester: string, date: Da
   }
   const targetDate = nptStartOfDay(typeof date === "string" ? new Date(date) : date);
 
+  const semVariants = getSemesterVariants(activeSemester);
   const session = await db.query.dailySessions.findFirst({
     where: and(
-      eq(dailySessions.semester, activeSemester),
+      inArray(dailySessions.semester, semVariants),
       eq(dailySessions.date, targetDate)
     ),
   });
@@ -63,7 +65,7 @@ export async function submitDailyAttendanceAction(
   records: { studentId: string; status: "present" | "absent" | "late" | "excused" }[]
 ) {
   const user = await requireAuth(["CR", "ADMIN", "TEACHER"]);
-  let targetSemester = semester;
+  let targetSemester = toOrdinalSemester(semester);
   if (user.role === "CR") {
     const crProfile = await db.query.studentProfiles.findFirst({
       where: eq(studentProfiles.userId, user.id),
@@ -72,15 +74,16 @@ export async function submitDailyAttendanceAction(
     targetSemester = `${crSemInt}${crSemInt === 1 ? 'st' : crSemInt === 2 ? 'nd' : crSemInt === 3 ? 'rd' : 'th'} Semester`;
   }
   const normalizedDate = nptStartOfDay(date);
+  const semVariants = getSemesterVariants(targetSemester);
 
   try {
     let isUpdate = false;
 
     await db.transaction(async (tx) => {
-      // Check if session already exists for this date + semester
+      // Check if session already exists for this date + semester (matching across variants)
       const existingSession = await tx.query.dailySessions.findFirst({
         where: and(
-          eq(dailySessions.semester, targetSemester),
+          inArray(dailySessions.semester, semVariants),
           eq(dailySessions.date, normalizedDate)
         ),
       });
@@ -117,7 +120,9 @@ export async function submitDailyAttendanceAction(
     revalidatePath("/");
     revalidatePath("/today");
     revalidatePath("/teacher/attendance");
+    revalidatePath("/teacher/attendance/roster");
     revalidatePath("/cr/take-attendance");
+    revalidatePath("/cr/attendance");
     revalidatePath("/attendance/monthly");
     revalidatePath("/cr/attendance/monthly");
     revalidatePath("/admin/attendance/monthly");

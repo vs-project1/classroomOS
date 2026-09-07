@@ -1,10 +1,19 @@
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/db";
-import { subjects, weeklyRoutine, homework, assignmentSubmissions } from "@/db/schema";
+import {
+  subjects,
+  weeklyRoutine,
+  homework,
+  assignmentSubmissions,
+  attendanceCorrectionRequests,
+  dailyAttendance,
+  dailySessions,
+} from "@/db/schema";
 import { eq, and, inArray, count } from "drizzle-orm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarRange, BookOpen, Clock } from "lucide-react";
+import { CalendarRange, BookOpen, Clock, AlertCircle, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { getSemesterVariants } from "@/lib/utils/roman";
 
 export default async function TeacherDashboard() {
   const user = await requireAuth(["TEACHER", "ADMIN"]);
@@ -39,6 +48,26 @@ export default async function TeacherDashboard() {
       )
     );
   const pendingGrading = Number(pendingRow?.value ?? 0);
+
+  // Pending disputes: pending attendance correction requests for teacher's semesters
+  const teacherSemesters = [...new Set(assignedSubjects.map((s) => s.semester))];
+  const teacherSemesterVariants = teacherSemesters.flatMap((sem) => getSemesterVariants(sem));
+
+  let pendingDisputes = 0;
+  if (teacherSemesterVariants.length > 0 || user.role === "ADMIN") {
+    const [disputesRow] = await db
+      .select({ value: count() })
+      .from(attendanceCorrectionRequests)
+      .innerJoin(dailyAttendance, eq(attendanceCorrectionRequests.attendanceId, dailyAttendance.id))
+      .innerJoin(dailySessions, eq(dailyAttendance.dailySessionId, dailySessions.id))
+      .where(
+        and(
+          eq(attendanceCorrectionRequests.status, "pending"),
+          user.role === "ADMIN" ? undefined : inArray(dailySessions.semester, teacherSemesterVariants)
+        )
+      );
+    pendingDisputes = Number(disputesRow?.value ?? 0);
+  }
 
   // Fetch today's classes
   // Timezone standardization: NPT day of week
@@ -75,15 +104,77 @@ export default async function TeacherDashboard() {
       <h1 className="text-3xl font-bold tracking-tight">Teacher Dashboard</h1>
       <p className="text-muted-foreground">Welcome to the Teacher Portal, {user.name}.</p>
 
+      {/* Pending Actions Alert Section */}
+      {(pendingDisputes > 0 || pendingGrading > 0) && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <h2 className="text-base font-bold text-foreground">Pending Actions Required</h2>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+              {pendingDisputes + pendingGrading} item{pendingDisputes + pendingGrading > 1 ? "s" : ""}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            {pendingDisputes > 0 && (
+              <Link
+                href="/teacher/attendance"
+                className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border/60 hover:border-primary/50 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-sm border border-amber-500/20">
+                    {pendingDisputes}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Attendance Disputes</p>
+                    <p className="text-xs text-muted-foreground">Student correction requests to review</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </Link>
+            )}
+            {pendingGrading > 0 && (
+              <Link
+                href="/admin/homework"
+                className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border/60 hover:border-primary/50 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm border border-blue-500/20">
+                    {pendingGrading}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Pending Grading</p>
+                    <p className="text-xs text-muted-foreground">Assignment submissions waiting for review</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Quick Links */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Link
           href="/teacher/attendance"
           className="flex flex-col items-start gap-2 rounded-2xl border border-border/40 bg-card p-4 hover:border-primary/50 transition-all"
         >
-          <CalendarRange className="w-5 h-5 text-primary" />
+          <div className="flex items-center justify-between w-full">
+            <CalendarRange className="w-5 h-5 text-primary" />
+            {pendingDisputes > 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                {pendingDisputes}
+              </span>
+            )}
+          </div>
           <span className="text-sm font-bold">Attendance</span>
-          <span className="text-xs text-muted-foreground">Record &amp; review</span>
+          <span className="text-xs text-muted-foreground">
+            {pendingDisputes > 0
+              ? `${pendingDisputes} dispute${pendingDisputes > 1 ? "s" : ""} pending`
+              : "Record & review"}
+          </span>
         </Link>
         <Link
           href="/teacher/lecture-logs"

@@ -10,8 +10,8 @@ export default async function CRLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // RBAC Guard: Strictly require CR role
-  const user = await requireAuth(["CR", "ADMIN"]);
+  // RBAC Guard: Allow CR, ADMIN, and TEACHER (so teachers can access /cr/take-attendance)
+  const user = await requireAuth(["CR", "ADMIN", "TEACHER"]);
   const [subjects, badges] = await Promise.all([getSubjectsForSidebar(), getNavBadges()]);
 
   return (

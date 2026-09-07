@@ -2,9 +2,9 @@
 
 import { db } from "@/db";
 import {
-  attendance,
+  dailyAttendance,
+  dailySessions,
   attendanceCorrectionRequests,
-  classSessions,
   students,
   subjects,
   users,
@@ -13,6 +13,7 @@ import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth/session";
 import { notify } from "@/lib/notifications";
+import { areSemestersEqual } from "@/lib/utils/roman";
 import { z } from "zod";
 
 const ReviewSchema = z.object({
@@ -39,22 +40,30 @@ export async function reviewDisputeAction(
   const { disputeId, action, reviewNote } = validated.data;
 
   try {
-    const [dispute] = await db
-      .select()
+    const [row] = await db
+      .select({
+        dispute: attendanceCorrectionRequests,
+        dailyAttendance: dailyAttendance,
+        dailySession: dailySessions,
+      })
       .from(attendanceCorrectionRequests)
+      .innerJoin(dailyAttendance, eq(attendanceCorrectionRequests.attendanceId, dailyAttendance.id))
+      .innerJoin(dailySessions, eq(dailyAttendance.dailySessionId, dailySessions.id))
       .where(eq(attendanceCorrectionRequests.id, disputeId))
       .limit(1);
 
-    if (!dispute) {
+    if (!row) {
       return { success: false, message: "Dispute not found." };
     }
+
+    const { dispute, dailySession } = row;
 
     if (dispute.status !== "pending") {
       return { success: false, message: "This dispute has already been reviewed." };
     }
 
-    // Ownership check: teachers may only review disputes for sessions
-    // belonging to subjects they teach.
+    // Ownership check: non-ADMIN teachers may only review disputes for
+    // sessions belonging to semesters they teach.
     let reviewerTeacherId: string | null = null;
     if (user.role !== "ADMIN") {
       if (!user.teacherId) {
@@ -62,15 +71,16 @@ export async function reviewDisputeAction(
       }
       reviewerTeacherId = user.teacherId;
 
-      const [row] = await db
-        .select({ subjectTeacherId: subjects.teacherId })
-        .from(classSessions)
-        .innerJoin(subjects, eq(subjects.id, classSessions.subjectId))
-        .innerJoin(attendance, eq(attendance.classSessionId, classSessions.id))
-        .where(eq(attendance.id, dispute.attendanceId))
-        .limit(1);
+      const teacherSubjects = await db
+        .select({ semester: subjects.semester })
+        .from(subjects)
+        .where(eq(subjects.teacherId, user.teacherId));
 
-      if (!row || row.subjectTeacherId !== user.teacherId) {
+      const isTeacherOfSemester = teacherSubjects.some((sub) =>
+        areSemestersEqual(sub.semester, dailySession.semester)
+      );
+
+      if (!isTeacherOfSemester) {
         return { success: false, message: "You are not authorized to review this dispute." };
       }
     } else {
@@ -78,15 +88,14 @@ export async function reviewDisputeAction(
     }
 
     const now = new Date();
-
     const nextStatus = action === "approve" ? "approved" : "rejected";
 
     // Conditional UPDATE guards against a TOCTOU race: if the dispute was
     // already reviewed between the pre-check above and this statement, the
     // WHERE clause matches nothing and we report "already reviewed".
-    // Atomic transaction: dispute status + attendance correction together
+    // Atomic transaction: dispute status + daily attendance correction together
     const updated = await db.transaction(async (tx) => {
-      const [row] = await tx
+      const [updatedRequest] = await tx
         .update(attendanceCorrectionRequests)
         .set({
           status: nextStatus,
@@ -103,24 +112,22 @@ export async function reviewDisputeAction(
         )
         .returning({ id: attendanceCorrectionRequests.id });
 
-      if (!row) return null;
+      if (!updatedRequest) return null;
 
       if (action === "approve") {
         await tx
-          .update(attendance)
+          .update(dailyAttendance)
           .set({ status: dispute.requestedStatus })
-          .where(eq(attendance.id, dispute.attendanceId));
+          .where(eq(dailyAttendance.id, dispute.attendanceId));
       }
-      return row;
+      return updatedRequest;
     });
 
     if (!updated) {
       return { success: false, message: "This dispute has already been reviewed." };
     }
 
-    // Notify the requesting student of the outcome. notifications.userId
-    // references users.id while the request stores a legacy students-table id
-    // without a userId column — bridge via students.email = users.email.
+    // Notify the requesting student of the outcome.
     try {
       const [recipient] = await db
         .select({ userId: users.id })
@@ -144,8 +151,11 @@ export async function reviewDisputeAction(
       console.error("Failed to send dispute outcome notification:", notifyError);
     }
 
-    revalidatePath("/admin/attendance");
+    revalidatePath("/teacher/attendance");
+    revalidatePath("/teacher/attendance/roster");
     revalidatePath("/attendance");
+    revalidatePath("/admin/attendance");
+
     return {
       success: true,
       message: `Dispute ${action === "approve" ? "approved" : "rejected"}.`,

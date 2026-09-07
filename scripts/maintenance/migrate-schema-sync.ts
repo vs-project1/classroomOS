@@ -126,9 +126,48 @@ async function main() {
     )
     WHERE user_id IS NULL AND email IN (SELECT email FROM users)
   `);
-  console.log("✅ user_id backfill complete.");
+  // 7. Sync attendance_correction_requests foreign key to daily_attendance
+  try {
+    const fks = await client.execute("PRAGMA foreign_key_list(attendance_correction_requests)");
+    const attendanceFk = fks.rows.find((r) => r.from === "attendance_id");
+    if (attendanceFk && attendanceFk.table !== "daily_attendance") {
+      console.log("🔄 Updating attendance_correction_requests foreign key to daily_attendance...");
+      await client.execute("PRAGMA foreign_keys = OFF;");
+      await client.execute(`
+        CREATE TABLE IF NOT EXISTS attendance_correction_requests_new (
+          id text PRIMARY KEY NOT NULL,
+          attendance_id text NOT NULL REFERENCES daily_attendance(id) ON DELETE CASCADE,
+          student_id text NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+          requested_status text NOT NULL,
+          reason text NOT NULL,
+          status text DEFAULT 'pending' NOT NULL,
+          reviewed_by text REFERENCES teachers(id) ON DELETE SET NULL,
+          review_note text,
+          reviewed_at integer,
+          created_at integer DEFAULT (unixepoch()) NOT NULL,
+          updated_at integer DEFAULT (unixepoch()) NOT NULL,
+          CONSTRAINT chk_attendance_correction_requested_status CHECK(requested_status IN ('present', 'excused')),
+          CONSTRAINT chk_attendance_correction_status CHECK(status IN ('pending', 'approved', 'rejected'))
+        );
+      `);
+      await client.execute(`
+        INSERT INTO attendance_correction_requests_new SELECT * FROM attendance_correction_requests;
+      `);
+      await client.execute("DROP TABLE attendance_correction_requests;");
+      await client.execute("ALTER TABLE attendance_correction_requests_new RENAME TO attendance_correction_requests;");
+      await client.execute("CREATE INDEX IF NOT EXISTS idx_attendance_correction_student ON attendance_correction_requests (student_id);");
+      await client.execute("CREATE INDEX IF NOT EXISTS idx_attendance_correction_attendance ON attendance_correction_requests (attendance_id);");
+      await client.execute("CREATE INDEX IF NOT EXISTS idx_attendance_correction_status ON attendance_correction_requests (status);");
+      await client.execute("PRAGMA foreign_keys = ON;");
+      console.log("✅ attendance_correction_requests foreign key migrated to daily_attendance.");
+    } else {
+      console.log("ℹ️ attendance_correction_requests foreign key already points to daily_attendance.");
+    }
+  } catch (err) {
+    console.error("⚠️ Failed to check/migrate attendance_correction_requests foreign key:", err);
+  }
 
-  // 7. Verify counts
+  // 8. Verify counts
   const studentsCount = await client.execute("SELECT COUNT(*) as total, COUNT(user_id) as linked FROM students");
   console.log("📊 Students Migration Status:", studentsCount.rows[0]);
 

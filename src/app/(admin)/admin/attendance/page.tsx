@@ -1,10 +1,11 @@
 import { requireAuth } from "@/lib/auth/session";
 import { db } from "@/db";
-import { attendanceCorrectionRequests, attendance, classSessions, subjects, students } from "@/db/schema";
+import { attendanceCorrectionRequests, dailyAttendance, dailySessions, students } from "@/db/schema";
 import { eq, desc, count } from "drizzle-orm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DisputeActions } from "@/features/attendance/components/dispute-actions";
 import { formatNepaliDate } from "@/lib/nepali-date";
+import { toOrdinalSemester } from "@/lib/utils/roman";
 
 export default async function AdminAttendancePage() {
   await requireAuth(["ADMIN"]);
@@ -19,16 +20,12 @@ export default async function AdminAttendancePage() {
       createdAt: attendanceCorrectionRequests.createdAt,
       studentName: students.name,
       studentRoll: students.rollNumber,
-      subjectName: subjects.name,
-      subjectCode: subjects.code,
-      sessionDate: classSessions.sessionDate,
-      startTime: classSessions.startTime,
-      endTime: classSessions.endTime,
+      semester: dailySessions.semester,
+      sessionDate: dailySessions.date,
     })
     .from(attendanceCorrectionRequests)
-    .innerJoin(attendance, eq(attendanceCorrectionRequests.attendanceId, attendance.id))
-    .innerJoin(classSessions, eq(attendance.classSessionId, classSessions.id))
-    .innerJoin(subjects, eq(classSessions.subjectId, subjects.id))
+    .innerJoin(dailyAttendance, eq(attendanceCorrectionRequests.attendanceId, dailyAttendance.id))
+    .innerJoin(dailySessions, eq(dailyAttendance.dailySessionId, dailySessions.id))
     .innerJoin(students, eq(attendanceCorrectionRequests.studentId, students.id))
     .orderBy(desc(attendanceCorrectionRequests.createdAt))
     .limit(100);
@@ -129,11 +126,8 @@ function DisputeCard({
     createdAt: Date;
     studentName: string;
     studentRoll: string;
-    subjectName: string;
-    subjectCode: string;
+    semester: string;
     sessionDate: Date;
-    startTime: string;
-    endTime: string;
   };
   showActions?: boolean;
 }) {
@@ -159,7 +153,7 @@ function DisputeCard({
             </span>
           </div>
           <p className="text-sm text-muted-foreground">
-            {req.subjectCode} — {req.subjectName} • {sessionDate} {req.startTime}–{req.endTime}
+            {toOrdinalSemester(req.semester)} • Session Date: {sessionDate} (B.S.)
           </p>
         </div>
       </div>
