@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { classSessions, lectureLogs, subjects, students, homework, enrollments, studentProfiles, weeklyRoutine, attendance, type AttendanceStatus } from "@/db/schema";
+import { classSessions, lectureLogs, subjects, students, homework, enrollments, studentProfiles, weeklyRoutine } from "@/db/schema";
 import { toRoman } from "@/lib/utils/roman";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -198,48 +198,6 @@ export async function createSession(prevState: SessionActionState, formData: For
     // Determine if homework is provided
     const hasHomework = homeworkDesc && homeworkDesc.trim().length > 0;
 
-    // Parse lecture attendance records
-    type AttendanceEntry = { studentId: string; status: AttendanceStatus };
-    let attendanceList: AttendanceEntry[] = [];
-    const rawAttendance = formData.get("attendanceRecords")?.toString();
-
-    if (rawAttendance) {
-      try {
-        const parsed = JSON.parse(rawAttendance);
-        if (Array.isArray(parsed)) {
-          attendanceList = parsed.filter(
-            (item): item is AttendanceEntry =>
-              Boolean(item) &&
-              typeof item.studentId === "string" &&
-              ["present", "absent", "late", "excused"].includes(item.status)
-          );
-        }
-      } catch {
-        // ignore malformed JSON
-      }
-    }
-
-    // Auto-populate roster with default 'present' if no explicit records were submitted
-    if (attendanceList.length === 0) {
-      const enrolled = await db
-        .select({ studentId: enrollments.studentId })
-        .from(enrollments)
-        .where(eq(enrollments.subjectId, subjectId));
-
-      if (enrolled.length > 0) {
-        attendanceList = enrolled.map((e) => ({
-          studentId: e.studentId,
-          status: "present" as AttendanceStatus,
-        }));
-      } else {
-        const allStudents = await db.select({ id: students.id }).from(students);
-        attendanceList = allStudents.map((s) => ({
-          studentId: s.id,
-          status: "present" as AttendanceStatus,
-        }));
-      }
-    }
-
     // Execution: Database Transaction
     await db.transaction(async (tx) => {
       // 1. Insert Session
@@ -261,19 +219,7 @@ export async function createSession(prevState: SessionActionState, formData: For
         notes,
       });
 
-      // 3. Batch Insert Lecture Attendance Records
-      if (attendanceList.length > 0) {
-        await tx.insert(attendance).values(
-          attendanceList.map((att) => ({
-            id: crypto.randomUUID(),
-            classSessionId: sessionId,
-            studentId: att.studentId,
-            status: att.status,
-          }))
-        );
-      }
-
-      // 4. Insert Homework Assignment (only if homework is provided)
+      // 3. Insert Homework Assignment (only if homework is provided)
       if (hasHomework && homeworkDueDate) {
         await tx.insert(homework).values({
           id: crypto.randomUUID(),

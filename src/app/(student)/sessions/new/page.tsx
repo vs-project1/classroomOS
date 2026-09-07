@@ -1,12 +1,11 @@
 import { db } from "@/db";
-import { subjects, enrollments, weeklyRoutine, students, dailySessions, dailyAttendance } from "@/db/schema";
-import { SessionForm, type StudentRosterItem } from "@/features/sessions/components/session-form";
+import { subjects, enrollments, weeklyRoutine } from "@/db/schema";
+import { SessionForm } from "@/features/sessions/components/session-form";
 import { asc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
-import { nptStartOfDay } from "@/lib/timezone";
 
 export default async function NewSessionPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   // Page-level guard (defense in depth beyond the shared layout): only
@@ -84,65 +83,6 @@ export default async function NewSessionPage({ searchParams }: { searchParams: P
     );
   }
 
-  // Fetch student roster
-  let rawStudents: Array<{ id: string; name: string; rollNumber: string }> = [];
-  if (subjectIds.length > 0) {
-    const enrolled = await db
-      .select({
-        id: students.id,
-        name: students.name,
-        rollNumber: students.rollNumber,
-      })
-      .from(students)
-      .innerJoin(enrollments, eq(students.id, enrollments.studentId))
-      .where(inArray(enrollments.subjectId, subjectIds))
-      .groupBy(students.id)
-      .orderBy(asc(students.rollNumber));
-
-    if (enrolled.length > 0) {
-      rawStudents = enrolled;
-    }
-  }
-
-  if (rawStudents.length === 0) {
-    rawStudents = await db
-      .select({
-        id: students.id,
-        name: students.name,
-        rollNumber: students.rollNumber,
-      })
-      .from(students)
-      .orderBy(asc(students.rollNumber));
-  }
-
-  // Cross-reference today's morning roll call to detect absentees
-  const todayNpt = nptStartOfDay();
-  const todayDailySessions = await db.query.dailySessions.findMany({
-    where: eq(dailySessions.date, todayNpt),
-  });
-
-  const morningAbsentSet = new Set<string>();
-  if (todayDailySessions.length > 0) {
-    const sessionIds = todayDailySessions.map((ds) => ds.id);
-    const morningRecords = await db
-      .select()
-      .from(dailyAttendance)
-      .where(inArray(dailyAttendance.dailySessionId, sessionIds));
-
-    for (const rec of morningRecords) {
-      if (rec.status === "absent") {
-        morningAbsentSet.add(rec.studentId);
-      }
-    }
-  }
-
-  const studentsWithStatus: StudentRosterItem[] = rawStudents.map((s) => ({
-    id: s.id,
-    name: s.name,
-    rollNumber: s.rollNumber,
-    morningAbsent: morningAbsentSet.has(s.id),
-  }));
-
   return (
     <div className="flex-1 space-y-6 max-w-6xl">
       <div className="flex items-center gap-3">
@@ -158,7 +98,6 @@ export default async function NewSessionPage({ searchParams }: { searchParams: P
         subjects={allSubjects}
         routineSlots={routineSlots}
         userRole={user.role as "ADMIN" | "TEACHER" | "CR"}
-        students={studentsWithStatus}
         defaultValues={{
           subjectId: typeof params.subjectId === 'string' ? params.subjectId : undefined,
           startTime: typeof params.startTime === 'string' ? params.startTime : undefined,

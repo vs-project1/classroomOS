@@ -19,7 +19,6 @@ import {
   Calendar,
   Sparkles,
   Check,
-  Users,
 } from "lucide-react";
 
 export interface RoutineSlotInfo {
@@ -59,18 +58,10 @@ export interface SubjectInfo {
   code: string;
 }
 
-export interface StudentRosterItem {
-  id: string;
-  name: string;
-  rollNumber: string;
-  morningAbsent?: boolean;
-}
-
 export interface SessionFormProps {
   subjects?: SubjectInfo[];
   routineSlots?: RoutineSlotInfo[];
   userRole?: "ADMIN" | "TEACHER" | "CR";
-  students?: StudentRosterItem[];
   defaultValues?: {
     subjectId?: string;
     startTime?: string;
@@ -109,7 +100,6 @@ export function SessionForm({
   subjects = [],
   routineSlots = [],
   userRole = "TEACHER",
-  students = [],
   defaultValues,
 }: SessionFormProps) {
   const todayIso = useMemo(() => getTodayIsoDate(), []);
@@ -120,51 +110,6 @@ export function SessionForm({
   const [endTime, setEndTime] = useState(defaultValues?.endTime || "");
   const [routineId, setRoutineId] = useState<string | undefined>(defaultValues?.routineId);
   const [showHomework, setShowHomework] = useState(false);
-
-  type AttStatus = "present" | "absent" | "late" | "excused";
-  const [rosterAttendance, setRosterAttendance] = useState<Record<string, AttStatus>>(() => {
-    const init: Record<string, AttStatus> = {};
-    for (const s of students) {
-      init[s.id] = s.morningAbsent ? "absent" : "present";
-    }
-    return init;
-  });
-
-  useEffect(() => {
-    if (students && students.length > 0) {
-      setRosterAttendance((prev) => {
-        const next = { ...prev };
-        for (const s of students) {
-          if (!next[s.id]) {
-            next[s.id] = s.morningAbsent ? "absent" : "present";
-          }
-        }
-        return next;
-      });
-    }
-  }, [students]);
-
-  const handleSetStudentStatus = (studentId: string, status: AttStatus) => {
-    setRosterAttendance((prev) => ({
-      ...prev,
-      [studentId]: status,
-    }));
-  };
-
-  const handleMarkAllPresent = () => {
-    const allP: Record<string, AttStatus> = {};
-    for (const s of students) {
-      allP[s.id] = "present";
-    }
-    setRosterAttendance(allP);
-  };
-
-  const attendancePayload = useMemo(() => {
-    return Object.entries(rosterAttendance).map(([studentId, status]) => ({
-      studentId,
-      status,
-    }));
-  }, [rosterAttendance]);
 
   // Compute Day of Week for chosen date
   const dayOfWeek = useMemo(() => {
@@ -283,7 +228,6 @@ export function SessionForm({
     <div className="w-full max-w-6xl">
       <form action={formAction}>
         {routineId && <input type="hidden" name="routineId" value={routineId} />}
-        <input type="hidden" name="attendanceRecords" value={JSON.stringify(attendancePayload)} />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Date & Schedule Picker */}
@@ -609,97 +553,6 @@ export function SessionForm({
                     </div>
                   )}
                 </div>
-
-                {/* Attendance Roster Card */}
-                {students && students.length > 0 && (
-                  <div className="rounded-lg border border-border/40 bg-muted/10 p-3.5 space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border/30">
-                      <div>
-                        <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                          <Users className="h-4 w-4 text-primary" /> Class Attendance Roster
-                        </span>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          Mark attendance for this lecture. Students absent in morning roll call are flagged.
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleMarkAllPresent}
-                        className="text-[11px] h-7 px-2.5 w-fit cursor-pointer"
-                      >
-                        Mark All Present
-                      </Button>
-                    </div>
-
-                    <div className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
-                      {students.map((student) => {
-                        const currentStatus = rosterAttendance[student.id] || (student.morningAbsent ? "absent" : "present");
-                        return (
-                          <div
-                            key={student.id}
-                            className="flex items-center justify-between p-2 rounded-md border border-border/30 bg-background/60 hover:bg-muted/30 gap-2 text-xs"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-semibold text-foreground truncate">
-                                  {student.name}
-                                </span>
-                                {student.morningAbsent && (
-                                  <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-destructive/10 text-destructive border border-destructive/20 shrink-0">
-                                    Morning Absent
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[10px] text-muted-foreground font-fira-code">
-                                {student.rollNumber}
-                              </p>
-                            </div>
-
-                            <div className="flex items-center gap-1 shrink-0">
-                              {(["present", "absent", "late", "excused"] as const).map((st) => {
-                                const isCurrent = currentStatus === st;
-                                const labels: Record<string, string> = {
-                                  present: "P",
-                                  absent: "A",
-                                  late: "L",
-                                  excused: "E",
-                                };
-                                const colorClasses: Record<string, string> = {
-                                  present: isCurrent
-                                    ? "bg-emerald-600 text-white font-bold border-emerald-600 shadow-xs"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                                  absent: isCurrent
-                                    ? "bg-destructive text-white font-bold border-destructive shadow-xs"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                                  late: isCurrent
-                                    ? "bg-amber-600 text-white font-bold border-amber-600 shadow-xs"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                                  excused: isCurrent
-                                    ? "bg-sky-600 text-white font-bold border-sky-600 shadow-xs"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
-                                };
-
-                                return (
-                                  <button
-                                    key={st}
-                                    type="button"
-                                    onClick={() => handleSetStudentStatus(student.id, st)}
-                                    title={`Mark ${st}`}
-                                    className={`w-6 h-6 rounded text-[11px] transition-colors border border-border/40 cursor-pointer flex items-center justify-center ${colorClasses[st]}`}
-                                  >
-                                    {labels[st]}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
 
                 {/* Global Error Banner */}
                 {!state.success && state.message && (
