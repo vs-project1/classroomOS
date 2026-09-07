@@ -476,7 +476,7 @@ export const attendanceCorrectionRequests = sqliteTable("attendance_correction_r
   id: text("id").primaryKey(),
   attendanceId: text("attendance_id")
     .notNull()
-    .references(() => attendance.id, { onDelete: "cascade" }),
+    .references(() => dailyAttendance.id, { onDelete: "cascade" }),
   studentId: text("student_id")
     .notNull()
     .references(() => students.id, { onDelete: "cascade" }),
