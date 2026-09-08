@@ -84,8 +84,8 @@ export async function createResourceAction(prevState: any, formData: FormData) {
   let uploadedFileKey: string | undefined;
 
   try {
-    if (!user.teacherId) {
-      return { success: false, message: "Only teachers can upload resources." };
+    if (user.role !== "ADMIN" && !user.teacherId) {
+      return { success: false, message: "Only teachers and administrators can upload resources." };
     }
 
     const rawFileSize = formData.get("fileSize");
@@ -123,22 +123,55 @@ export async function createResourceAction(prevState: any, formData: FormData) {
       return { success: false, message: "You don't have permission to add resources to this subject." };
     }
 
-    // If a chapter was selected, make sure it belongs to this subject's units.
-    if (parsed.data.chapterId) {
-      const chapter = await db
-        .select({ id: courseChapters.id })
-        .from(courseChapters)
-        .innerJoin(courseUnits, eq(courseChapters.unitId, courseUnits.id))
-        .where(
-          and(
-            eq(courseChapters.id, parsed.data.chapterId),
-            eq(courseUnits.subjectId, parsed.data.subjectId)
-          )
-        )
-        .limit(1);
+    let resolvedChapterId: string | null = parsed.data.chapterId ?? null;
 
-      if (chapter.length === 0) {
-        return { success: false, message: "Selected chapter does not belong to this subject." };
+    if (parsed.data.chapterId) {
+      if (parsed.data.chapterId.startsWith("unit:")) {
+        const unitId = parsed.data.chapterId.replace("unit:", "");
+        const unit = await db.query.courseUnits.findFirst({
+          where: and(eq(courseUnits.id, unitId), eq(courseUnits.subjectId, parsed.data.subjectId)),
+          with: {
+            courseChapters: {
+              orderBy: [asc(courseChapters.order)],
+              limit: 1,
+            },
+          },
+        });
+
+        if (!unit) {
+          return { success: false, message: "Selected unit does not belong to this subject." };
+        }
+
+        if (unit.courseChapters.length > 0) {
+          resolvedChapterId = unit.courseChapters[0].id;
+        } else {
+          // Auto-anchor an initial chapter so the unit has an entity for resources
+          const newChapId = `chap_${Date.now()}`;
+          await db.insert(courseChapters).values({
+            id: newChapId,
+            unitId: unit.id,
+            title: unit.title,
+            order: 1,
+          });
+          resolvedChapterId = newChapId;
+        }
+      } else {
+        const chapter = await db
+          .select({ id: courseChapters.id })
+          .from(courseChapters)
+          .innerJoin(courseUnits, eq(courseChapters.unitId, courseUnits.id))
+          .where(
+            and(
+              eq(courseChapters.id, parsed.data.chapterId),
+              eq(courseUnits.subjectId, parsed.data.subjectId)
+            )
+          )
+          .limit(1);
+
+        if (chapter.length === 0) {
+          return { success: false, message: "Selected chapter does not belong to this subject." };
+        }
+        resolvedChapterId = parsed.data.chapterId;
       }
     }
 
@@ -146,13 +179,13 @@ export async function createResourceAction(prevState: any, formData: FormData) {
     await db.insert(resources).values({
       id: resourceId,
       subjectId: parsed.data.subjectId,
-      chapterId: parsed.data.chapterId ?? null,
+      chapterId: resolvedChapterId,
       title: parsed.data.title,
       fileUrl: parsed.data.fileUrl,
       fileType: parsed.data.fileType,
       fileSize: parsed.data.fileSize ?? null,
       description: parsed.data.description || null,
-      uploadedBy: user.teacherId,
+      uploadedBy: user.teacherId ?? null,
     });
 
     // Notify enrolled students (best-effort — notifyMany never throws).
@@ -178,6 +211,7 @@ export async function createResourceAction(prevState: any, formData: FormData) {
       console.error("Failed to queue resource notifications:", notifyError);
     }
 
+    revalidatePath("/admin/resources");
     revalidatePath("/teacher/resources");
     revalidatePath("/resources");
     revalidatePath("/cr");
@@ -203,3 +237,36 @@ export async function createResourceAction(prevState: any, formData: FormData) {
   }
 }
 
+
+
+export async function deleteResourceAction(resourceId: string) {
+  const user = await requireAuth(["TEACHER", "ADMIN"]);
+
+  try {
+    const resource = await db.query.resources.findFirst({
+      where: eq(resources.id, resourceId),
+      with: { subject: true },
+    });
+
+    if (!resource) {
+      return { success: false, message: "Resource not found" };
+    }
+
+    if (user.role !== "ADMIN" && resource.uploadedBy !== user.teacherId && resource.subject.teacherId !== user.teacherId) {
+      return { success: false, message: "You do not have permission to delete this resource" };
+    }
+
+    await db.delete(resources).where(eq(resources.id, resourceId));
+
+    revalidatePath("/admin/resources");
+    revalidatePath("/teacher/resources");
+    revalidatePath("/resources");
+    revalidatePath("/cr");
+    revalidatePath("/subjects");
+
+    return { success: true, message: "Resource deleted successfully" };
+  } catch (error) {
+    console.error("Failed to delete resource:", error);
+    return { success: false, message: "Failed to delete resource" };
+  }
+}

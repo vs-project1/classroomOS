@@ -1,4 +1,4 @@
-import { Book, Bell, Bot, CalendarDays, CalendarRange, ClipboardCheck, FileText, GraduationCap, Home, ShieldCheck, Users } from "lucide-react";
+import { Book, Bell, Bot, CalendarDays, CalendarRange, ClipboardCheck, FileText, FolderOpen, GraduationCap, Home, ShieldCheck, Users } from "lucide-react";
 import type { RoleNavigation } from "./types";
 
 export const adminNavigation: RoleNavigation = {
@@ -20,6 +20,7 @@ export const adminNavigation: RoleNavigation = {
       title: "Academics",
       items: [
         { label: "Subjects", href: "/admin/subjects", icon: Book },
+        { label: "Resources", href: "/admin/resources", icon: FolderOpen },
         { label: "Assignments", href: "/admin/homework", icon: ClipboardCheck },
         { label: "Routine", href: "/admin/routine", icon: CalendarRange },
         { label: "Monthly Ledger", href: "/admin/attendance/monthly", icon: CalendarDays },

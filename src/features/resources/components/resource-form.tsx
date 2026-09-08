@@ -200,26 +200,31 @@ export function ResourceForm({ subjects }: { subjects: { id: string; name: strin
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="chapterId">Chapter (Optional)</Label>
+        <Label htmlFor="chapterId">Unit / Chapter (Optional)</Label>
         <select id="chapterId" name="chapterId" defaultValue="" disabled={chaptersLoading || units.length === 0} className={selectClassName}>
-          <option value="">General</option>
-          {units
-            .filter((unit) => unit.chapters.length > 0)
-            .map((unit) => (
-              <optgroup key={unit.id} label={unit.title}>
-                {unit.chapters.map((chapter) => (
-                  <option key={chapter.id} value={chapter.id}>
-                    {chapter.title}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
+          <option value="">General (Subject-wide)</option>
+          {units.map((unit) => (
+            <optgroup key={unit.id} label={unit.title}>
+              {unit.chapters.length === 0 ? (
+                <option value={`unit:${unit.id}`}>{unit.title} (Unit)</option>
+              ) : (
+                <>
+                  <option value={`unit:${unit.id}`}>{unit.title} (Whole Unit)</option>
+                  {unit.chapters.map((chapter) => (
+                    <option key={chapter.id} value={chapter.id}>
+                      &nbsp;&nbsp;↳ {chapter.title}
+                    </option>
+                  ))}
+                </>
+              )}
+            </optgroup>
+          ))}
         </select>
         {chaptersLoading && (
-          <p className="text-xs text-muted-foreground">Loading chapters...</p>
+          <p className="text-xs text-muted-foreground">Loading units & chapters...</p>
         )}
         {!chaptersLoading && units.length === 0 && !chapterTreeError && (
-          <p className="text-xs text-muted-foreground">No syllabus chapters yet — resource will be filed under General.</p>
+          <p className="text-xs text-muted-foreground">No syllabus units yet — resource will be filed under General.</p>
         )}
         {chapterTreeError && (
           <p className="text-xs text-muted-foreground">{chapterTreeError}</p>

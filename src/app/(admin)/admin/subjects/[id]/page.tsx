@@ -28,7 +28,12 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
         with: {
           courseChapters: {
             orderBy: (chapters, { asc }) => [asc(chapters.order)],
-            with: { courseMaterials: true }
+            with: {
+              courseMaterials: true,
+              resources: {
+                orderBy: (res, { desc }) => [desc(res.createdAt)],
+              },
+            }
           }
         }
       }
@@ -51,7 +56,12 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
             </h1>
           </div>
         </div>
-        <AddUnitDialog subjectId={subject.id} />
+        <div className="flex items-center gap-2">
+          <Link href="/admin/resources" className={buttonVariants({ variant: "outline" })}>
+            <FileText className="h-4 w-4 mr-1.5" /> Class Resources
+          </Link>
+          <AddUnitDialog subjectId={subject.id} />
+        </div>
       </div>
 
       <div className="flex flex-col gap-12">
@@ -86,25 +96,34 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
                     </div>
                   </div>
                   
-                  {chapter.courseMaterials.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No materials added.</p>
-                  ) : (
-                    <ul className="flex flex-col gap-2">
-                      {chapter.courseMaterials.map(mat => (
-                        <li key={mat.id} className="group flex items-center gap-3 rounded-md px-3 py-2 -ml-3 hover:bg-muted/50 transition-colors">
-                          <div className="flex items-center justify-center w-6 h-6 rounded-md bg-background border shadow-sm">
-                            {getMaterialIcon(mat.fileType)}
-                          </div>
-                          <a href={mat.fileUrl} target="_blank" rel="noreferrer" className="text-sm font-medium text-foreground hover:underline">
-                            {mat.title}
-                          </a>
-                          <span className="text-xs text-muted-foreground uppercase ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                            {mat.fileType}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  {(() => {
+                    const combinedMaterials = [
+                      ...chapter.courseMaterials.map((m) => ({ id: m.id, title: m.title, fileUrl: m.fileUrl, fileType: m.fileType })),
+                      ...chapter.resources.map((r) => ({ id: r.id, title: r.title, fileUrl: r.fileUrl, fileType: r.fileType })),
+                    ];
+
+                    if (combinedMaterials.length === 0) {
+                      return <p className="text-sm text-muted-foreground">No materials or resources added.</p>;
+                    }
+
+                    return (
+                      <ul className="flex flex-col gap-2">
+                        {combinedMaterials.map((mat) => (
+                          <li key={mat.id} className="group flex items-center gap-3 rounded-md px-3 py-2 -ml-3 hover:bg-muted/50 transition-colors">
+                            <div className="flex items-center justify-center w-6 h-6 rounded-md bg-background border shadow-sm">
+                              {getMaterialIcon(mat.fileType)}
+                            </div>
+                            <a href={mat.fileUrl} target="_blank" rel="noreferrer" className="text-sm font-medium text-foreground hover:underline">
+                              {mat.title}
+                            </a>
+                            <span className="text-xs text-muted-foreground uppercase ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                              {mat.fileType}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
