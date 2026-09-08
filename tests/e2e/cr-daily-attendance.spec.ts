@@ -142,33 +142,31 @@ test.describe("CR Daily Attendance — Morning Roll Call", () => {
     }
   });
 
-  test("TC-CR-ATT-03: re-submitting for the same date surfaces the already-taken error (uniqueness guard)", async ({ crPage }) => {
+  test("TC-CR-ATT-03: re-submitting for the same date idempotently updates attendance (LEARNINGS.md invariant #03)", async ({ crPage }) => {
     const rollCall = new CRTakeAttendancePage(crPage);
     await rollCall.goto();
     await expect(rollCall.pageTitle).toBeVisible({ timeout: 15000 });
 
-    // First submit — the beforeEach cleaned up any existing daily_sessions
-    // row for today, so this should succeed. We don't care about roster
-    // contents for this test, just that a row is written.
+    // First submit
     await rollCall.submit();
     await expect(rollCall.resultBanner).toBeVisible({ timeout: 15000 });
 
-    // Reload and submit again — this must hit unq_daily_session_date_sem.
+    // Reload and submit again — idempotent update must succeed without crashing
     await rollCall.goto();
     await expect(rollCall.pageTitle).toBeVisible({ timeout: 15000 });
     await rollCall.submit();
 
     await expect(
-      crPage.locator('[data-banner-type="error"]', { hasText: /Daily attendance has already been taken/i }),
+      crPage.locator('[data-banner-type="success"]', { hasText: /Daily attendance (updated|recorded) successfully/i }),
     ).toBeVisible({ timeout: 15000 });
   });
 
   test("TC-CR-ATT-04: a STUDENT persona is denied access to /cr/take-attendance", async ({ studentPage }) => {
-    // requireAuth(["CR"]) on the page should redirect (or 403) for a non-CR.
+    // requireAuth(["CR", "ADMIN"]) on the page should redirect (or 403) for a non-CR.
     const response = await studentPage.goto("/cr/take-attendance", { waitUntil: "domcontentloaded" });
     // We don't pin a specific status code (Next may render a redirect or an
     // error page); we only assert the CR-only banner/roster is NOT shown.
-    const crOnlyTitle = studentPage.locator("h1").filter({ hasText: /Morning Roll Call/i });
+    const crOnlyTitle = studentPage.locator("h1").filter({ hasText: /Take Attendance|Daily Attendance/i });
     await expect(crOnlyTitle).toHaveCount(0);
 
     // Sanity: the response was definitely an HTTP page, not a network failure.

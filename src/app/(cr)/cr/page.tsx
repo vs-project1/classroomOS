@@ -5,7 +5,7 @@ import Link from "next/link";
 import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
 import { formatTime12h } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
-import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
+import { formatNepaliDate } from "@/lib/nepali-date";
 import {
   CalendarDays,
   ClipboardList,

@@ -9,7 +9,11 @@ export const dynamic = "force-dynamic";
 
 export default async function HomeworkPage() {
   const user = await getCurrentUser();
-  if (user?.role === "TEACHER" || user?.role === "ADMIN") {
+  if (user?.role === "TEACHER") {
+    const { redirect } = await import("next/navigation");
+    redirect("/teacher/lecture-logs");
+  }
+  if (user?.role === "ADMIN") {
     const { redirect } = await import("next/navigation");
     redirect("/admin/homework");
   }
