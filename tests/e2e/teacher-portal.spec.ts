@@ -7,47 +7,40 @@ import { test, expect } from "../fixtures/auth.fixture";
  * tch_ram_001's subjects, so the Grading quick-link carries a live count.
  */
 test.describe("Teacher portal: dashboard surfaces", () => {
-  test("TC-TEACHER-01: teacher home shows a Grading quick-link with the pending count", async ({
+  test("TC-TEACHER-01: teacher home shows Attendance quick-link", async ({
     teacherPage,
   }) => {
     await teacherPage.setViewportSize({ width: 1280, height: 800 });
     await teacherPage.goto("/teacher");
     await teacherPage.waitForLoadState("domcontentloaded");
 
-    const gradingLink = teacherPage.locator("a[href='/teacher/grading']").first();
-    await expect(gradingLink).toBeVisible({ timeout: 10000 });
-    await expect(gradingLink).toContainText(/[Gg]rading/);
-    await expect(gradingLink).toContainText(/\d+/);
+    const attendanceLink = teacherPage.locator("a[href='/teacher/attendance']").first();
+    await expect(attendanceLink).toBeVisible({ timeout: 10000 });
+    await expect(attendanceLink).toContainText(/Attendance/i);
   });
 
-    test("TC-TEACHER-02: grading page reachable via deep link and shows the submitted work queue", async ({
-      teacherPage,
-    }) => {
-      await teacherPage.setViewportSize({ width: 1280, height: 800 });
-      // Deep-link reachability is the product guarantee here; the sidebar
-      // click-path is covered by TC-TEACHER-01/03 and the nav-badge specs.
-      await teacherPage.goto("/teacher/grading");
-      await expect(teacherPage).toHaveURL(/\/teacher\/grading/, { timeout: 15000 });
-
-      // The seeded ungraded submission must appear in the work queue
-      await expect(
-        teacherPage.getByText(/Red-Black Trees|hw_dsa_trees|Assignment 3/i).first()
-      ).toBeVisible({ timeout: 15000 });
-    });
-
-  test("TC-TEACHER-03: sidebar WORK section reaches the grading surface (badge already covered by TC-NAV-ROLE-05)", async ({
+  test("TC-TEACHER-02: attendance page reachable via deep link and shows semester roster cards", async ({
     teacherPage,
   }) => {
     await teacherPage.setViewportSize({ width: 1280, height: 800 });
-    await teacherPage.goto("/teacher");
-    await teacherPage.waitForLoadState("domcontentloaded");
+    await teacherPage.goto("/teacher/attendance");
+    await expect(teacherPage).toHaveURL(/\/teacher\/attendance/, { timeout: 15000 });
 
-    const sidebar = teacherPage.locator("aside").filter({ hasText: /Classroom OS/i }).first();
-    const navGrading = sidebar.locator("a[href='/teacher/grading']").first();
-    await expect(navGrading).toBeVisible({ timeout: 10000 });
+    // Should render teacher attendance management header
+    await expect(
+      teacherPage.getByText(/Teacher Attendance & Correction/i).first()
+    ).toBeVisible({ timeout: 15000 });
+  });
 
-    // Deep-link sanity: direct navigation renders the same surface
-    await teacherPage.goto("/teacher/grading");
-    await expect(teacherPage).toHaveURL(/\/teacher\/grading/);
+  test("TC-TEACHER-03: sessions page reachable via deep link and shows lecture logs", async ({
+    teacherPage,
+  }) => {
+    await teacherPage.setViewportSize({ width: 1280, height: 800 });
+    await teacherPage.goto("/teacher/lecture-logs");
+    await expect(teacherPage).toHaveURL(/\/teacher\/lecture-logs/, { timeout: 15000 });
+
+    await expect(
+      teacherPage.getByText(/Lecture Logs|Log Class Session/i).first()
+    ).toBeVisible({ timeout: 15000 });
   });
 });

@@ -31,7 +31,7 @@ test.describe("Security Ownership: Role vs Resource Enforcement", () => {
     }
   });
 
-  test("SEC-T2: CR deep-linking /teacher/grading cannot reach teacher grading content", async ({
+  test("SEC-T2: CR deep-linking /teacher/attendance cannot reach teacher attendance content", async ({
     crPage,
   }) => {
     test.setTimeout(60_000);
@@ -40,15 +40,12 @@ test.describe("Security Ownership: Role vs Resource Enforcement", () => {
     await crPage.goto("/cr");
     await expect(crPage).toHaveURL(/\/cr(\?|#|$)/);
 
-    // Deep-link straight into the teacher-only grading queue. The page runs
+    // Deep-link straight into teacher-only attendance. The page runs
     // requireAuth(["TEACHER","ADMIN"]), which redirects CR back to /cr.
-    await crPage.goto("/teacher/grading");
+    await crPage.goto("/teacher/attendance");
 
     await expect(crPage).toHaveURL(/\/cr(\?|#|$)/, { timeout: 15_000 });
-    await expect(crPage.getByText(/Grade Submissions/i)).toHaveCount(0);
-    await expect(
-      crPage.getByText(/Recent Submissions|Review and grade student submissions/i)
-    ).toHaveCount(0);
+    await expect(crPage.getByText(/Teacher Attendance & Correction/i)).toHaveCount(0);
   });
 
   test("SEC-T3: TEACHER can still open a submission for a subject they teach", async ({
