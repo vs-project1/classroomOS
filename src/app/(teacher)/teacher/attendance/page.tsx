@@ -1,13 +1,4 @@
 import { requireAuth } from "@/lib/auth";
-import { db } from "@/db";
-import {
-  subjects,
-  students,
-  dailySessions,
-  dailyAttendance,
-  attendanceCorrectionRequests,
-} from "@/db/schema";
-import { eq, and, desc, inArray, count } from "drizzle-orm";
 import Link from "next/link";
 import {
   Users,
@@ -22,11 +13,8 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { DisputeActions } from "@/features/attendance/components/dispute-actions";
 import { formatNepaliDate } from "@/lib/nepali-date";
-import {
-  toRoman,
-  toOrdinalSemester,
-  getSemesterVariants,
-} from "@/lib/utils/roman";
+import { toRoman, toOrdinalSemester } from "@/lib/utils/roman";
+import { getTeacherAttendanceSummary } from "@/features/attendance/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -45,103 +33,10 @@ export default async function TeacherAttendancePage() {
     );
   }
 
-  // Get subjects taught by this teacher to find taught semesters
-  let teacherSubjects: Array<{ id: string; name: string; code: string; semester: string }> = [];
-  if (user.teacherId) {
-    teacherSubjects = await db.query.subjects.findMany({
-      where: eq(subjects.teacherId, user.teacherId),
-    });
-  } else if (user.role === "ADMIN") {
-    // Admin without teacherId sees all subjects
-    teacherSubjects = await db.query.subjects.findMany();
-  }
-
-  const distinctSemesters = [...new Set(teacherSubjects.map((s) => s.semester))];
-
-  // Current start of day in NPT (Asia/Kathmandu)
-  const now = new Date();
-  const ymd = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kathmandu",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
-  const todayStartNpt = new Date(`${ymd}T00:00:00Z`);
-
-  // For each distinct semester, fetch enrolled students count and today's daily session
-  const semesterSummaries = await Promise.all(
-    distinctSemesters.map(async (semester) => {
-      const variants = getSemesterVariants(semester);
-
-      // Query enrolled students count
-      const [studentCountRow] = await db
-        .select({ value: count() })
-        .from(students)
-        .where(inArray(students.semester, variants));
-
-      const enrolledCount = Number(studentCountRow?.value ?? 0);
-
-      // Query today's daily session
-      const todaySession = await db.query.dailySessions.findFirst({
-        where: and(
-          inArray(dailySessions.semester, variants),
-          eq(dailySessions.date, todayStartNpt)
-        ),
-      });
-
-      const semesterSubjects = teacherSubjects.filter((s) => s.semester === semester);
-
-      return {
-        semester,
-        enrolledCount,
-        hasLoggedToday: Boolean(todaySession),
-        todaySessionId: todaySession?.id,
-        subjectsCount: semesterSubjects.length,
-      };
-    })
+  const { semesterSummaries, pendingDisputes } = await getTeacherAttendanceSummary(
+    user.teacherId,
+    user.role === "ADMIN"
   );
-
-  // Teacher's taught semester variants for filtering disputes
-  const allTaughtVariants = distinctSemesters.flatMap((s) => getSemesterVariants(s));
-
-  // Query pending disputes joined with dailyAttendance and dailySessions
-  let pendingDisputes: Array<{
-    id: string;
-    requestedStatus: string;
-    reason: string;
-    status: string;
-    createdAt: Date;
-    studentName: string;
-    studentRoll: string;
-    semester: string;
-    sessionDate: Date;
-  }> = [];
-
-  if (user.role === "ADMIN" || allTaughtVariants.length > 0) {
-    pendingDisputes = await db
-      .select({
-        id: attendanceCorrectionRequests.id,
-        requestedStatus: attendanceCorrectionRequests.requestedStatus,
-        reason: attendanceCorrectionRequests.reason,
-        status: attendanceCorrectionRequests.status,
-        createdAt: attendanceCorrectionRequests.createdAt,
-        studentName: students.name,
-        studentRoll: students.rollNumber,
-        semester: dailySessions.semester,
-        sessionDate: dailySessions.date,
-      })
-      .from(attendanceCorrectionRequests)
-      .innerJoin(dailyAttendance, eq(attendanceCorrectionRequests.attendanceId, dailyAttendance.id))
-      .innerJoin(dailySessions, eq(dailyAttendance.dailySessionId, dailySessions.id))
-      .innerJoin(students, eq(attendanceCorrectionRequests.studentId, students.id))
-      .where(
-        and(
-          eq(attendanceCorrectionRequests.status, "pending"),
-          user.role === "ADMIN" ? undefined : inArray(dailySessions.semester, allTaughtVariants)
-        )
-      )
-      .orderBy(desc(attendanceCorrectionRequests.createdAt));
-  }
 
   return (
     <div className="flex-1 space-y-8 max-w-5xl">

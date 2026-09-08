@@ -1,7 +1,7 @@
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/db";
-import { subjects, dailySessions, dailyAttendance, students } from "@/db/schema";
-import { eq, asc, inArray } from "drizzle-orm";
+import { subjects } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { ArrowLeft, Users, CalendarCheck, AlertCircle, Sparkles } from "lucide-react";
 import { notFound } from "next/navigation";
@@ -10,9 +10,9 @@ import { buttonVariants } from "@/components/ui/button";
 import {
   toRoman,
   toOrdinalSemester,
-  getSemesterVariants,
   areSemestersEqual,
 } from "@/lib/utils/roman";
+import { getSemesterRosterAttendance } from "@/features/attendance/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -73,83 +73,11 @@ export default async function TeacherRosterPage({
     }
   }
 
-  const semVariants = getSemesterVariants(activeSemester);
-
-  // Query all students in that semester ordered by students.rollNumber
-  const studentList = await db
-    .select({
-      id: students.id,
-      name: students.name,
-      rollNumber: students.rollNumber,
-      email: students.email,
-      semester: students.semester,
-    })
-    .from(students)
-    .where(inArray(students.semester, semVariants))
-    .orderBy(asc(students.rollNumber));
-
-  // Query all dailySessions for that semester
-  const sessions = await db
-    .select({
-      id: dailySessions.id,
-      date: dailySessions.date,
-      semester: dailySessions.semester,
-    })
-    .from(dailySessions)
-    .where(inArray(dailySessions.semester, semVariants))
-    .orderBy(asc(dailySessions.date));
-
-  const totalDays = sessions.length;
-  const sessionIds = sessions.map((s) => s.id);
-
-  // Query all dailyAttendance for those session IDs
-  let allAttendance: Array<{
-    id: string;
-    dailySessionId: string;
-    studentId: string;
-    status: string;
-  }> = [];
-
-  if (sessionIds.length > 0) {
-    allAttendance = await db
-      .select({
-        id: dailyAttendance.id,
-        dailySessionId: dailyAttendance.dailySessionId,
-        studentId: dailyAttendance.studentId,
-        status: dailyAttendance.status,
-      })
-      .from(dailyAttendance)
-      .where(inArray(dailyAttendance.dailySessionId, sessionIds));
-  }
-
-  // Compute metrics for each student
-  const roster = studentList.map((student) => {
-    const studentRecords = allAttendance.filter((a) => a.studentId === student.id);
-    const presentDays = studentRecords.filter((r) => r.status === "present").length;
-    const lateDays = studentRecords.filter((r) => r.status === "late").length;
-    const excusedDays = studentRecords.filter((r) => r.status === "excused").length;
-    const absentDays = studentRecords.filter((r) => r.status === "absent").length;
-
-    // Attended days = present + late
-    const attendedDays = presentDays + lateDays;
-    const rawPercentage = totalDays > 0 ? (attendedDays / totalDays) * 100 : 100;
-    const percentage = Math.round(rawPercentage * 10) / 10;
-
-    return {
-      student,
-      presentDays,
-      lateDays,
-      excusedDays,
-      absentDays,
-      attendedDays,
-      percentage,
-    };
-  });
-
-  // Calculate overall average attendance %
-  const totalPercentageSum = roster.reduce((acc, r) => acc + r.percentage, 0);
-  const avgAttendance =
-    roster.length > 0 ? Math.round((totalPercentageSum / roster.length) * 10) / 10 : 100;
+  const {
+    roster,
+    totalSessionsLogged: totalDays,
+    avgAttendancePercentage: avgAttendance,
+  } = await getSemesterRosterAttendance(activeSemester);
 
   return (
     <div className="flex-1 space-y-8 max-w-5xl">
@@ -224,7 +152,7 @@ export default async function TeacherRosterPage({
             <Users className="w-4 h-4 text-primary" />
             Total Students
           </div>
-          <div className="text-3xl font-bold font-fira-code text-foreground">{studentList.length}</div>
+          <div className="text-3xl font-bold font-fira-code text-foreground">{roster.length}</div>
           <p className="text-xs text-muted-foreground">Enrolled in {toOrdinalSemester(activeSemester)}</p>
         </div>
 

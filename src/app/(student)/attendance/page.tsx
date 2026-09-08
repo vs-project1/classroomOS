@@ -1,8 +1,5 @@
-import { db } from "@/db";
-import { dailyAttendance, dailySessions } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
 import { resolveCurrentStudent, getCurrentUser } from "@/lib/auth";
-import { calculateAttendanceMetrics } from "@/features/attendance/calculations/attendance-projection";
+import { getStudentDailyAttendance } from "@/features/attendance/queries";
 import { Activity, ShieldAlert, CheckCircle2, AlertTriangle, Calendar, CalendarCheck2, History } from "lucide-react";
 import { ArcGauge } from "@/components/attendance/arc-gauge";
 import { WhatIfCalculator } from "@/features/attendance/components/what-if-calculator";
@@ -35,42 +32,16 @@ export default async function AttendancePage() {
     );
   }
 
-  // Fetch daily attendance joined with dailySessions for this student, ordered by date descending
-  const records = await db
-    .select({
-      id: dailyAttendance.id,
-      dailySessionId: dailyAttendance.dailySessionId,
-      studentId: dailyAttendance.studentId,
-      status: dailyAttendance.status,
-      createdAt: dailyAttendance.createdAt,
-      date: dailySessions.date,
-      semester: dailySessions.semester,
-    })
-    .from(dailyAttendance)
-    .innerJoin(dailySessions, eq(dailyAttendance.dailySessionId, dailySessions.id))
-    .where(eq(dailyAttendance.studentId, student.id))
-    .orderBy(desc(dailySessions.date), desc(dailyAttendance.createdAt));
-
-  const presentCount = records.filter((r) => r.status === "present").length;
-  const lateCount = records.filter((r) => r.status === "late").length;
-  const excusedCount = records.filter((r) => r.status === "excused").length;
-  const absentCount = records.filter((r) => r.status === "absent").length;
-  const totalCount = records.length;
-
-  // Late counts as attended (present), excused excluded from denominator per TU guidance
-  const attendedForMetrics = presentCount + lateCount;
-  const effectiveTotal = Math.max(attendedForMetrics, totalCount - excusedCount);
-
-  const metrics = calculateAttendanceMetrics(
-    attendedForMetrics,
-    effectiveTotal,
-    {
-      late: lateCount,
-      excused: excusedCount,
-      absent: absentCount,
-    },
-    80
-  );
+  // Fetch daily attendance joined with dailySessions and compute TU 80% metrics
+  const {
+    records,
+    presentCount,
+    lateCount,
+    excusedCount,
+    absentCount,
+    totalCount,
+    metrics,
+  } = await getStudentDailyAttendance(student.id);
 
   // Format daily sessions list for dispute selection
   const recentSessions = records.map((r) => {

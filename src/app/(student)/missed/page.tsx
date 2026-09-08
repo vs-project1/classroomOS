@@ -1,16 +1,4 @@
-import { db } from "@/db";
-import {
-  dailyAttendance,
-  dailySessions,
-  classSessions,
-  enrollments,
-  homework,
-  studentProfiles,
-  subjects,
-} from "@/db/schema";
-import { and, desc, asc, eq, inArray, gte, lte, or } from "drizzle-orm";
 import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
-import { toRoman } from "@/lib/utils/roman";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { formatTime12h } from "@/lib/timezone";
@@ -27,6 +15,8 @@ import {
   BookOpen,
 } from "lucide-react";
 import { formatNepaliDate } from "@/lib/nepali-date";
+import { getStudentCohort } from "@/features/routine/queries";
+import { getStudentMissedDaysJournal } from "@/features/attendance/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -48,23 +38,9 @@ export default async function MissedPage() {
     );
   }
 
-  // 1. Query daily attendance records where status is absent or late
-  const missedRecords = await db
-    .select({
-      id: dailyAttendance.id,
-      status: dailyAttendance.status,
-      date: dailySessions.date,
-      semester: dailySessions.semester,
-    })
-    .from(dailyAttendance)
-    .innerJoin(dailySessions, eq(dailyAttendance.dailySessionId, dailySessions.id))
-    .where(
-      and(
-        eq(dailyAttendance.studentId, student.id),
-        inArray(dailyAttendance.status, ["absent", "late"])
-      )
-    )
-    .orderBy(desc(dailySessions.date));
+  const cohort = await getStudentCohort(student.id, user.id);
+  const { missedRecords, sessionsByDateKey, homeworkBySession } =
+    await getStudentMissedDaysJournal(student.id, cohort.allowedSubjectIds);
 
   // 2. Empty state: No missed days
   if (missedRecords.length === 0) {
@@ -100,88 +76,6 @@ export default async function MissedPage() {
         </div>
       </div>
     );
-  }
-
-  // 3. Resolve subjects for the student's cohort to prevent cross-semester leaks
-  const userEnrollments = await db.query.enrollments.findMany({
-    where: eq(enrollments.studentId, student.id),
-  });
-  let subjectIds = userEnrollments.map((e) => e.subjectId);
-
-  if (subjectIds.length === 0) {
-    let semInt = 1;
-    if (user.studentProfileId) {
-      const profile = await db.query.studentProfiles.findFirst({
-        where: eq(studentProfiles.id, user.studentProfileId),
-      });
-      if (profile?.semester != null) semInt = profile.semester;
-    } else if (student.semester) {
-      const match = student.semester.match(/\d+/);
-      if (match) semInt = parseInt(match[0], 10);
-    }
-    const roman = toRoman(semInt);
-    const mappedSubjects = await db
-      .select({ id: subjects.id })
-      .from(subjects)
-      .where(eq(subjects.semester, roman));
-    subjectIds = mappedSubjects.map((s) => s.id);
-  }
-
-  // 4. Build day window filters for all missed dates
-  const dateKeys = Array.from(
-    new Set(
-      missedRecords.map((r) =>
-        new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kathmandu" }).format(new Date(r.date))
-      )
-    )
-  );
-
-  const dayConditions = dateKeys.map((k) => {
-    const start = new Date(`${k}T00:00:00.000Z`);
-    const end = new Date(`${k}T23:59:59.999Z`);
-    return and(gte(classSessions.sessionDate, start), lte(classSessions.sessionDate, end));
-  });
-
-  const sessionWhere = and(
-    subjectIds.length > 0 ? inArray(classSessions.subjectId, subjectIds) : undefined,
-    dayConditions.length > 0 ? or(...dayConditions) : undefined
-  );
-
-  const sessions = await db.query.classSessions.findMany({
-    where: sessionWhere,
-    with: {
-      subject: true,
-      lectureLog: true,
-    },
-    orderBy: [desc(classSessions.sessionDate), asc(classSessions.startTime)],
-  });
-
-  // Group classSessions by date string (YYYY-MM-DD in Asia/Kathmandu)
-  const sessionsByDateKey = new Map<string, typeof sessions>();
-  for (const session of sessions) {
-    const sKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kathmandu" }).format(
-      new Date(session.sessionDate)
-    );
-    const list = sessionsByDateKey.get(sKey) ?? [];
-    list.push(session);
-    sessionsByDateKey.set(sKey, list);
-  }
-
-  // 5. Query homework linked to any of these sessions
-  const sessionIds = sessions.map((s) => s.id);
-  const linkedHomework =
-    sessionIds.length > 0
-      ? await db.query.homework.findMany({
-          where: inArray(homework.sessionId, sessionIds),
-        })
-      : [];
-
-  const homeworkBySession = new Map<string, typeof linkedHomework>();
-  for (const hw of linkedHomework) {
-    if (!hw.sessionId) continue;
-    const list = homeworkBySession.get(hw.sessionId) ?? [];
-    list.push(hw);
-    homeworkBySession.set(hw.sessionId, list);
   }
 
   return (
