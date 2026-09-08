@@ -6,17 +6,26 @@ This file is a permanent, evolving knowledge base. Every agent working on Classr
 
 ## 🏛️ Domain Architecture & Core Invariants
 
-### 1. Dual-Layer Attendance Architecture
-* **Layer 1 (Administrative Morning Roll Call):**
+### 1. Unified Single Canonical Daily Attendance & Nepal Handwritten Homework Architecture
+* **Single Source of Truth (`daily_sessions` & `daily_attendance`):**
   * Tables: `daily_sessions` (date, semester, markedBy) & `daily_attendance` (daily_session_id, student_id, status).
   * Unique constraint: `(date, semester)`.
   * Date must ALWAYS be normalized to UTC midnight representing start-of-day in Nepal Time (`Asia/Kathmandu`).
-  * Used for: College-level records, monthly matrix ledger, student dashboard arc gauges, and overall eligibility streaks.
-* **Layer 2 (Academic Lecture Logs):**
-  * Tables: `class_sessions` (subject_id, session_date, start_time, topicsCovered) & `attendance` (class_session_id, student_id, status).
-  * Used for: Subject syllabus progress, per-lecture attendance history, homework assignment logs, and dispute reviews.
-* **Synchronization Bridge:**
-  * When logging a lecture session (`/cr/log-session` or `/teacher/log-session`), the UI must cross-reference `daily_attendance` to flag students marked absent in morning roll call.
+  * Used for: College-level records, monthly matrix ledger, student dashboard arc gauges, TU 80% eligibility barometer, and teacher semester rosters.
+  * Terminology: Strictly "Attendance" (never "Roll Call", "Morning Roll Call", or "Subject-wise Attendance").
+* **Decoupled Academic Lecture Logs (`class_sessions` & `lecture_logs`):**
+  * Tables: `class_sessions` (subject_id, session_date, start_time, end_time) & `lecture_logs` (class_session_id, topics_covered, homework_assigned, notes).
+  * Used for: Subject syllabus tracking, lecture notes, homework assignment records, and student catch-up journals.
+  * Completely decoupled from student attendance: teachers and CRs log class topics and homework without taking or maintaining per-lecture attendance rosters.
+* **Handwritten Homework Model (Nepal Context):**
+  * Physical notebooks are the standard in Nepali college classrooms. ClassroomOS eliminates digital file uploads (`Dropzone`), online submissions, and grading rubrics.
+  * Homework is tracked as a physical notebook diary (`Mark as Done in Notebook` / `Completed in Notebook`).
+  * Pending dispute counters replace pending grading counters in teacher navigation and dashboard.
+* **Attendance Correction (Dispute) Flow:**
+  * Disputes (`attendance_correction_requests`) reference `dailyAttendance.id` directly.
+  * Teachers reviewing disputes in their taught semester can approve or reject disputes, updating `dailyAttendance.status`.
+* **Student Catch-up Journal (`/missed`):**
+  * Queries absent/late days from `daily_attendance` and cross-references `class_sessions` and `lecture_logs` to show students exactly what was taught and assigned in their notebooks on those days.
 
 ### 2. Semester Representation Standard
 * `student_profiles.semester`: Integer (e.g. `1`, `2`, `4`).
@@ -74,6 +83,9 @@ This file is a permanent, evolving knowledge base. Every agent working on Classr
 | **28** | Production 500 error on `/admin` after deploying new schema features | Adding new schema tables (`telegram_settings`, `semester_telegram_configs`, `telegram_broadcast_logs`) and foreign keys (`students.user_id`, `teachers.user_id`) without running migrations against the remote production database (Turso) caused Next.js Server Components to throw unhandled `no such table` / `no such column` exceptions. | Ensure production builds hook into automated schema synchronization (`pnpm run build` runs `scripts/maintenance/migrate-schema-sync.ts`), and commit generated Drizzle migration files (`drizzle/0014_*.sql`) so production databases are always kept in sync. |
 | **29** | Student dispute submission desynced after schema FK repointing to `dailyAttendance` | Changing `attendanceCorrectionRequests.attendanceId` foreign key to `dailyAttendance.id` left `submitAttendanceCorrectionAction` querying the legacy `attendance` table and attempting to join `classSessions.subjectId` for teacher notifications. | Align dispute server actions with `dailyAttendance`, locate the linked `dailySessions.semester`, and notify teachers who teach subjects in that cohort's semester. |
 | **30** | SQLite `FOREIGN KEY constraint failed` when inserting attendance correction requests | SQLite enforces foreign keys declared on table creation on disk. When schema changed `attendance_correction_requests.attendanceId` to `dailyAttendance`, the table on disk still referenced `attendance(id)`. | Add table recreation with foreign key repointing to `daily_attendance` inside `scripts/maintenance/migrate-schema-sync.ts` and run `npm run db:sync` automatically during build. |
+| **31** | Cross-cohort routine and homework leakage | Querying day-of-week timetable slots and homework without filtering by student cohort subjects caused students in Semester II to see subjects and homework from other semesters. | Timetable and homework queries must always filter at the database level using `inArray(weeklyRoutine.subjectId, allowedSubjectIds)`, failing closed with `[]` if the student cohort cannot be resolved. |
+| **32** | Digital file upload and grading queue mismatch with Nepal educational context | Applying digital LMS file submission and rubric grading patterns in an environment where colleges use physical handwritten notebooks created friction and unnecessary UI overhead. | Align assignments with local classroom realities: students track homework in a handwritten notebook diary (`Mark as Done in Notebook` / `Completed in Notebook`), and pending disputes replace online grading queues in teacher navigation. |
+| **33** | Raw multi-table Drizzle queries in presentation Server Components (`page.tsx`) | Writing complex 4-way joins, aggregations, and business logic directly in Next.js `page.tsx` files violated DAL architecture, bloated presentation files, and caused duplicate query patterns across roles. | Presentation server components must remain thin. Encapsulate all database queries and aggregations in dedicated feature query modules (`src/features/<feature>/queries.ts`) with typed return contracts. |
 
 ---
 
