@@ -19,7 +19,8 @@ import { resolveCurrentStudent, requireAuth } from "@/lib/auth";
 import { ContextHeader } from "@/components/shell/context-header";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   User,
   Calendar,
@@ -35,6 +36,7 @@ import {
   FileArchive,
   Code,
   MapPin,
+  Plus,
 } from "lucide-react";
 import { formatTime12h } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
@@ -43,6 +45,9 @@ import { FilePreview } from "@/components/files/file-preview";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 import { toRoman } from "@/lib/utils/roman";
 import { studentProfiles } from "@/db/schema";
+import { AddResourceModal } from "@/features/resources/components/add-resource-modal";
+import { AddUnitDialog } from "@/features/subjects/components/add-unit-dialog";
+import { AddChapterDialog } from "@/features/subjects/components/add-chapter-dialog";
 
 export const dynamic = "force-dynamic";
 
@@ -93,7 +98,7 @@ type SubjectTabKey = (typeof SUBJECT_TABS)[number];
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; unit?: string }>;
 };
 
 // --- Per-tab data loaders ---------------------------------------------------
@@ -105,10 +110,16 @@ function loadSubjectUnits(subjectId: string) {
     where: eq(courseUnits.subjectId, subjectId),
     orderBy: [asc(courseUnits.order)],
     with: {
+      resources: {
+        orderBy: (res, { desc }) => [desc(res.createdAt)],
+      },
       courseChapters: {
         orderBy: [asc(courseChapters.order)],
         with: {
           courseMaterials: true,
+          resources: {
+            orderBy: (res, { desc }) => [desc(res.createdAt)],
+          },
         },
       },
     },
@@ -137,6 +148,7 @@ function loadSubjectResources(subjectId: string) {
     where: eq(resources.subjectId, subjectId),
     orderBy: [desc(resources.createdAt)],
     with: {
+      unit: true,
       chapter: true,
     },
   });
@@ -144,7 +156,7 @@ function loadSubjectResources(subjectId: string) {
 
 export default async function SubjectDetailPage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const { tab } = await searchParams;
+  const { tab, unit: unitParam } = await searchParams;
   const activeTab: SubjectTabKey = SUBJECT_TABS.includes(tab as SubjectTabKey)
     ? (tab as SubjectTabKey)
     : "overview";
@@ -215,6 +227,23 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
   }
 
   const canToggleCoverage = user.role === "TEACHER" || user.role === "ADMIN";
+  const isEditor =
+    user.role === "ADMIN" ||
+    (user.role === "TEACHER" && subject.teacherId === user.teacherId);
+
+  const backHref =
+    user.role === "TEACHER"
+      ? "/teacher/subjects"
+      : user.role === "ADMIN"
+      ? "/admin/subjects"
+      : "/subjects";
+
+  const backLabel =
+    user.role === "TEACHER"
+      ? "Assigned Subjects"
+      : user.role === "ADMIN"
+      ? "All Subjects"
+      : "My Subjects";
 
   // 3. Load only what the active tab needs. Runs AFTER the enrollment wall
   // above, so unauthorized students never trigger tab queries.
@@ -286,7 +315,7 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
       fileUrl: r.fileUrl,
       fileType: r.fileType,
       fileSize: r.fileSize,
-      groupLabel: r.chapter ? r.chapter.title : "General",
+      groupLabel: r.chapter ? r.chapter.title : r.unit ? r.unit.title : "General",
     })),
     ...units.flatMap((u) =>
       u.courseChapters.flatMap((c) =>
@@ -308,11 +337,11 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
       {/* Level-2 Context Header: breadcrumbs + back link + identity + URL tabs */}
       <ContextHeader
         crumbs={[
-          { label: "My Subjects", href: "/subjects" },
+          { label: backLabel, href: backHref },
           { label: subject.name },
         ]}
-        backHref="/subjects"
-        backLabel="My Subjects"
+        backHref={backHref}
+        backLabel={backLabel}
         title={subject.name}
         meta={
           <div className="flex flex-wrap items-center gap-2">
@@ -328,9 +357,12 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
           </div>
         }
         actions={
-          <Link href={`/routine`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-            <Calendar className="w-4 h-4 mr-2 text-primary" /> View Routine
-          </Link>
+          <div className="flex items-center gap-2">
+            {isEditor && <AddUnitDialog subjectId={subject.id} />}
+            <Link href={`/routine`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Calendar className="w-4 h-4 mr-2 text-primary" /> View Routine
+            </Link>
+          </div>
         }
         activeTab={activeTab}
         tabTestIdPrefix="subject-tab"
@@ -407,13 +439,55 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
                     key={unit.id}
                     className="p-4 rounded-xl border bg-muted/20 border-border space-y-3"
                   >
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-base text-foreground">
-                        {unit.title}
-                      </h3>
-                      <span className="text-xs text-foreground/70 font-mono font-bold">
-                        Unit {unit.order}
-                      </span>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xs text-primary font-mono font-bold px-2 py-0.5 rounded bg-primary/10 border border-primary/20">
+                          Unit {unit.order}
+                        </span>
+                        <h3 className="font-bold text-base text-foreground">
+                          {unit.title}
+                        </h3>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {/* Summary badge of resources in this unit linking to Resources tab */}
+                        {(() => {
+                          const unitResCount = unit.resources?.length ?? 0;
+                          const chapResCount = unit.courseChapters.reduce(
+                            (acc, c) => acc + (c.courseMaterials?.length ?? 0) + (c.resources?.length ?? 0),
+                            0
+                          );
+                          const totalUnitMaterials = unitResCount + chapResCount;
+                          if (totalUnitMaterials === 0) return null;
+                          return (
+                            <Link
+                              href={`/subjects/${slug}?tab=resources&unit=${unit.id}`}
+                              className="text-xs font-semibold text-primary hover:underline flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 border border-primary/20"
+                            >
+                              <FileCheck className="w-3.5 h-3.5" />
+                              {totalUnitMaterials} File{totalUnitMaterials === 1 ? "" : "s"}
+                            </Link>
+                          );
+                        })()}
+
+                        {isEditor && (
+                          <div className="flex items-center gap-1.5">
+                            <AddResourceModal
+                              subjectId={subject.id}
+                              subjectName={subject.name}
+                              unitId={unit.id}
+                              unitTitle={unit.title}
+                              targetLabel={`Unit: ${unit.title}`}
+                              trigger={
+                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                                  <Plus className="w-3 h-3 text-primary" /> Add Resource to Unit
+                                </Button>
+                              }
+                            />
+                            <AddChapterDialog unitId={unit.id} subjectId={subject.id} unitTitle={unit.title} />
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {unit.courseChapters.length > 0 && (
@@ -441,12 +515,36 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
                                 </span>
                               </span>
 
-                              <span className="flex items-center gap-3 mt-1 sm:mt-0 shrink-0">
-                                {chap.courseMaterials.length > 0 && (
-                                  <span className="text-primary font-bold text-xs flex items-center gap-1.5">
-                                    <FileCheck className="w-3.5 h-3.5" />
-                                    {chap.courseMaterials.length} Material{chap.courseMaterials.length === 1 ? "" : "s"} Attached
-                                  </span>
+                              <span className="flex items-center gap-2 mt-1 sm:mt-0 shrink-0">
+                                {(() => {
+                                  const totalChapterMaterials =
+                                    (chap.courseMaterials?.length ?? 0) + (chap.resources?.length ?? 0);
+                                  if (totalChapterMaterials === 0) return null;
+                                  return (
+                                    <Link
+                                      href={`/subjects/${slug}?tab=resources&unit=${unit.id}`}
+                                      className="text-primary font-bold text-xs flex items-center gap-1.5 hover:underline"
+                                    >
+                                      <FileCheck className="w-3.5 h-3.5" />
+                                      {totalChapterMaterials} Material{totalChapterMaterials === 1 ? "" : "s"} Attached
+                                    </Link>
+                                  );
+                                })()}
+                                {isEditor && (
+                                  <AddResourceModal
+                                    subjectId={subject.id}
+                                    subjectName={subject.name}
+                                    unitId={unit.id}
+                                    unitTitle={unit.title}
+                                    chapterId={chap.id}
+                                    chapterTitle={chap.title}
+                                    targetLabel={`Chapter: ${chap.title}`}
+                                    trigger={
+                                      <Button variant="outline" size="sm" className="h-6 text-[11px] px-2 gap-1">
+                                        <Plus className="w-3 h-3 text-primary" /> Add Resource
+                                      </Button>
+                                    }
+                                  />
                                 )}
                                 {canToggleCoverage && (
                                   <ChapterCoverageToggle
@@ -696,116 +794,208 @@ export default async function SubjectDetailPage({ params, searchParams }: Props)
                 })}
               </div>
             ) : (
-              <Accordion className="rounded-xl border divide-y bg-card">
-                {units.map((unit) => (
-                  <AccordionItem key={unit.id} value={unit.id} className="px-4">
-                    <AccordionTrigger className="hover:no-underline py-3">
-                      <span className="flex items-center gap-2 text-left">
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-primary text-xs font-bold shrink-0">
-                          {unit.order}
+              <Accordion defaultValue={unitParam ? [unitParam] : undefined} className="rounded-xl border divide-y bg-card">
+                {units.map((unit) => {
+                  const unitResources = subjectResources.filter(
+                    (r) => (r.unitId === unit.id || r.unit?.id === unit.id) && !r.chapterId
+                  );
+
+                  return (
+                    <AccordionItem key={unit.id} value={unit.id} className="px-4">
+                      <AccordionTrigger className="hover:no-underline py-3">
+                        <span className="flex items-center gap-2 text-left">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-primary text-xs font-bold shrink-0">
+                            {unit.order}
+                          </span>
+                          <span className="font-semibold text-sm">{unit.title}</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({unit.courseChapters.length} chapter{unit.courseChapters.length === 1 ? "" : "s"}
+                            {unitResources.length > 0 ? ` • ${unitResources.length} unit file${unitResources.length === 1 ? "" : "s"}` : ""})
+                          </span>
                         </span>
-                        <span className="font-semibold text-sm">{unit.title}</span>
-                        <span className="text-xs text-muted-foreground">({unit.courseChapters.length} chapters)</span>
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-4">
-                      {unit.courseChapters.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-2">No chapters in this unit.</p>
-                      ) : (
-                        <div className="space-y-4">
-                          {unit.courseChapters.map((chapter) => {
-                            const chapterResources = subjectResources.filter((r) => r.chapterId === chapter.id);
-                            const chapterMaterials = chapter.courseMaterials ?? [];
-                            const combined = [
-                              ...chapterResources.map((r) => ({
-                                id: r.id,
-                                title: r.title,
-                                fileUrl: r.fileUrl,
-                                fileType: r.fileType,
-                                description: r.description,
-                                fileSize: r.fileSize,
-                              })),
-                              ...chapterMaterials.map((m) => ({
-                                id: m.id,
-                                title: m.title,
-                                fileUrl: m.fileUrl,
-                                fileType: m.fileType,
-                                description: `Chapter resource: ${chapter.title}` as string | null,
-                                fileSize: null as number | null,
-                              })),
-                            ];
-                            return (
-                              <div key={chapter.id} className="rounded-lg border bg-muted/20 p-3 space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <h4 className="text-sm font-semibold">{chapter.title}</h4>
-                                  <span className="text-xs text-muted-foreground">
-                                    {combined.length} file{combined.length === 1 ? "" : "s"}
-                                  </span>
-                                </div>
-                                {combined.length === 0 ? (
-                                  <p className="text-xs text-muted-foreground italic">No materials in this chapter yet.</p>
-                                ) : (
-                                  <div className="space-y-3">
-                                    {combined.map((item) => {
-                                      const style = fileTypeStyle(item.fileType);
-                                      const Icon = style.icon;
-                                      return (
-                                        <div
-                                          key={item.id}
-                                          className="rounded-lg border bg-card p-3 space-y-2 shadow-sm"
-                                        >
-                                          <div className="flex flex-wrap items-center justify-between gap-2">
-                                            <span
-                                              className={cn(
-                                                "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-bold uppercase border",
-                                                style.tint
-                                              )}
-                                            >
-                                              <Icon className="w-3.5 h-3.5" />
-                                              {item.fileType || "File"}
-                                            </span>
-                                            <span className="text-xs text-muted-foreground font-medium">
-                                              {formatFileSize(item.fileSize)}
-                                            </span>
-                                          </div>
-                                          <h5 className="font-semibold text-sm text-foreground leading-snug">{item.title}</h5>
-                                          {item.description && (
-                                            <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
-                                          )}
-                                          <FilePreview fileUrl={item.fileUrl} fileType={item.fileType} title={item.title} />
-                                          <div className="flex justify-end">
-                                            <a
-                                              href={item.fileUrl}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 text-xs gap-1 cursor-pointer" })}
-                                            >
-                                              <ExternalLink className="w-3 h-3" /> Open
-                                            </a>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-4">
+                        {/* Unit Resources Shelf (Direct Unit Materials & Master Slides) */}
+                        {unitResources.length > 0 && (
+                          <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                                  📦 Unit Resources &amp; Master Slides
+                                </span>
+                                <Badge variant="secondary" className="text-[11px] h-5 bg-primary/15 text-primary border-primary/25 font-bold">
+                                  {unitResources.length}
+                                </Badge>
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
+                              {isEditor && (
+                                <AddResourceModal
+                                  subjectId={subject.id}
+                                  subjectName={subject.name}
+                                  unitId={unit.id}
+                                  unitTitle={unit.title}
+                                  targetLabel={`Unit: ${unit.title}`}
+                                  trigger={
+                                    <Button variant="ghost" size="sm" className="h-6 text-xs text-primary hover:text-primary gap-1 px-2">
+                                      <Plus className="w-3 h-3" /> Add Resource
+                                    </Button>
+                                  }
+                                />
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {unitResources.map((item) => {
+                                const style = fileTypeStyle(item.fileType);
+                                const Icon = style.icon;
+                                return (
+                                  <div key={item.id} className="rounded-lg border bg-card p-3 space-y-2 shadow-xs">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold uppercase border", style.tint)}>
+                                        <Icon className="w-3 h-3" /> {item.fileType || "File"}
+                                      </span>
+                                      <span className="text-[11px] text-muted-foreground font-medium">
+                                        {formatFileSize(item.fileSize)}
+                                      </span>
+                                    </div>
+                                    <h5 className="font-semibold text-xs text-foreground line-clamp-1">{item.title}</h5>
+                                    {item.description && (
+                                      <p className="text-[11px] text-muted-foreground line-clamp-2">{item.description}</p>
+                                    )}
+                                    <FilePreview fileUrl={item.fileUrl} fileType={item.fileType} title={item.title} />
+                                    <div className="flex justify-end pt-1">
+                                      <a
+                                        href={item.fileUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className={buttonVariants({ variant: "outline", size: "sm", className: "h-6 text-xs gap-1 cursor-pointer" })}
+                                      >
+                                        <ExternalLink className="w-3 h-3" /> Open
+                                      </a>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {unit.courseChapters.length === 0 ? (
+                          unitResources.length === 0 ? (
+                            <p className="text-xs text-muted-foreground py-2">No chapters or unit materials in this unit yet.</p>
+                          ) : null
+                        ) : (
+                          <div className="space-y-4">
+                            {unit.courseChapters.map((chapter) => {
+                              const chapterResources = subjectResources.filter((r) => r.chapterId === chapter.id);
+                              const chapterMaterials = chapter.courseMaterials ?? [];
+                              const combined = [
+                                ...chapterResources.map((r) => ({
+                                  id: r.id,
+                                  title: r.title,
+                                  fileUrl: r.fileUrl,
+                                  fileType: r.fileType,
+                                  description: r.description,
+                                  fileSize: r.fileSize,
+                                })),
+                                ...chapterMaterials.map((m) => ({
+                                  id: m.id,
+                                  title: m.title,
+                                  fileUrl: m.fileUrl,
+                                  fileType: m.fileType,
+                                  description: `Chapter resource: ${chapter.title}` as string | null,
+                                  fileSize: null as number | null,
+                                })),
+                              ];
+                              return (
+                                <div key={chapter.id} className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="text-sm font-semibold">{chapter.title}</h4>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground">
+                                        {combined.length} file{combined.length === 1 ? "" : "s"}
+                                      </span>
+                                      {isEditor && (
+                                        <AddResourceModal
+                                          subjectId={subject.id}
+                                          subjectName={subject.name}
+                                          unitId={unit.id}
+                                          unitTitle={unit.title}
+                                          chapterId={chapter.id}
+                                          chapterTitle={chapter.title}
+                                          targetLabel={`Chapter: ${chapter.title}`}
+                                          trigger={
+                                            <Button variant="outline" size="sm" className="h-6 text-[11px] px-2 gap-1">
+                                              <Plus className="w-3 h-3 text-primary" /> Add Resource
+                                            </Button>
+                                          }
+                                        />
+                                      )}
+                                    </div>
+                                  </div>
+                                  {combined.length === 0 ? (
+                                    <p className="text-xs text-muted-foreground italic">No materials in this chapter yet.</p>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      {combined.map((item) => {
+                                        const style = fileTypeStyle(item.fileType);
+                                        const Icon = style.icon;
+                                        return (
+                                          <div
+                                            key={item.id}
+                                            className="rounded-lg border bg-card p-3 space-y-2 shadow-sm"
+                                          >
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                              <span
+                                                className={cn(
+                                                  "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-bold uppercase border",
+                                                  style.tint
+                                                )}
+                                              >
+                                                <Icon className="w-3.5 h-3.5" />
+                                                {item.fileType || "File"}
+                                              </span>
+                                              <span className="text-xs text-muted-foreground font-medium">
+                                                {formatFileSize(item.fileSize)}
+                                              </span>
+                                            </div>
+                                            <h5 className="font-semibold text-sm text-foreground leading-snug">{item.title}</h5>
+                                            {item.description && (
+                                              <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+                                            )}
+                                            <FilePreview fileUrl={item.fileUrl} fileType={item.fileType} title={item.title} />
+                                            <div className="flex justify-end">
+                                              <a
+                                                href={item.fileUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className={buttonVariants({ variant: "outline", size: "sm", className: "h-7 text-xs gap-1 cursor-pointer" })}
+                                              >
+                                                <ExternalLink className="w-3 h-3" /> Open
+                                              </a>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
               </Accordion>
             )}
 
-            {/* General bucket — resources without chapter */}
+            {/* General bucket — resources without chapter and without unit */}
             {(() => {
-              const general = subjectResources.filter((r) => !r.chapterId);
+              const general = subjectResources.filter((r) => !r.chapterId && !r.unitId && !r.unit?.id);
               if (general.length === 0) return null;
               return (
                 <div className="mt-6 space-y-3 border-t pt-6">
-                  <h3 className="font-semibold text-sm">General (Unchaptered)</h3>
+                  <h3 className="font-semibold text-sm">General (Subject-wide Materials)</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {general.map((r) => {
                       const style = fileTypeStyle(r.fileType);
