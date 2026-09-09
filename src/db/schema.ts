@@ -401,6 +401,8 @@ export const resources = sqliteTable("resources", {
   subjectId: text("subject_id")
     .notNull()
     .references(() => subjects.id, { onDelete: "cascade" }),
+  unitId: text("unit_id")
+    .references(() => courseUnits.id, { onDelete: "set null" }),
   chapterId: text("chapter_id")
     .references(() => courseChapters.id, { onDelete: "set null" }),
   title: text("title").notNull(),
@@ -418,6 +420,7 @@ export const resources = sqliteTable("resources", {
     .default(sql`(unixepoch())`),
 }, (table) => [
   index("idx_resources_subject").on(table.subjectId),
+  index("idx_resources_unit").on(table.unitId),
   index("idx_resources_chapter").on(table.chapterId),
   index("idx_resources_chapter_created").on(table.chapterId, table.createdAt),
   index("idx_resources_uploaded_by").on(table.uploadedBy),
@@ -673,6 +676,7 @@ export const courseUnitsRelations = relations(courseUnits, ({ one, many }) => ({
     references: [subjects.id],
   }),
   courseChapters: many(courseChapters),
+  resources: many(resources),
 }));
 
 export const courseChaptersRelations = relations(courseChapters, ({ one, many }) => ({
@@ -771,6 +775,10 @@ export const resourcesRelations = relations(resources, ({ one }) => ({
   subject: one(subjects, {
     fields: [resources.subjectId],
     references: [subjects.id],
+  }),
+  unit: one(courseUnits, {
+    fields: [resources.unitId],
+    references: [courseUnits.id],
   }),
   chapter: one(courseChapters, {
     fields: [resources.chapterId],

@@ -95,6 +95,18 @@ async function main() {
     console.log("ℹ️ teachers.user_id already exists.");
   }
 
+  // 5b. Check resources columns (unit_id)
+  const resourcesInfo = await client.execute("PRAGMA table_info(resources)");
+  const resourcesCols = resourcesInfo.rows.map((r) => r.name as string);
+  if (!resourcesCols.includes("unit_id")) {
+    console.log("➕ Adding column 'unit_id' to resources table...");
+    await client.execute("ALTER TABLE resources ADD COLUMN unit_id TEXT REFERENCES course_units(id) ON DELETE SET NULL");
+    await client.execute("CREATE INDEX IF NOT EXISTS idx_resources_unit ON resources (unit_id)");
+    console.log("✅ Added unit_id to resources and created index idx_resources_unit.");
+  } else {
+    console.log("ℹ️ resources.unit_id already exists.");
+  }
+
   // 6. Backfill user_ids
   console.log("🔄 Backfilling user_id mappings...");
   await client.execute(`
