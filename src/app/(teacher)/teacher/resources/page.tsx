@@ -32,6 +32,10 @@ export default async function TeacherResourcesPage() {
       courseUnits: {
         orderBy: (units, { asc }) => [asc(units.order)],
         with: {
+          resources: {
+            where: eq(resources.uploadedBy, user.teacherId),
+            orderBy: (resources, { desc }) => [desc(resources.createdAt)],
+          },
           courseChapters: {
             orderBy: (chapters, { asc }) => [asc(chapters.order)],
             with: {
@@ -50,6 +54,7 @@ export default async function TeacherResourcesPage() {
     where: eq(resources.uploadedBy, user.teacherId),
     with: {
       subject: true,
+      unit: true,
       chapter: true,
     },
     orderBy: [desc(resources.createdAt)],

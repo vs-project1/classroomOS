@@ -19,6 +19,12 @@ export type ResourceWorkspaceSubject = {
     id: string;
     title: string;
     order: number;
+    resources?: {
+      id: string;
+      title: string;
+      fileUrl: string;
+      fileType: string;
+    }[];
     courseChapters: {
       id: string;
       title: string;
@@ -40,6 +46,7 @@ export type ResourceWorkspaceItem = {
   fileType: string;
   createdAt: Date;
   subject?: { name: string } | null;
+  unit?: { title: string; order: number } | null;
   chapter?: { title: string } | null;
 };
 
@@ -143,10 +150,13 @@ export function ResourcesWorkspace({
                           ) : (
                             <Accordion className="rounded-2xl border border-border/40 bg-card overflow-hidden">
                               {subject.courseUnits.map((unit) => {
-                                const totalFilesInUnit = unit.courseChapters.reduce(
-                                  (sum, ch) => sum + ch.resources.length,
-                                  0
-                                );
+                                const unitDirectFiles = unit.resources?.length ?? 0;
+                                const totalFilesInUnit =
+                                  unitDirectFiles +
+                                  unit.courseChapters.reduce(
+                                    (sum, ch) => sum + ch.resources.length,
+                                    0
+                                  );
 
                                 return (
                                   <AccordionItem key={unit.id} value={unit.id} className="border-b-0 px-4">
@@ -162,10 +172,60 @@ export function ResourcesWorkspace({
                                       </span>
                                     </AccordionTrigger>
                                     <AccordionContent className="pb-4">
-                                      {unit.courseChapters.length === 0 ? (
-                                        <div className="pl-10 pr-2 py-3 text-xs text-muted-foreground italic bg-muted/20 rounded-xl border border-dashed">
-                                          No sub-chapters yet. Upload resources using this unit from the upload form.
+                                      {/* Direct Unit Materials */}
+                                      {unit.resources && unit.resources.length > 0 && (
+                                        <div className="space-y-2 pl-10 pr-2 mb-3">
+                                          <div className="flex items-center justify-between pb-1 border-b border-primary/20">
+                                            <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                                              📦 Unit Materials &amp; Master Slides ({unit.resources.length})
+                                            </span>
+                                          </div>
+                                          <div className="space-y-2">
+                                            {unit.resources.map((item) => (
+                                              <div
+                                                key={item.id}
+                                                className="bg-primary/5 rounded-lg border border-primary/20 p-2.5 space-y-2"
+                                              >
+                                                <div className="flex items-center justify-between gap-2 px-1">
+                                                  <span className="text-xs font-semibold truncate text-primary">
+                                                    {item.title}
+                                                  </span>
+                                                  <div className="flex items-center gap-2 shrink-0">
+                                                    <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary border border-primary/20">
+                                                      {item.fileType}
+                                                    </span>
+                                                    {canDelete && (
+                                                      <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        disabled={isDeleting}
+                                                        onClick={() => handleDelete(item.id, item.title)}
+                                                        className="h-6 w-6 text-muted-foreground hover:text-destructive cursor-pointer"
+                                                        title="Delete resource"
+                                                      >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                      </Button>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                                <FilePreview
+                                                  fileUrl={item.fileUrl}
+                                                  fileType={item.fileType}
+                                                  title={item.title}
+                                                />
+                                              </div>
+                                            ))}
+                                          </div>
                                         </div>
+                                      )}
+
+                                      {unit.courseChapters.length === 0 ? (
+                                        unitDirectFiles === 0 ? (
+                                          <div className="pl-10 pr-2 py-3 text-xs text-muted-foreground italic bg-muted/20 rounded-xl border border-dashed">
+                                            No sub-chapters or unit materials yet. Upload resources using this unit from the upload form.
+                                          </div>
+                                        ) : null
                                       ) : (
                                         <div className="space-y-3 pl-10 pr-2">
                                           {unit.courseChapters.map((chapter) => (
@@ -264,7 +324,11 @@ export function ResourcesWorkspace({
                               <h4 className="font-semibold text-sm line-clamp-1">{resource.title}</h4>
                               <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                                 {resource.subject?.name || "General"}
-                                {resource.chapter ? ` • ${resource.chapter.title}` : ""}
+                                {resource.chapter
+                                  ? ` • ${resource.chapter.title}`
+                                  : resource.unit
+                                  ? ` • Unit ${resource.unit.order}: ${resource.unit.title}`
+                                  : ""}
                               </p>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">

@@ -15,6 +15,9 @@ export default async function AdminResourcesPage() {
       courseUnits: {
         orderBy: (units, { asc }) => [asc(units.order)],
         with: {
+          resources: {
+            orderBy: (resources, { desc }) => [desc(resources.createdAt)],
+          },
           courseChapters: {
             orderBy: (chapters, { asc }) => [asc(chapters.order)],
             with: {
@@ -31,6 +34,7 @@ export default async function AdminResourcesPage() {
   const allResources = await db.query.resources.findMany({
     with: {
       subject: true,
+      unit: true,
       chapter: true,
     },
     orderBy: [desc(resources.createdAt)],

@@ -61,13 +61,56 @@ type Props = {
 export function ResourcesClient({ initialResources, availableSubjects }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("ALL");
+  const [selectedUnit, setSelectedUnit] = useState("ALL");
+  const [selectedScope, setSelectedScope] = useState<"ALL" | "UNIT" | "CHAPTER" | "SUBJECT">("ALL");
   const [selectedType, setSelectedType] = useState("ALL");
   const [activeViewerResource, setActiveViewerResource] = useState<ResourceWithDetails | null>(null);
+
+  // Derive available units for the selected subject
+  const availableUnitsForSubject = useMemo(() => {
+    if (selectedSubject === "ALL") return [];
+    const unitMap = new Map<string, { id: string; title: string; order: number | null }>();
+    initialResources.forEach((res) => {
+      if (res.subjectId === selectedSubject && res.unitId) {
+        if (!unitMap.has(res.unitId)) {
+          unitMap.set(res.unitId, {
+            id: res.unitId,
+            title: res.unitTitle || `Unit ${res.unitOrder ?? ""}`,
+            order: res.unitOrder,
+          });
+        }
+      }
+    });
+    return Array.from(unitMap.values()).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }, [initialResources, selectedSubject]);
+
+  // Counts for scope filter tabs
+  const scopeCounts = useMemo(() => {
+    const base = initialResources.filter((res) => {
+      const matchesSubject = selectedSubject === "ALL" || res.subjectId === selectedSubject;
+      const matchesType = selectedType === "ALL" || res.fileType?.toLowerCase() === selectedType.toLowerCase();
+      return matchesSubject && matchesType;
+    });
+
+    return {
+      all: base.length,
+      unit: base.filter((r) => r.scope === "UNIT").length,
+      chapter: base.filter((r) => r.scope === "CHAPTER").length,
+      subject: base.filter((r) => r.scope === "SUBJECT").length,
+    };
+  }, [initialResources, selectedSubject, selectedType]);
 
   const filteredResources = useMemo(() => {
     return initialResources.filter((res) => {
       const matchesSubject =
         selectedSubject === "ALL" || res.subjectId === selectedSubject;
+
+      const matchesUnit =
+        selectedUnit === "ALL" || res.unitId === selectedUnit;
+
+      const matchesScope =
+        selectedScope === "ALL" || res.scope === selectedScope;
+
       const matchesType =
         selectedType === "ALL" || res.fileType?.toLowerCase() === selectedType.toLowerCase();
 
@@ -77,22 +120,88 @@ export function ResourcesClient({ initialResources, availableSubjects }: Props) 
         res.title.toLowerCase().includes(searchLower) ||
         (res.description && res.description.toLowerCase().includes(searchLower)) ||
         res.subjectName.toLowerCase().includes(searchLower) ||
+        (res.unitTitle && res.unitTitle.toLowerCase().includes(searchLower)) ||
         (res.chapterTitle && res.chapterTitle.toLowerCase().includes(searchLower)) ||
         (res.teacherName && res.teacherName.toLowerCase().includes(searchLower));
 
-      return matchesSubject && matchesType && matchesSearch;
+      return matchesSubject && matchesUnit && matchesScope && matchesType && matchesSearch;
     });
-  }, [initialResources, selectedSubject, selectedType, searchTerm]);
+  }, [initialResources, selectedSubject, selectedUnit, selectedScope, selectedType, searchTerm]);
+
+  const resetAllFilters = () => {
+    setSearchTerm("");
+    setSelectedSubject("ALL");
+    setSelectedUnit("ALL");
+    setSelectedScope("ALL");
+    setSelectedType("ALL");
+  };
 
   return (
     <div className="space-y-6">
+      {/* Scope Filter Tabs */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
+        <button
+          type="button"
+          onClick={() => setSelectedScope("ALL")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            selectedScope === "ALL"
+              ? "bg-primary text-primary-foreground shadow-xs"
+              : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          All Files ({scopeCounts.all})
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedScope("UNIT")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+            selectedScope === "UNIT"
+              ? "bg-indigo-600 text-white shadow-xs"
+              : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <span>📦 Whole Units</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-background/20 font-bold">
+            {scopeCounts.unit}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedScope("CHAPTER")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+            selectedScope === "CHAPTER"
+              ? "bg-sky-600 text-white shadow-xs"
+              : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <span>📑 By Chapter</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-background/20 font-bold">
+            {scopeCounts.chapter}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedScope("SUBJECT")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+            selectedScope === "SUBJECT"
+              ? "bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-900 shadow-xs"
+              : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <span>🌐 General</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-background/20 font-bold">
+            {scopeCounts.subject}
+          </span>
+        </button>
+      </div>
+
       {/* Search & Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between bg-card p-4 rounded-xl border border-border/60 shadow-2xs">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search notes, PPTs, topics, or teachers..."
+            placeholder="Search notes, PPTs, unit topics, or teachers..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
@@ -104,7 +213,10 @@ export function ResourcesClient({ initialResources, availableSubjects }: Props) 
             <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
             <select
               value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
+              onChange={(e) => {
+                setSelectedSubject(e.target.value);
+                setSelectedUnit("ALL");
+              }}
               className="w-full text-xs bg-background border border-border rounded-lg px-2.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="ALL">All Subjects ({availableSubjects.length})</option>
@@ -115,6 +227,21 @@ export function ResourcesClient({ initialResources, availableSubjects }: Props) 
               ))}
             </select>
           </div>
+
+          {availableUnitsForSubject.length > 0 && (
+            <select
+              value={selectedUnit}
+              onChange={(e) => setSelectedUnit(e.target.value)}
+              className="text-xs bg-background border border-border rounded-lg px-2.5 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[130px]"
+            >
+              <option value="ALL">All Units ({availableUnitsForSubject.length})</option>
+              {availableUnitsForSubject.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.order ? `Unit ${u.order}: ` : ""}{u.title}
+                </option>
+              ))}
+            </select>
+          )}
 
           <select
             value={selectedType}
@@ -137,14 +264,10 @@ export function ResourcesClient({ initialResources, availableSubjects }: Props) 
         <p className="text-xs font-medium text-muted-foreground">
           Showing <span className="font-semibold text-foreground">{filteredResources.length}</span> study material{filteredResources.length === 1 ? "" : "s"}
         </p>
-        {(searchTerm || selectedSubject !== "ALL" || selectedType !== "ALL") && (
+        {(searchTerm || selectedSubject !== "ALL" || selectedUnit !== "ALL" || selectedScope !== "ALL" || selectedType !== "ALL") && (
           <button
-            onClick={() => {
-              setSearchTerm("");
-              setSelectedSubject("ALL");
-              setSelectedType("ALL");
-            }}
-            className="text-xs text-primary hover:underline font-medium"
+            onClick={resetAllFilters}
+            className="text-xs text-primary hover:underline font-medium cursor-pointer"
           >
             Reset Filters
           </button>
@@ -190,6 +313,22 @@ export function ResourcesClient({ initialResources, availableSubjects }: Props) 
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
                       {res.subjectName} ({res.subjectCode})
                     </span>
+
+                    {/* Scope Badge */}
+                    {res.scope === "UNIT" ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20">
+                        📦 Unit {res.unitOrder ? `${res.unitOrder}: ` : ""}{res.unitTitle || "Whole Unit"}
+                      </span>
+                    ) : res.scope === "CHAPTER" ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20">
+                        📑 {res.unitOrder ? `Unit ${res.unitOrder} › ` : ""}{res.chapterTitle}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-muted text-muted-foreground border border-border">
+                        🌐 General
+                      </span>
+                    )}
+
                     {isGoogleDriveUrl(res.fileUrl) ? (
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
                         <Presentation className="h-3 w-3" /> Google Slides
@@ -208,7 +347,12 @@ export function ResourcesClient({ initialResources, availableSubjects }: Props) 
                   )}
 
                   <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap pt-0.5">
-                    {res.chapterTitle && (
+                    {res.scope === "UNIT" && (
+                      <span className="font-medium text-foreground/80">
+                        Unit: {res.unitOrder ? `Unit ${res.unitOrder} - ` : ""}{res.unitTitle}
+                      </span>
+                    )}
+                    {res.scope === "CHAPTER" && (
                       <span className="font-medium text-foreground/80">
                         Chapter: {res.chapterTitle}
                       </span>

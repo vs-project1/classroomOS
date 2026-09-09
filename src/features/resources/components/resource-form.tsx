@@ -200,23 +200,17 @@ export function ResourceForm({ subjects }: { subjects: { id: string; name: strin
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="chapterId">Unit / Chapter (Optional)</Label>
+        <Label htmlFor="chapterId">Unit / Chapter Scope (Optional)</Label>
         <select id="chapterId" name="chapterId" defaultValue="" disabled={chaptersLoading || units.length === 0} className={selectClassName}>
-          <option value="">General (Subject-wide)</option>
+          <option value="">🌐 General (Subject-wide)</option>
           {units.map((unit) => (
-            <optgroup key={unit.id} label={unit.title}>
-              {unit.chapters.length === 0 ? (
-                <option value={`unit:${unit.id}`}>{unit.title} (Unit)</option>
-              ) : (
-                <>
-                  <option value={`unit:${unit.id}`}>{unit.title} (Whole Unit)</option>
-                  {unit.chapters.map((chapter) => (
-                    <option key={chapter.id} value={chapter.id}>
-                      &nbsp;&nbsp;↳ {chapter.title}
-                    </option>
-                  ))}
-                </>
-              )}
+            <optgroup key={unit.id} label={`Unit ${unit.order}: ${unit.title}`}>
+              <option value={`unit:${unit.id}`}>📦 Unit {unit.order}: Entire Unit</option>
+              {unit.chapters.map((chapter) => (
+                <option key={chapter.id} value={chapter.id}>
+                  &nbsp;&nbsp;↳ 📑 {chapter.title}
+                </option>
+              ))}
             </optgroup>
           ))}
         </select>
