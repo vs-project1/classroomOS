@@ -1,10 +1,6 @@
-import { CalendarDays, Edit } from "lucide-react";
-import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
+import { CalendarDays } from "lucide-react";
 import { requireAuth, getPermissions } from "@/lib/auth";
 import { RoutineView } from "@/components/timetable/routine-view";
-import { DeleteRoutineButton } from "@/features/routine/components/delete-routine-button";
-import type { RoutineSlotData } from "@/components/timetable/routine-card";
 import { getTeacherWeeklyRoutine } from "@/features/routine/queries";
 
 export const dynamic = "force-dynamic";
@@ -71,27 +67,6 @@ export default async function TeacherRoutinePage() {
           todayIndex={todayIndex < 0 ? 0 : todayIndex}
           nptTime={nptTime}
           canManageRoutine={permissions.canManageRoutine}
-          renderActions={
-            permissions.canManageRoutine
-              ? (slot: RoutineSlotData) => (
-                  <div className="flex items-center gap-1">
-                    <Link
-                      className={buttonVariants({
-                        variant: "ghost",
-                        size: "icon",
-                        className: "h-7 w-7 rounded-md cursor-pointer",
-                      })}
-                      href={`/routine/${slot.id}/edit`}
-                      title={`Edit ${slot.subjectName}`}
-                      aria-label={`Edit ${slot.subjectName}`}
-                    >
-                      <Edit className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                    </Link>
-                    <DeleteRoutineButton id={slot.id} />
-                  </div>
-                )
-              : undefined
-          }
         />
       )}
     </div>

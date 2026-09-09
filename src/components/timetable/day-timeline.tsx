@@ -6,10 +6,11 @@ export type DayTimelineProps = {
   dayName: string;
   slots: RoutineSlotData[];
   isToday?: boolean;
+  canManageRoutine?: boolean;
   renderActions?: (slot: RoutineSlotData) => React.ReactNode;
 };
 
-export function DayTimeline({ dayName, slots, isToday, renderActions }: DayTimelineProps) {
+export function DayTimeline({ dayName, slots, isToday, canManageRoutine, renderActions }: DayTimelineProps) {
   const sortedSlots = [...slots].sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   if (sortedSlots.length === 0) {
@@ -34,6 +35,7 @@ export function DayTimeline({ dayName, slots, isToday, renderActions }: DayTimel
         <RoutineCard
           key={slot.id}
           slot={slot}
+          canManageRoutine={canManageRoutine}
           renderActions={renderActions}
         />
       ))}

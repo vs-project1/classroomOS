@@ -1,5 +1,5 @@
-import { computePeriodColumns, buildDayMatrixRows } from "../src/components/timetable/matrix-utils";
-import type { RoutineSlotData } from "../src/components/timetable/routine-card";
+import { computePeriodColumns, buildDayMatrixRows } from "../../src/components/timetable/matrix-utils";
+import type { RoutineSlotData } from "../../src/components/timetable/routine-card";
 
 // Test BCA Semester 2 fixture:
 // 2 back-to-back Discrete Structure slots: 06:25–07:15 & 07:15–08:05

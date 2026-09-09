@@ -1,9 +1,12 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Coffee, Laptop, Radio } from "lucide-react";
+import { Coffee, Edit, Laptop, Radio } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/ui/button";
 import { formatTime12h } from "@/lib/timezone";
+import { DeleteRoutineButton } from "@/features/routine/components/delete-routine-button";
 import type { RoutineSlotData } from "./routine-card";
 import type { DayGroup } from "./weekly-grid";
 import { computePeriodColumns, buildDayMatrixRows, type PeriodColumn, type DayRowMatrix } from "./matrix-utils";
@@ -11,6 +14,7 @@ import { computePeriodColumns, buildDayMatrixRows, type PeriodColumn, type DayRo
 export type CollegeTimetableGridProps = {
   dayGroups: DayGroup[];
   allSlots: RoutineSlotData[];
+  canManageRoutine?: boolean;
   renderActions?: (slot: RoutineSlotData) => React.ReactNode;
   className?: string;
 };
@@ -18,6 +22,7 @@ export type CollegeTimetableGridProps = {
 export function CollegeTimetableGrid({
   dayGroups,
   allSlots,
+  canManageRoutine = false,
   renderActions,
   className,
 }: CollegeTimetableGridProps) {
@@ -216,11 +221,27 @@ export function CollegeTimetableGrid({
                             </div>
 
                             {/* Render Admin Actions */}
-                            {renderActions && (
+                            {renderActions ? (
                               <div className="flex items-center gap-0.5 shrink-0 opacity-80 hover:opacity-100">
                                 {renderActions(classData.originalSlots[0])}
                               </div>
-                            )}
+                            ) : canManageRoutine ? (
+                              <div className="flex items-center gap-0.5 shrink-0 opacity-80 hover:opacity-100">
+                                <Link
+                                  className={buttonVariants({
+                                    variant: "ghost",
+                                    size: "icon",
+                                    className: "h-6 w-6 rounded-md cursor-pointer hover:bg-muted p-0",
+                                  })}
+                                  href={`/routine/${classData.id}/edit`}
+                                  title={`Edit ${classData.subjectName}`}
+                                  aria-label={`Edit ${classData.subjectName}`}
+                                >
+                                  <Edit className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                </Link>
+                                <DeleteRoutineButton id={classData.id} />
+                              </div>
+                            ) : null}
                           </div>
 
                           {/* Bottom Row: Metadata (Room + Teacher) */}

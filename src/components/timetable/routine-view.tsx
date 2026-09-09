@@ -223,6 +223,7 @@ export function RoutineView({
         <CollegeTimetableGrid
           dayGroups={dayGroups}
           allSlots={allSlots}
+          canManageRoutine={canManageRoutine}
           renderActions={renderActions}
         />
       )}
@@ -248,13 +249,18 @@ export function RoutineView({
             dayName={selectedGroup.dayName}
             slots={selectedGroup.slots}
             isToday={selectedGroup.isToday}
+            canManageRoutine={canManageRoutine}
             renderActions={renderActions}
           />
         </div>
       )}
 
       {viewMode === "grid" && (
-        <WeeklyGrid dayGroups={dayGroups} renderActions={renderActions} />
+        <WeeklyGrid
+          dayGroups={dayGroups}
+          canManageRoutine={canManageRoutine}
+          renderActions={renderActions}
+        />
       )}
     </div>
   );

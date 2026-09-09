@@ -2,15 +2,13 @@ import { db } from "@/db";
 import { weeklyRoutine } from "@/db/schema";
 import { asc } from "drizzle-orm";
 import Link from "next/link";
-import { Plus, CalendarRange, AlertTriangle, Edit } from "lucide-react";
+import { Plus, CalendarRange, AlertTriangle } from "lucide-react";
 import { getPermissions } from "@/lib/auth";
 import { RoutineView } from "@/components/timetable/routine-view";
-import { DeleteRoutineButton } from "@/features/routine/components/delete-routine-button";
 import { buttonVariants } from "@/components/ui/button";
 import { BroadcastRoutineDialog } from "@/features/telegram/components/broadcast-routine-dialog";
 import { getTelegramSettings, getSemesterTelegramConfigs } from "@/features/telegram/queries/telegram-queries";
 import { areSemestersEqual } from "@/lib/utils/roman";
-import type { RoutineSlotData } from "@/components/timetable/routine-card";
 
 export const dynamic = "force-dynamic";
 
@@ -207,27 +205,6 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
           nptTime={nptTime}
           canManageRoutine={permissions.canManageRoutine}
           defaultViewMode="matrix"
-          renderActions={
-            permissions.canManageRoutine
-              ? (slot: RoutineSlotData) => (
-                  <div className="flex items-center gap-1">
-                    <Link
-                      className={buttonVariants({
-                        variant: "ghost",
-                        size: "icon",
-                        className: "h-6 w-6 rounded-md cursor-pointer hover:bg-muted",
-                      })}
-                      href={`/routine/${slot.id}/edit`}
-                      title={`Edit ${slot.subjectName}`}
-                      aria-label={`Edit ${slot.subjectName}`}
-                    >
-                      <Edit className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                    </Link>
-                    <DeleteRoutineButton id={slot.id} />
-                  </div>
-                )
-              : undefined
-          }
         />
       )}
     </div>

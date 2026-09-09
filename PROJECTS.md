@@ -95,6 +95,7 @@ This file is the single source of truth for project planning, architectural mile
 |---|---|---|---|
 | **M1** | Attendance Simplification & Unification | 2026-09-08 | Decoupled lecture logs from roll call; established `daily_attendance` as canonical truth; unified student barometer & catch-up journal. |
 | **M2** | Routine Cohort Isolation & Period Merging | 2026-09-06 | Isolated routine timetable queries at DB level per semester cohort; merged back-to-back periods into single blocks. |
+| **M2.1** | Traditional College Timetable Noticeboard | 2026-09-09 | Replaced bloated 3-column river with full-width noticeboard table, dynamic period detection, recess divider, double-period merging (col-span-2), and unified RoutineView across Admin, Student, and Teacher. |
 | **M3** | Handwritten Notebook Homework Workflow | 2026-09-06 | Eliminated digital PDF uploads & grading rubrics; implemented physical notebook diary tracker (`Completed in Notebook`). |
 | **M4** | Central Telegram Bot & Routine Publishing | 2026-09-06 | Single bot token with semester-to-chat mapping; change detection banner (`[ Publish Changes to Telegram ]`); Sunday 8 PM kickoff. |
 | **M5** | Responsive UI/UX & Dual-Theme Contrast | 2026-09-01 | Rigid desktop sidebar + dual-tier sticky mobile topbar & hamburger drawer; WCAG 4.5:1 contrast hardening on status badges. |

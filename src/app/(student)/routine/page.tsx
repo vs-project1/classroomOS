@@ -3,12 +3,10 @@ import { weeklyRoutine } from "@/db/schema";
 import { asc } from "drizzle-orm";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
-import { Edit, CalendarDays, Plus, AlertTriangle } from "lucide-react";
-import { DeleteRoutineButton } from "@/features/routine/components/delete-routine-button";
+import { CalendarDays, Plus, AlertTriangle } from "lucide-react";
 import { getCurrentUser, getPermissions, resolveCurrentStudent } from "@/lib/auth";
 import { toRoman } from "@/lib/utils/roman";
 import { RoutineView } from "@/components/timetable/routine-view";
-import type { RoutineSlotData } from "@/components/timetable/routine-card";
 import { BroadcastRoutineDialog } from "@/features/telegram/components/broadcast-routine-dialog";
 import { getTelegramSettings, getSemesterTelegramConfigs } from "@/features/telegram/queries/telegram-queries";
 import {
@@ -169,27 +167,6 @@ export default async function RoutinePage() {
           todayIndex={todayIndex < 0 ? 0 : todayIndex}
           nptTime={nptTime}
           canManageRoutine={permissions.canManageRoutine}
-          renderActions={
-            permissions.canManageRoutine
-              ? (slot: RoutineSlotData) => (
-                  <div className="flex items-center gap-1">
-                    <Link
-                      className={buttonVariants({
-                        variant: "ghost",
-                        size: "icon",
-                        className: "h-7 w-7 rounded-md cursor-pointer",
-                      })}
-                      href={`/routine/${slot.id}/edit`}
-                      title={`Edit ${slot.subjectName}`}
-                      aria-label={`Edit ${slot.subjectName}`}
-                    >
-                      <Edit className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                    </Link>
-                    <DeleteRoutineButton id={slot.id} />
-                  </div>
-                )
-              : undefined
-          }
         />
       )}
     </div>

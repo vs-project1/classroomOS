@@ -1,7 +1,10 @@
 import React from "react";
-import { CheckCircle2, Clock, Laptop, MapPin, Radio, User } from "lucide-react";
+import { CheckCircle2, Clock, Edit, Laptop, MapPin, Radio, User } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/ui/button";
 import { formatTime12h } from "@/lib/timezone";
+import { DeleteRoutineButton } from "@/features/routine/components/delete-routine-button";
 
 export type RoutineSlotData = {
   id: string;
@@ -18,6 +21,7 @@ export type RoutineSlotData = {
 
 export type RoutineCardProps = {
   slot: RoutineSlotData;
+  canManageRoutine?: boolean;
   renderActions?: (slot: RoutineSlotData) => React.ReactNode;
   compact?: boolean;
   className?: string;
@@ -29,7 +33,7 @@ function parseMinutes(time: string): number {
   return h * 60 + m;
 }
 
-export function RoutineCard({ slot, renderActions, compact = false, className }: RoutineCardProps) {
+export function RoutineCard({ slot, canManageRoutine = false, renderActions, compact = false, className }: RoutineCardProps) {
   const isOngoing = slot.status === "ongoing";
   const isCompleted = slot.status === "completed";
   
@@ -119,11 +123,27 @@ export function RoutineCard({ slot, renderActions, compact = false, className }:
         </div>
 
         {/* Action icons */}
-        {renderActions && (
+        {renderActions ? (
           <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
             {renderActions(slot)}
           </div>
-        )}
+        ) : canManageRoutine ? (
+          <div className="flex items-center gap-0.5 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+            <Link
+              className={buttonVariants({
+                variant: "ghost",
+                size: "icon",
+                className: "h-6 w-6 rounded-md cursor-pointer hover:bg-muted p-0",
+              })}
+              href={`/routine/${slot.id}/edit`}
+              title={`Edit ${slot.subjectName}`}
+              aria-label={`Edit ${slot.subjectName}`}
+            >
+              <Edit className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+            </Link>
+            <DeleteRoutineButton id={slot.id} />
+          </div>
+        ) : null}
       </div>
 
       {/* Footer: Teacher Name & Notes */}
