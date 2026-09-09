@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar, LayoutGrid, ListFilter, Plus } from "lucide-react";
+import { Calendar, CalendarDays, LayoutGrid, ListFilter, Plus } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { DayTimeline } from "./day-timeline";
 import { WeeklyGrid, type DayGroup } from "./weekly-grid";
+import { CollegeTimetableGrid } from "./college-timetable-grid";
 import type { RoutineSlotData } from "./routine-card";
 
 const DAYS = [
@@ -39,6 +40,7 @@ export type RoutineViewProps = {
   nptTime: string;
   canManageRoutine?: boolean;
   renderActions?: (slot: RoutineSlotData) => React.ReactNode;
+  defaultViewMode?: "matrix" | "day" | "grid";
 };
 
 export function RoutineView({
@@ -47,9 +49,10 @@ export function RoutineView({
   nptTime,
   canManageRoutine = false,
   renderActions,
+  defaultViewMode = "matrix",
 }: RoutineViewProps) {
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(todayIndex);
-  const [viewMode, setViewMode] = useState<"day" | "grid">("day");
+  const [viewMode, setViewMode] = useState<"matrix" | "day" | "grid">(defaultViewMode);
 
   // Extract 24-hour HH:mm string from nptTime prop or fallback
   const currentTime24 = useMemo(() => {
@@ -102,6 +105,10 @@ export function RoutineView({
     });
   }, [allRoutines, todayIndex, currentTime24]);
 
+  const allSlots = useMemo(() => {
+    return dayGroups.flatMap((g) => g.slots);
+  }, [dayGroups]);
+
   const selectedGroup = dayGroups[selectedDayIndex] || dayGroups[todayIndex];
 
   return (
@@ -111,7 +118,7 @@ export function RoutineView({
         {/* Day Selector Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           {SHORT_DAYS.map((shortName, idx) => {
-            const isSelected = selectedDayIndex === idx;
+            const isSelected = selectedDayIndex === idx && viewMode === "day";
             const isToday = idx === todayIndex;
             const classCount = dayGroups[idx].slots.length;
 
@@ -130,6 +137,7 @@ export function RoutineView({
                     ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
                     : "bg-background text-foreground border-border/60 hover:bg-muted"
                 )}
+                title={`View ${DAYS[idx]} Schedule`}
               >
                 <span>{shortName}</span>
                 {isToday && !isSelected && (
@@ -141,7 +149,9 @@ export function RoutineView({
                   <span
                     className={cn(
                       "text-[9px] font-bold px-1 rounded-full mt-0.5 tabular-nums",
-                      isSelected ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                      isSelected
+                        ? "bg-primary-foreground/20 text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
                     )}
                   >
                     {classCount}
@@ -153,8 +163,21 @@ export function RoutineView({
         </div>
 
         {/* View Mode Switcher & Add Slot */}
-        <div className="flex items-center gap-2 justify-end">
+        <div className="flex items-center gap-2 justify-end flex-wrap">
           <div className="flex items-center p-1 rounded-lg bg-muted/40 border border-border/60">
+            <button
+              onClick={() => setViewMode("matrix")}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer",
+                viewMode === "matrix"
+                  ? "bg-background text-foreground shadow-2xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title="Traditional College Timetable Noticeboard"
+            >
+              <CalendarDays className="h-3.5 w-3.5 text-primary" />
+              <span>Timetable</span>
+            </button>
             <button
               onClick={() => setViewMode("day")}
               className={cn(
@@ -163,9 +186,10 @@ export function RoutineView({
                   ? "bg-background text-foreground shadow-2xs font-semibold"
                   : "text-muted-foreground hover:text-foreground"
               )}
+              title="Single Day Focus View"
             >
               <ListFilter className="h-3.5 w-3.5" />
-              <span>Day View</span>
+              <span>Day Focus</span>
             </button>
             <button
               onClick={() => setViewMode("grid")}
@@ -175,9 +199,10 @@ export function RoutineView({
                   ? "bg-background text-foreground shadow-2xs font-semibold"
                   : "text-muted-foreground hover:text-foreground"
               )}
+              title="Weekly Card Grid"
             >
               <LayoutGrid className="h-3.5 w-3.5" />
-              <span>Weekly Grid</span>
+              <span>Cards</span>
             </button>
           </div>
 
@@ -193,8 +218,16 @@ export function RoutineView({
         </div>
       </div>
 
-      {/* Main Content Area */}
-      {viewMode === "day" ? (
+      {/* Main Content Area based on viewMode */}
+      {viewMode === "matrix" && (
+        <CollegeTimetableGrid
+          dayGroups={dayGroups}
+          allSlots={allSlots}
+          renderActions={renderActions}
+        />
+      )}
+
+      {viewMode === "day" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
             <h3 className="text-base font-bold text-foreground flex items-center gap-2">
@@ -218,7 +251,9 @@ export function RoutineView({
             renderActions={renderActions}
           />
         </div>
-      ) : (
+      )}
+
+      {viewMode === "grid" && (
         <WeeklyGrid dayGroups={dayGroups} renderActions={renderActions} />
       )}
     </div>
