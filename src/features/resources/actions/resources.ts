@@ -20,9 +20,15 @@ import { UTApi } from "uploadthing/server";
 const createResourceSchema = z.object({
   title: z.string().min(1, "Title is required"),
   subjectId: z.string().min(1, "Subject is required"),
+  unitId: z
+    .string()
+    .optional()
+    .nullable()
+    .transform((value) => (value ? value : null)),
   chapterId: z
     .string()
     .optional()
+    .nullable()
     .transform((value) => (value ? value : null)),
   fileUrl: z.url("Must be a valid URL"),
   fileType: z.enum(["pdf", "slides", "link", "zip", "code", "doc", "image", "text"]),
@@ -34,7 +40,8 @@ const createResourceSchema = z.object({
 export type ChapterTreeNode = {
   id: string;
   title: string;
-  chapters: { id: string; title: string }[];
+  order: number;
+  chapters: { id: string; title: string; order: number }[];
 };
 
 export async function getChapterTreeAction(
@@ -56,7 +63,7 @@ export async function getChapterTreeAction(
       orderBy: [asc(courseUnits.order)],
       with: {
         courseChapters: {
-          columns: { id: true, title: true },
+          columns: { id: true, title: true, order: true },
           orderBy: [asc(courseChapters.order)],
         },
       },
@@ -67,9 +74,11 @@ export async function getChapterTreeAction(
       units: units.map((unit) => ({
         id: unit.id,
         title: unit.title,
+        order: unit.order,
         chapters: unit.courseChapters.map((chapter) => ({
           id: chapter.id,
           title: chapter.title,
+          order: chapter.order,
         })),
       })),
     };
@@ -89,10 +98,23 @@ export async function createResourceAction(prevState: any, formData: FormData) {
     }
 
     const rawFileSize = formData.get("fileSize");
+    const rawUnitId = formData.get("unitId");
+    const rawChapterId = formData.get("chapterId");
+
+    let initialUnitId = typeof rawUnitId === "string" && rawUnitId.trim() !== "" ? rawUnitId.trim() : null;
+    let initialChapterId = typeof rawChapterId === "string" && rawChapterId.trim() !== "" ? rawChapterId.trim() : null;
+
+    // Backward-compatible unit: prefix handling
+    if (initialChapterId && initialChapterId.startsWith("unit:")) {
+      initialUnitId = initialChapterId.replace("unit:", "");
+      initialChapterId = null;
+    }
+
     const data = {
       title: formData.get("title"),
       subjectId: formData.get("subjectId"),
-      chapterId: formData.get("chapterId"),
+      unitId: initialUnitId,
+      chapterId: initialChapterId,
       fileUrl: formData.get("fileUrl"),
       fileType: formData.get("fileType"),
       description: formData.get("description") || undefined,
@@ -123,55 +145,39 @@ export async function createResourceAction(prevState: any, formData: FormData) {
       return { success: false, message: "You don't have permission to add resources to this subject." };
     }
 
+    let resolvedUnitId: string | null = parsed.data.unitId ?? null;
     let resolvedChapterId: string | null = parsed.data.chapterId ?? null;
 
-    if (parsed.data.chapterId) {
-      if (parsed.data.chapterId.startsWith("unit:")) {
-        const unitId = parsed.data.chapterId.replace("unit:", "");
-        const unit = await db.query.courseUnits.findFirst({
-          where: and(eq(courseUnits.id, unitId), eq(courseUnits.subjectId, parsed.data.subjectId)),
-          with: {
-            courseChapters: {
-              orderBy: [asc(courseChapters.order)],
-              limit: 1,
-            },
-          },
-        });
+    if (resolvedUnitId) {
+      const unit = await db.query.courseUnits.findFirst({
+        where: and(eq(courseUnits.id, resolvedUnitId), eq(courseUnits.subjectId, parsed.data.subjectId)),
+      });
 
-        if (!unit) {
-          return { success: false, message: "Selected unit does not belong to this subject." };
-        }
+      if (!unit) {
+        return { success: false, message: "Selected unit does not belong to this subject." };
+      }
+    }
 
-        if (unit.courseChapters.length > 0) {
-          resolvedChapterId = unit.courseChapters[0].id;
-        } else {
-          // Auto-anchor an initial chapter so the unit has an entity for resources
-          const newChapId = `chap_${Date.now()}`;
-          await db.insert(courseChapters).values({
-            id: newChapId,
-            unitId: unit.id,
-            title: unit.title,
-            order: 1,
-          });
-          resolvedChapterId = newChapId;
-        }
-      } else {
-        const chapter = await db
-          .select({ id: courseChapters.id })
-          .from(courseChapters)
-          .innerJoin(courseUnits, eq(courseChapters.unitId, courseUnits.id))
-          .where(
-            and(
-              eq(courseChapters.id, parsed.data.chapterId),
-              eq(courseUnits.subjectId, parsed.data.subjectId)
-            )
+    if (resolvedChapterId) {
+      const chapter = await db
+        .select({ id: courseChapters.id, unitId: courseChapters.unitId })
+        .from(courseChapters)
+        .innerJoin(courseUnits, eq(courseChapters.unitId, courseUnits.id))
+        .where(
+          and(
+            eq(courseChapters.id, resolvedChapterId),
+            eq(courseUnits.subjectId, parsed.data.subjectId)
           )
-          .limit(1);
+        )
+        .limit(1);
 
-        if (chapter.length === 0) {
-          return { success: false, message: "Selected chapter does not belong to this subject." };
-        }
-        resolvedChapterId = parsed.data.chapterId;
+      if (chapter.length === 0) {
+        return { success: false, message: "Selected chapter does not belong to this subject." };
+      }
+
+      // Auto-populate unitId from parent chapter if not explicitly set
+      if (!resolvedUnitId) {
+        resolvedUnitId = chapter[0].unitId;
       }
     }
 
@@ -179,6 +185,7 @@ export async function createResourceAction(prevState: any, formData: FormData) {
     await db.insert(resources).values({
       id: resourceId,
       subjectId: parsed.data.subjectId,
+      unitId: resolvedUnitId,
       chapterId: resolvedChapterId,
       title: parsed.data.title,
       fileUrl: parsed.data.fileUrl,
@@ -216,6 +223,10 @@ export async function createResourceAction(prevState: any, formData: FormData) {
     revalidatePath("/resources");
     revalidatePath("/cr");
     revalidatePath("/subjects");
+    if (subject.slug) {
+      revalidatePath(`/subjects/${subject.slug}`);
+    }
+    revalidatePath(`/admin/subjects/${subject.id}`);
     return { success: true, message: "Resource uploaded successfully" };
   } catch (error: any) {
     if (error?.digest?.startsWith("NEXT_REDIRECT")) {

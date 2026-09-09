@@ -2,6 +2,7 @@ import { cache } from "react";
 import { db } from "@/db";
 import {
   courseChapters,
+  courseUnits,
   enrollments,
   resources,
   studentProfiles,
@@ -12,7 +13,7 @@ import {
 } from "@/db/schema";
 import { resolveCurrentStudent } from "@/lib/auth";
 import { toRoman } from "@/lib/utils/roman";
-import { and, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 
 export type ResourceWithDetails = {
   id: string;
@@ -26,8 +27,13 @@ export type ResourceWithDetails = {
   subjectName: string;
   subjectCode: string;
   subjectSlug: string;
+  unitId: string | null;
+  unitTitle: string | null;
+  unitOrder: number | null;
+  chapterId: string | null;
   chapterTitle: string | null;
   teacherName: string | null;
+  scope: "SUBJECT" | "UNIT" | "CHAPTER";
 };
 
 const getStudentAccessibleSubjectIds = cache(async (studentId: string): Promise<string[]> => {
@@ -109,18 +115,56 @@ export const getRecentStudentResources = cache(
         subjectName: subjects.name,
         subjectCode: subjects.code,
         subjectSlug: subjects.slug,
+        rawUnitId: resources.unitId,
+        chapterId: resources.chapterId,
         chapterTitle: courseChapters.title,
+        chapterUnitId: courseChapters.unitId,
+        unitId: courseUnits.id,
+        unitTitle: courseUnits.title,
+        unitOrder: courseUnits.order,
         teacherName: teachers.name,
       })
       .from(resources)
       .innerJoin(subjects, eq(resources.subjectId, subjects.id))
       .leftJoin(courseChapters, eq(resources.chapterId, courseChapters.id))
+      .leftJoin(
+        courseUnits,
+        eq(courseUnits.id, sql`coalesce(${resources.unitId}, ${courseChapters.unitId})`)
+      )
       .leftJoin(teachers, eq(resources.uploadedBy, teachers.id))
       .where(inArray(resources.subjectId, accessibleSubjectIds))
       .orderBy(desc(resources.createdAt))
       .limit(limitCount);
 
-    return rows;
+    return rows.map((r) => {
+      const resolvedUnitId = r.unitId || r.rawUnitId || r.chapterUnitId || null;
+      const scope: "SUBJECT" | "UNIT" | "CHAPTER" = r.chapterId
+        ? "CHAPTER"
+        : resolvedUnitId
+        ? "UNIT"
+        : "SUBJECT";
+
+      return {
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        fileUrl: r.fileUrl,
+        fileType: r.fileType,
+        fileSize: r.fileSize,
+        createdAt: r.createdAt,
+        subjectId: r.subjectId,
+        subjectName: r.subjectName,
+        subjectCode: r.subjectCode,
+        subjectSlug: r.subjectSlug,
+        unitId: resolvedUnitId,
+        unitTitle: r.unitTitle,
+        unitOrder: r.unitOrder,
+        chapterId: r.chapterId,
+        chapterTitle: r.chapterTitle,
+        teacherName: r.teacherName,
+        scope,
+      };
+    });
   }
 );
 
@@ -176,18 +220,58 @@ export const getAllStudentResources = cache(
         subjectName: subjects.name,
         subjectCode: subjects.code,
         subjectSlug: subjects.slug,
+        rawUnitId: resources.unitId,
+        chapterId: resources.chapterId,
         chapterTitle: courseChapters.title,
+        chapterUnitId: courseChapters.unitId,
+        unitId: courseUnits.id,
+        unitTitle: courseUnits.title,
+        unitOrder: courseUnits.order,
         teacherName: teachers.name,
       })
       .from(resources)
       .innerJoin(subjects, eq(resources.subjectId, subjects.id))
       .leftJoin(courseChapters, eq(resources.chapterId, courseChapters.id))
+      .leftJoin(
+        courseUnits,
+        eq(courseUnits.id, sql`coalesce(${resources.unitId}, ${courseChapters.unitId})`)
+      )
       .leftJoin(teachers, eq(resources.uploadedBy, teachers.id))
       .where(and(...conditions))
       .orderBy(desc(resources.createdAt));
 
+    const resourcesList: ResourceWithDetails[] = rows.map((r) => {
+      const resolvedUnitId = r.unitId || r.rawUnitId || r.chapterUnitId || null;
+      const scope: "SUBJECT" | "UNIT" | "CHAPTER" = r.chapterId
+        ? "CHAPTER"
+        : resolvedUnitId
+        ? "UNIT"
+        : "SUBJECT";
+
+      return {
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        fileUrl: r.fileUrl,
+        fileType: r.fileType,
+        fileSize: r.fileSize,
+        createdAt: r.createdAt,
+        subjectId: r.subjectId,
+        subjectName: r.subjectName,
+        subjectCode: r.subjectCode,
+        subjectSlug: r.subjectSlug,
+        unitId: resolvedUnitId,
+        unitTitle: r.unitTitle,
+        unitOrder: r.unitOrder,
+        chapterId: r.chapterId,
+        chapterTitle: r.chapterTitle,
+        teacherName: r.teacherName,
+        scope,
+      };
+    });
+
     return {
-      resourcesList: rows,
+      resourcesList,
       availableSubjects,
     };
   }
