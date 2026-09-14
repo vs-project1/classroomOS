@@ -1,0 +1,34 @@
+name: Production Gatekeeper & Code Audit
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  production-audit:
+    name: Typecheck, Security, & Invariant Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: TypeScript Zero-Regression Check
+        run: npx tsc --noEmit
+
+      - name: ESLint Code Quality Gate
+        run: npm run lint
+
+      - name: Production Pre-Commit Audit Gate
+        run: npx tsx scripts/review/pre-commit-audit.ts

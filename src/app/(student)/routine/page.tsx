@@ -167,6 +167,7 @@ export default async function RoutinePage() {
           todayIndex={todayIndex < 0 ? 0 : todayIndex}
           nptTime={nptTime}
           canManageRoutine={permissions.canManageRoutine}
+          viewRole={user?.role as any}
         />
       )}
     </div>

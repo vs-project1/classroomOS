@@ -11,7 +11,7 @@ export default async function TeacherLayout({
   children: React.ReactNode;
 }) {
   // RBAC Guard: Strictly require TEACHER role
-  const user = await requireAuth(["TEACHER", "ADMIN"]);
+  const user = await requireAuth(["TEACHER"]);
   const [subjects, badges] = await Promise.all([getSubjectsForSidebar(), getNavBadges()]);
 
   return (

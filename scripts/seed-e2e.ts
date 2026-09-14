@@ -386,6 +386,50 @@ export async function seedE2E(customClient?: Client) {
     });
   }
 
+  // 6. Seed Historical Daily Attendance for Student Barometer & Disputes
+  function getNptStartOfDayEpoch(daysAgo: number): number {
+    const d = new Date(Date.now() - daysAgo * 86400 * 1000);
+    const ymd = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kathmandu",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(d);
+    return Math.floor(new Date(`${ymd}T00:00:00Z`).getTime() / 1000);
+  }
+
+  const historicalSessions = [
+    { daysAgo: 5, student: "present", atrisk: "late" },
+    { daysAgo: 4, student: "present", atrisk: "absent" },
+    { daysAgo: 3, student: "late", atrisk: "absent" },
+    { daysAgo: 2, student: "present", atrisk: "present" },
+    { daysAgo: 1, student: "absent", atrisk: "absent" },
+  ];
+
+  for (let i = 0; i < historicalSessions.length; i++) {
+    const h = historicalSessions[i];
+    const sessDateEpoch = getNptStartOfDayEpoch(h.daysAgo);
+    const sessId = `ds_hist_00${i + 1}`;
+
+    await client.execute({
+      sql: `INSERT INTO daily_sessions (id, date, semester, marked_by, created_at)
+            VALUES (?, ?, '4th Semester', 'usr_cr_001', ?)
+            ON CONFLICT(id) DO UPDATE SET date = excluded.date;`,
+      args: [sessId, sessDateEpoch, sessDateEpoch],
+    });
+
+    await client.execute({
+      sql: `INSERT INTO daily_attendance (id, daily_session_id, student_id, status, created_at)
+            VALUES (?, ?, 'sp_student_001', ?, ?),
+                   (?, ?, 'sp_atrisk_001', ?, ?)
+            ON CONFLICT(id) DO UPDATE SET status = excluded.status;`,
+      args: [
+        `da_hist_std_00${i + 1}`, sessId, h.student, sessDateEpoch,
+        `da_hist_atr_00${i + 1}`, sessId, h.atrisk, sessDateEpoch,
+      ],
+    });
+  }
+
   console.log("✅ [Seed E2E] Seeding completed successfully.");
 }
 

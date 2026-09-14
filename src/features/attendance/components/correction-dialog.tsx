@@ -57,10 +57,13 @@ export function CorrectionDialog({ recentSessions, trigger, defaultAttendanceId 
       <DialogTrigger
         render={
           trigger ?? (
-            <Button variant="outline" size="sm" className="gap-2 text-xs font-medium cursor-pointer">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-lg border border-input bg-background hover:bg-muted/50 px-3 py-1.5 gap-2 text-xs font-medium cursor-pointer transition-colors shadow-xs"
+            >
               <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
               Report Incorrect Attendance
-            </Button>
+            </button>
           )
         }
       />

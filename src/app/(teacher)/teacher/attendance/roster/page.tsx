@@ -21,7 +21,7 @@ export default async function TeacherRosterPage({
 }: {
   searchParams: Promise<{ semester?: string }>;
 }) {
-  const user = await requireAuth(["TEACHER", "ADMIN"]);
+  const user = await requireAuth(["TEACHER"]);
 
   if (!user.teacherId && user.role !== "ADMIN") {
     return (

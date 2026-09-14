@@ -5,10 +5,11 @@ import { notFound } from "next/navigation";
 import { AddUnitDialog } from "@/features/subjects/components/add-unit-dialog";
 import { AddChapterDialog } from "@/features/subjects/components/add-chapter-dialog";
 import { AddResourceModal } from "@/features/resources/components/add-resource-modal";
-import { AddMaterialDialog } from "./components";
+import { AddMaterialDialog } from "@/features/subjects/components/add-material-dialog";
 import { FileText, Video, Link as LinkIcon, File, ArrowLeft, Plus } from "lucide-react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { requireAuth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ function getMaterialIcon(fileType: string) {
 }
 
 export default async function SubjectPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAuth(["ADMIN"]);
   const { id } = await params;
   
   const subject = await db.query.subjects.findFirst({

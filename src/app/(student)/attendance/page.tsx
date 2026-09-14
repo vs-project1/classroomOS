@@ -252,14 +252,13 @@ export default async function AttendancePage() {
                             recentSessions={recentSessions}
                             defaultAttendanceId={r.id}
                             trigger={
-                              <Button
-                                variant="outline"
-                                size="xs"
-                                className="text-xs text-amber-700 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:text-amber-400 dark:border-amber-800 gap-1.5 cursor-pointer"
+                              <button
+                                type="button"
+                                className="inline-flex items-center rounded-md border text-xs font-medium px-2.5 py-1 text-amber-700 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 dark:text-amber-400 dark:border-amber-800 gap-1.5 cursor-pointer transition-colors"
                               >
                                 <ShieldAlert className="w-3 h-3" />
                                 Dispute
-                              </Button>
+                              </button>
                             }
                           />
                         ) : (

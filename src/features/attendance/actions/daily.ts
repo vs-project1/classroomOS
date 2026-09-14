@@ -124,7 +124,6 @@ export async function submitDailyAttendanceAction(
     revalidatePath("/cr/take-attendance");
     revalidatePath("/cr/attendance");
     revalidatePath("/attendance/monthly");
-    revalidatePath("/cr/attendance/monthly");
     revalidatePath("/admin/attendance/monthly");
     revalidatePath("/attendance");
     revalidatePath("/cr");

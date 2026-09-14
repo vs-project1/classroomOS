@@ -33,6 +33,7 @@ export type RoutineViewProps = {
     subject: {
       name: string;
       code: string;
+      semester?: string | null;
       teacher?: { name: string } | null;
     };
   }[];
@@ -41,6 +42,7 @@ export type RoutineViewProps = {
   canManageRoutine?: boolean;
   renderActions?: (slot: RoutineSlotData) => React.ReactNode;
   defaultViewMode?: "matrix" | "day" | "grid";
+  viewRole?: "TEACHER" | "STUDENT" | "ADMIN" | "CR";
 };
 
 export function RoutineView({
@@ -50,6 +52,7 @@ export function RoutineView({
   canManageRoutine = false,
   renderActions,
   defaultViewMode = "matrix",
+  viewRole,
 }: RoutineViewProps) {
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(todayIndex);
   const [viewMode, setViewMode] = useState<"matrix" | "day" | "grid">(defaultViewMode);
@@ -93,6 +96,7 @@ export function RoutineView({
           teacherName: r.subject.teacher?.name || r.teacherName,
           notes: r.notes,
           status,
+          semester: r.subject.semester,
         };
       });
 
@@ -225,6 +229,7 @@ export function RoutineView({
           allSlots={allSlots}
           canManageRoutine={canManageRoutine}
           renderActions={renderActions}
+          viewRole={viewRole}
         />
       )}
 
@@ -251,6 +256,7 @@ export function RoutineView({
             isToday={selectedGroup.isToday}
             canManageRoutine={canManageRoutine}
             renderActions={renderActions}
+            viewRole={viewRole}
           />
         </div>
       )}
@@ -260,6 +266,7 @@ export function RoutineView({
           dayGroups={dayGroups}
           canManageRoutine={canManageRoutine}
           renderActions={renderActions}
+          viewRole={viewRole}
         />
       )}
     </div>

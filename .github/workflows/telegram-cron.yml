@@ -1,0 +1,85 @@
+name: Telegram Routine Briefings
+
+on:
+  schedule:
+    # Morning brief: 05:30 AM Nepal Time (UTC+5:45) = 23:45 UTC of the previous day
+    # Runs Sunday to Thursday night UTC (Monday to Friday morning Nepal Time)
+    - cron: '45 23 * * 0,1,2,3,4'
+    # Evening brief: 08:00 PM Nepal Time (UTC+5:45) = 14:15 UTC
+    # Runs Sunday to Friday at 14:15 UTC
+    - cron: '15 14 * * 0,1,2,3,4,5'
+  workflow_dispatch:
+    inputs:
+      briefType:
+        description: 'Briefing type to trigger'
+        required: true
+        default: 'morning'
+        type: choice
+        options:
+          - morning
+          - evening
+      force:
+        description: 'Force dispatch (bypass deduplication and weekend suppression)'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  dispatch-brief:
+    name: Trigger Routine Briefing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine Brief Type & Parameters
+        id: params
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "brief_type=${{ github.event.inputs.briefType }}" >> $GITHUB_OUTPUT
+            echo "force_param=&force=${{ github.event.inputs.force }}" >> $GITHUB_OUTPUT
+          else
+            # Determine by scheduled hour (23:45 UTC is morning, 14:15 UTC is evening)
+            HOUR=$(date -u +%H)
+            if [ "$HOUR" -eq 23 ] || [ "$HOUR" -eq 0 ]; then
+              echo "brief_type=morning" >> $GITHUB_OUTPUT
+            else
+              echo "brief_type=evening" >> $GITHUB_OUTPUT
+            fi
+            echo "force_param=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Ping Render App
+        env:
+          APP_URL: ${{ secrets.APP_URL || vars.APP_URL || 'https://classroomos.onrender.com' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET || vars.CRON_SECRET || 'fb2f8655-73c0-4e88-b121-3eba6724f51e' }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "❌ Error: APP_URL is not set."
+            echo "Please set APP_URL in your GitHub repository: Settings -> Secrets and variables -> Actions -> New repository secret (or variable)."
+            echo "Example: https://your-app.onrender.com"
+            exit 1
+          fi
+
+          # Strip trailing slash if present
+          CLEAN_URL="${APP_URL%/}"
+          ENDPOINT="${CLEAN_URL}/api/cron/telegram-brief?type=${{ steps.params.outputs.brief_type }}${{ steps.params.outputs.force_param }}"
+
+          echo "🚀 Triggering briefing [${{ steps.params.outputs.brief_type }}] on Render at ${CLEAN_URL}..."
+
+          # Render cold starts can take up to 45 seconds when asleep. Set timeout to 120s.
+          RESPONSE=$(curl -s -S -X POST "$ENDPOINT" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            --max-time 120 \
+            --write-out "\nHTTP_STATUS:%{http_code}")
+
+          HTTP_BODY=$(echo "$RESPONSE" | sed -e 's/HTTP_STATUS\:.*//g')
+          HTTP_STATUS=$(echo "$RESPONSE" | tr -d '\n' | sed -e 's/.*HTTP_STATUS://')
+
+          echo "HTTP Status: $HTTP_STATUS"
+          echo "Response Body:"
+          echo "$HTTP_BODY"
+
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "❌ Failed: Server responded with HTTP $HTTP_STATUS"
+            exit 1
+          fi
+
+          echo "✅ Routine brief executed successfully!"

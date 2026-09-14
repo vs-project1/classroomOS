@@ -36,7 +36,7 @@ export const adminNavigation: RoleNavigation = {
     {
       title: "System",
       items: [
-        { label: "Attendance Reviews", href: "/admin/attendance", icon: FileText },
+        { label: "Attendance Disputes", href: "/admin/attendance", icon: FileText },
         { label: "Telegram Bot", href: "/admin/settings/telegram", icon: Bot },
       ],
     },

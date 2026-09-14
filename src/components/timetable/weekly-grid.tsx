@@ -13,9 +13,10 @@ export type WeeklyGridProps = {
   dayGroups: DayGroup[];
   canManageRoutine?: boolean;
   renderActions?: (slot: RoutineSlotData) => React.ReactNode;
+  viewRole?: "TEACHER" | "STUDENT" | "ADMIN" | "CR";
 };
 
-export function WeeklyGrid({ dayGroups, canManageRoutine, renderActions }: WeeklyGridProps) {
+export function WeeklyGrid({ dayGroups, canManageRoutine, renderActions, viewRole }: WeeklyGridProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
       {dayGroups.map((group) => {
@@ -60,6 +61,7 @@ export function WeeklyGrid({ dayGroups, canManageRoutine, renderActions }: Weekl
                     slot={slot}
                     canManageRoutine={canManageRoutine}
                     renderActions={renderActions}
+                    viewRole={viewRole}
                     compact
                   />
                 ))

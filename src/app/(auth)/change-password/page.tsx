@@ -17,7 +17,7 @@ export default async function ChangePasswordPage() {
   }
 
   if (!user.mustChangePassword) {
-    redirect(user.role === "ADMIN" ? "/admin/accounts" : "/");
+    redirect(user.role === "ADMIN" ? "/admin" : "/");
   }
 
   return (

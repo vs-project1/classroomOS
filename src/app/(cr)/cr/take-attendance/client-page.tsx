@@ -37,15 +37,23 @@ interface Student {
 interface Props {
   roster: Student[];
   semester: string;
+  initialIsoDate?: string;
   initialNepaliDate: string;
   initialGregorianDate: string;
 }
 
 type Status = "present" | "absent" | "late" | "excused";
 
-export function DailyAttendanceClient({ roster, semester, initialNepaliDate, initialGregorianDate }: Props) {
+export function DailyAttendanceClient({
+  roster,
+  semester,
+  initialIsoDate,
+  initialNepaliDate,
+  initialGregorianDate,
+}: Props) {
   // ISO date string "YYYY-MM-DD" for the HTML date picker
   const [selectedIsoDate, setSelectedIsoDate] = useState(() => {
+    if (initialIsoDate) return initialIsoDate;
     const d = new Date();
     return new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Kathmandu",
@@ -221,7 +229,7 @@ export function DailyAttendanceClient({ roster, semester, initialNepaliDate, ini
               Take Attendance
             </h1>
             <p className="text-sm text-muted-foreground">
-              Taking daily attendance for <strong className="text-foreground">{formattedDates.nepali}</strong>.
+              Taking daily attendance for <strong className="text-foreground" suppressHydrationWarning>{formattedDates.nepali}</strong>.
             </p>
           </div>
 
@@ -241,8 +249,8 @@ export function DailyAttendanceClient({ roster, semester, initialNepaliDate, ini
             </div>
 
             <div className="border-t pt-2 space-y-0.5 text-xs text-muted-foreground">
-              <p className="font-semibold text-primary">{formattedDates.nepali}</p>
-              <p>{formattedDates.gregorian}</p>
+              <p className="font-semibold text-primary" suppressHydrationWarning>{formattedDates.nepali}</p>
+              <p suppressHydrationWarning>{formattedDates.gregorian}</p>
             </div>
           </div>
         </div>
@@ -455,7 +463,7 @@ export function DailyAttendanceClient({ roster, semester, initialNepaliDate, ini
                               .toUpperCase()}
                           </div>
                           <div>
-                            <span className="text-foreground block">{student.name}</span>
+                            <p className="font-semibold text-foreground">{student.name}</p>
                           </div>
                         </div>
                       </td>

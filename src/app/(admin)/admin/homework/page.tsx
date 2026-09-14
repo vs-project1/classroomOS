@@ -4,14 +4,16 @@ import { desc } from "drizzle-orm";
 import Link from "next/link";
 import { Plus, CheckCircle2, CheckSquare, Code } from "lucide-react";
 import { HomeworkStatusActions } from "./status-actions";
-import { StatusChip } from "@/components/student/status-chip";
-import { getPermissions } from "@/lib/auth";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { getPermissions, requireAuth } from "@/lib/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatNepaliDate } from "@/lib/nepali-date";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomeworkPage() {
+  await requireAuth(["ADMIN"]);
   const permissions = await getPermissions();
   const allHomework = await db.query.homework.findMany({
     orderBy: [desc(homework.createdAt)],
@@ -25,12 +27,11 @@ export default async function HomeworkPage() {
   const renderHomeworkList = (hwList: typeof allHomework, isArchived: boolean) => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
       {hwList.length === 0 ? (
-        <div className="md:col-span-2 lg:col-span-3 flex flex-col items-center justify-center py-16 space-y-4 max-w-md mx-auto text-center border rounded-xl border-dashed bg-muted/5">
-          <div className="h-12 w-12 bg-muted/30 rounded-full flex items-center justify-center mb-2">
-            <CheckSquare className="w-5 h-5 text-muted-foreground opacity-50" />
-          </div>
-          <p className="text-muted-foreground text-sm leading-relaxed">No deliverables found in this category.</p>
-        </div>
+        <EmptyState
+          className="md:col-span-2 lg:col-span-3 py-16"
+          icon={<CheckSquare className="w-6 h-6 text-muted-foreground opacity-70" />}
+          description="No deliverables found in this category."
+        />
       ) : (
         hwList.map(hw => {
           const isOverdue = hw.status === "active" && hw.dueDate.getTime() < new Date().getTime();
@@ -43,7 +44,7 @@ export default async function HomeworkPage() {
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex flex-col gap-1.5">
-                    <StatusChip 
+                    <StatusBadge 
                       status={hw.status === 'active' ? (isOverdue ? 'overdue' : 'due_soon') : hw.status === 'completed' ? 'completed' : 'not_started'} 
                       label={isOverdue ? 'Overdue' : hw.status} 
                       className="capitalize w-fit"
@@ -102,7 +103,7 @@ export default async function HomeworkPage() {
         <div className="flex flex-wrap gap-2">
           {permissions.canCreateHomework && (
             <Link className={`text-xs font-semibold px-4 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-1 shadow-sm cursor-pointer`} href="/admin/homework/new">
-              <Plus className="h-3.5 w-3.5" /> Assign New
+              <Plus className="h-3.5 w-3.5" /> Assign New Work
             </Link>
           )}
         </div>

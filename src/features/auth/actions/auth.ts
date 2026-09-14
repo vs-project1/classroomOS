@@ -129,7 +129,7 @@ export async function loginAction(
     ) {
       destination = callbackUrl;
     } else if (user.role === "ADMIN") {
-      destination = "/admin/accounts";
+      destination = "/admin";
     } else {
       destination = "/";
     }
@@ -258,7 +258,7 @@ export async function changePasswordAction(
     );
 
     revalidatePath("/", "layout");
-    destination = currentUser.role === "ADMIN" ? "/admin/accounts" : "/";
+    destination = currentUser.role === "ADMIN" ? "/admin" : "/";
   } catch (error) {
     console.error("Change password action error:", error);
     return {

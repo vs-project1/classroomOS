@@ -12,7 +12,7 @@ type Props = {
 };
 
 export default async function TeacherSubjectsPage({ searchParams }: Props) {
-  const user = await requireAuth(["TEACHER", "ADMIN"]);
+  const user = await requireAuth(["TEACHER"]);
   const resolvedParams = await searchParams;
   const semester = typeof resolvedParams.semester === "string" ? resolvedParams.semester : null;
 

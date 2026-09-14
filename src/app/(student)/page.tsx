@@ -176,7 +176,7 @@ export default async function StudentDashboard() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <CalendarDays className="w-5 h-5 text-primary" />
-                <h2 className="text-lg font-semibold tracking-tight text-foreground font-fira-sans">Today&apos;s Timetable</h2>
+                <h2 className="text-lg font-semibold tracking-tight text-foreground font-fira-sans">Today&apos;s Routine</h2>
               </div>
               <Link href="/routine" className="text-xs font-medium text-primary hover:underline flex items-center gap-1 cursor-pointer">
                 Full Routine <ArrowRight className="w-3.5 h-3.5" />

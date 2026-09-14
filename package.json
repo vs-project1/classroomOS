@@ -15,7 +15,9 @@
     "db:seed": "tsx --env-file=.env.local src/db/seed.ts",
     "dev:watch": "start /b next dev & start /b uv run graphify extract . --code-only",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "pre-commit:audit": "tsx scripts/review/pre-commit-audit.ts",
+    "review:staged": "tsx scripts/review/ai-review.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

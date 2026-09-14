@@ -17,6 +17,7 @@ export type CollegeTimetableGridProps = {
   canManageRoutine?: boolean;
   renderActions?: (slot: RoutineSlotData) => React.ReactNode;
   className?: string;
+  viewRole?: "TEACHER" | "STUDENT" | "ADMIN" | "CR";
 };
 
 export function CollegeTimetableGrid({
@@ -25,6 +26,7 @@ export function CollegeTimetableGrid({
   canManageRoutine = false,
   renderActions,
   className,
+  viewRole,
 }: CollegeTimetableGridProps) {
   // 1. Compute dynamic period columns across all slots
   const periodColumns = useMemo<PeriodColumn[]>(() => {
@@ -200,6 +202,12 @@ export function CollegeTimetableGrid({
                                   </span>
                                 )}
 
+                                {classData.semester && (
+                                  <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/25">
+                                    Sem {classData.semester}
+                                  </span>
+                                )}
+
                                 {isDouble && (
                                   <span className="shrink-0 text-[9px] font-bold px-1 py-0.2 rounded bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30">
                                     {cell.colSpan} Periods
@@ -244,22 +252,31 @@ export function CollegeTimetableGrid({
                             ) : null}
                           </div>
 
-                          {/* Bottom Row: Metadata (Room + Teacher) */}
+                          {/* Bottom Row: Metadata (Room + Teacher/Notes) */}
                           <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap pt-0.5 border-t border-border/40">
                             {classData.room && (
-                              <span className="font-semibold text-foreground/80">
+                              <span className="font-semibold text-foreground/90 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/60" />
                                 {classData.room.startsWith("Room") || classData.room.startsWith("Lab")
                                   ? classData.room
                                   : `Room ${classData.room}`}
                               </span>
                             )}
-                            {classData.room && classData.teacherName && (
-                              <span className="opacity-40">•</span>
+                            {viewRole !== "TEACHER" && classData.teacherName && (
+                              <>
+                                {classData.room && <span className="opacity-40">•</span>}
+                                <span className="truncate max-w-[140px] text-foreground/80">
+                                  {classData.teacherName}
+                                </span>
+                              </>
                             )}
-                            {classData.teacherName && (
-                              <span className="truncate max-w-[140px]">
-                                {classData.teacherName}
-                              </span>
+                            {viewRole === "TEACHER" && classData.notes && (
+                              <>
+                                {classData.room && <span className="opacity-40">•</span>}
+                                <span className="italic truncate max-w-[140px]">
+                                  {classData.notes}
+                                </span>
+                              </>
                             )}
                           </div>
                         </div>

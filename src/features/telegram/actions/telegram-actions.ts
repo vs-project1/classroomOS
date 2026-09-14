@@ -18,6 +18,8 @@ import {
   formatRoutineBriefMessage,
   type RoutineSlotInfo,
 } from "../services/formatters";
+import { executeTelegramBrief } from "../services/telegram-brief-service";
+import { areSemestersEqual } from "@/lib/utils/roman";
 import {
   saveSemesterTelegramConfigSchema,
   saveTelegramSettingsSchema,
@@ -402,10 +404,7 @@ export async function broadcastRoutineToTelegramAction(
   });
 
   const slots: RoutineSlotInfo[] = rawRoutines
-    .filter((r) => {
-      const subSem = r.subject?.semester?.toUpperCase();
-      return subSem === input.semester || subSem?.startsWith(input.semester);
-    })
+    .filter((r) => areSemestersEqual(r.subject?.semester, input.semester))
     .map((r) => ({
       startTime: r.startTime,
       endTime: r.endTime,
@@ -594,5 +593,76 @@ export async function broadcastNoticeToTelegramAction(
     message: `Notice broadcasted to ${successCount} semester(s)!${
       errors.length > 0 ? ` (${errors.join("; ")})` : ""
     }`,
+  };
+}
+
+/**
+ * On-demand manual trigger for automated morning or evening routine briefings.
+ * Allows administrators to test and verify briefings immediately from the UI.
+ */
+export async function triggerTelegramBriefAction({
+  briefType,
+  semester,
+  force = true,
+}: {
+  briefType: "morning" | "evening";
+  semester?: string;
+  force?: boolean;
+}): Promise<ActionResult<{ sentCount: number; failedCount: number; skippedCount: number; summary: string }>> {
+  const user = await requireAuth(["ADMIN"]);
+
+  const result = await executeTelegramBrief({
+    briefType,
+    semester,
+    force,
+    triggeredByUserId: user.id,
+    source: "manual",
+  });
+
+  revalidatePath("/admin/settings/telegram");
+  revalidatePath("/admin/routine");
+
+  const summary = result.results
+    .map(
+      (r) =>
+        `Sem ${r.semester}: ${
+          r.status === "success"
+            ? "Delivered"
+            : r.status === "skipped"
+            ? `Skipped (${r.reason})`
+            : `Failed (${r.error})`
+        }`
+    )
+    .join("; ");
+
+  if (result.sentCount > 0) {
+    return {
+      success: true,
+      data: {
+        sentCount: result.sentCount,
+        failedCount: result.failedCount,
+        skippedCount: result.skippedCount,
+        summary,
+      },
+      message: `Briefing dispatched! ${result.sentCount} sent, ${result.skippedCount} skipped, ${result.failedCount} failed.`,
+    };
+  }
+
+  if (result.failedCount > 0) {
+    return {
+      success: false,
+      error: `Failed to deliver briefing. ${summary}`,
+    };
+  }
+
+  return {
+    success: true,
+    data: {
+      sentCount: 0,
+      failedCount: 0,
+      skippedCount: result.skippedCount,
+      summary,
+    },
+    message: `Briefing skipped (${summary}).`,
   };
 }

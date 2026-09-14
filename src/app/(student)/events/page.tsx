@@ -8,6 +8,7 @@ import { getPermissions } from "@/lib/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatTime12h } from "@/lib/timezone";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export const dynamic = "force-dynamic";
 
@@ -49,12 +50,11 @@ export default async function EventsPage() {
   const renderEventList = (eventsList: typeof allEvents, isPast: boolean) => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
       {eventsList.length === 0 ? (
-        <div className="md:col-span-2 flex flex-col items-center justify-center py-16 space-y-4 max-w-md mx-auto text-center border rounded-xl border-dashed bg-muted/5">
-          <div className="h-12 w-12 bg-muted/30 rounded-full flex items-center justify-center mb-2">
-            <CalendarPlus className="w-5 h-5 text-muted-foreground opacity-50" />
-          </div>
-          <p className="text-muted-foreground text-sm leading-relaxed">No events found in this tab.</p>
-        </div>
+        <EmptyState
+          className="md:col-span-2 py-16"
+          icon={<CalendarPlus className="w-5 h-5 text-muted-foreground opacity-50" />}
+          description="No events found in this tab."
+        />
       ) : (
         eventsList.map(event => (
           <div key={event.id} className={`group flex flex-col justify-between rounded-xl border bg-card hover:bg-muted/10 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden relative ${isPast ? 'opacity-60 grayscale-[0.2]' : ''}`}>
@@ -116,7 +116,7 @@ export default async function EventsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {permissions.canCreateEvents && (
-            <Link className={`text-xs font-semibold px-4 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-1 shadow-sm cursor-pointer`} href="/events/new">
+            <Link className={`text-xs font-semibold px-4 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-1 shadow-sm cursor-pointer`} href="/admin/events/new">
               <Plus className="h-3.5 w-3.5" /> Schedule Event
             </Link>
           )}
@@ -124,15 +124,12 @@ export default async function EventsPage() {
       </div>
 
       {allEvents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 space-y-4 max-w-md mx-auto text-center border rounded-xl border-dashed bg-muted/5">
-          <div className="h-16 w-16 bg-muted/30 rounded-full flex items-center justify-center mb-2">
-            <CalendarPlus className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <h3 className="text-xl font-semibold font-fira-sans tracking-tight">No Events Scheduled</h3>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            No upcoming events or seminars are listed right now. Check back later for departmental updates.
-          </p>
-        </div>
+        <EmptyState
+          className="py-16"
+          icon={<CalendarPlus className="w-8 h-8 text-muted-foreground" />}
+          title="No Events Scheduled"
+          description="No upcoming events or seminars are listed right now. Check back later for departmental updates."
+        />
       ) : (
         <Tabs defaultValue="upcoming" className="w-full">
           <TabsList className="mb-6 w-full md:w-auto h-11 bg-muted/50 p-1 border rounded-xl">

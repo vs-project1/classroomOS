@@ -5,8 +5,10 @@ import { TeacherForm } from "@/features/users/components/teacher-form";
 import { DeleteTeacherButton } from "./delete-button";
 import { EditTeacherDialog } from "./edit-teacher-dialog";
 import { Users, GraduationCap, Mail, Phone, Calendar } from "lucide-react";
-import { getPermissions } from "@/lib/auth";
+import { getPermissions, requireAuth } from "@/lib/auth";
 import { SearchFilterBar } from "@/components/admin/search-filter-bar";
+import { areSemestersEqual } from "@/lib/utils/roman";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,7 @@ type Props = {
 };
 
 export default async function TeachersPage({ searchParams }: Props) {
+  await requireAuth(["ADMIN"]);
   const permissions = await getPermissions();
   const resolvedParams = await searchParams;
   
@@ -30,17 +33,24 @@ export default async function TeachersPage({ searchParams }: Props) {
       )
     );
   }
-  if (semester) {
-    conditions.push(like(teachers.semesters, `%${semester}%`));
-  }
 
-  const allTeachers = await db.query.teachers.findMany({
+  let allTeachers = await db.query.teachers.findMany({
     where: conditions.length > 0 ? and(...conditions) : undefined,
     orderBy: [asc(teachers.name)],
     with: {
       subjects: true,
     },
   });
+
+  if (semester) {
+    allTeachers = allTeachers.filter((teacher) => {
+      const teacherSemesters = [
+        ...(teacher.semesters || []),
+        ...(teacher.subjects?.map((s) => s.semester) || []),
+      ];
+      return teacherSemesters.some((s) => areSemestersEqual(s, semester));
+    });
+  }
   
   const hasTeachers = allTeachers.length > 0 || search !== "" || semester !== "";
 
@@ -65,21 +75,19 @@ export default async function TeachersPage({ searchParams }: Props) {
       {hasTeachers && <SearchFilterBar />}
 
       {!hasTeachers ? (
-        <div className="flex flex-col items-center justify-center h-[50vh] space-y-4 max-w-md mx-auto text-center">
-          <div className="h-16 w-16 bg-muted/30 rounded-full flex items-center justify-center mb-4">
-            <Users className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <h2 className="text-2xl font-semibold font-fira-sans tracking-tight">No Teachers Found</h2>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            No teaching staff have been onboarded yet. Add faculty members to begin assigning them to core modules and lab practicals.
-          </p>
-        </div>
+        <EmptyState
+          className="h-[50vh] py-16"
+          icon={<Users className="w-8 h-8 text-muted-foreground" />}
+          title="No Teachers Found"
+          description="No teaching staff have been onboarded yet. Add faculty members to begin assigning them to core modules and lab practicals."
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {allTeachers.length === 0 ? (
-            <div className="col-span-full py-12 text-center text-muted-foreground">
-              No teachers found matching your search criteria.
-            </div>
+            <EmptyState
+              className="col-span-full py-12"
+              description="No teachers found matching your search criteria."
+            />
           ) : (
             allTeachers.map((teacher) => (
               <div key={teacher.id} className="group flex flex-col justify-between rounded-xl border bg-card hover:bg-muted/10 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden relative">

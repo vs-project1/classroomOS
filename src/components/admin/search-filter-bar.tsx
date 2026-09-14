@@ -2,8 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState, useEffect } from "react";
-import { Search, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
 
 export function SearchFilterBar() {
@@ -47,22 +46,14 @@ export function SearchFilterBar() {
 
   return (
     <div className="flex flex-col gap-4 mb-6">
-      <div className="relative max-w-md w-full">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
+      <div className="max-w-md w-full">
+        <SearchInput
           placeholder="Search by name, email, or ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-9 pr-9 bg-background/50 border-muted rounded-xl h-10"
+          onClear={() => setSearchTerm("")}
+          className="bg-background/50 border-muted rounded-xl h-10"
         />
-        {searchTerm && (
-          <button
-            onClick={() => setSearchTerm("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">

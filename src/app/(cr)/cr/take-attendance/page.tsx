@@ -43,6 +43,12 @@ export default async function TakeDailyAttendancePage({
     .orderBy(asc(students.rollNumber));
 
   const now = new Date();
+  const initialIsoDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kathmandu",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
   const nepaliDateStr = formatNepaliDate(now, 'dddd, YYYY MMMM DD');
   const gregorianDateStr = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -56,6 +62,7 @@ export default async function TakeDailyAttendancePage({
       <DailyAttendanceClient 
         roster={roster} 
         semester={semesterStr}
+        initialIsoDate={initialIsoDate}
         initialNepaliDate={nepaliDateStr}
         initialGregorianDate={gregorianDateStr}
       />

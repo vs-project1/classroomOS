@@ -38,6 +38,7 @@ export async function proxy(request: NextRequest) {
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/uploadthing") ||
+    pathname.startsWith("/api/cron") ||
     pathname === "/favicon.ico" ||
     pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|ttf)$/)
   ) {
@@ -84,7 +85,7 @@ export async function proxy(request: NextRequest) {
   // 5. Handle authenticated normal users on auth routes
   if (isChangePasswordPage && !isQuarantined) {
     // Already changed password -> exit quarantine to appropriate dashboard
-    const destination = session?.role === "ADMIN" ? "/admin/accounts" : "/";
+    const destination = session?.role === "ADMIN" ? "/admin" : "/";
     return NextResponse.redirect(new URL(destination, request.url));
   }
 
@@ -98,11 +99,28 @@ export async function proxy(request: NextRequest) {
     ) {
       return NextResponse.redirect(new URL(callbackUrl, request.url));
     }
-    const destination = session?.role === "ADMIN" ? "/admin/accounts" : "/";
+    const destination = session?.role === "ADMIN" ? "/admin" : "/";
     return NextResponse.redirect(new URL(destination, request.url));
   }
 
-  // 6. Enforce RBAC for Admin routes
+  // 6. Canonicalize migrated/re-scoped routes and legacy endpoints
+  if (pathname === "/cr/attendance/monthly") {
+    return NextResponse.redirect(new URL("/cr/attendance", request.url));
+  }
+  if (pathname === "/events/new") {
+    if (session?.role !== "ADMIN") {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+    return NextResponse.redirect(new URL("/admin/events/new", request.url));
+  }
+  if (pathname === "/notices/new") {
+    if (session?.role !== "ADMIN") {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+    return NextResponse.redirect(new URL("/admin/notices/new", request.url));
+  }
+
+  // 7. Enforce RBAC for Admin routes
   if (isAdminRoute) {
     if (session?.role !== "ADMIN") {
       // Deny access to non-admin roles: redirect safely to student dashboard

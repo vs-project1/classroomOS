@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/telegram-brief?type=morning",
+      "schedule": "45 23 * * *"
+    },
+    {
+      "path": "/api/cron/telegram-brief?type=evening",
+      "schedule": "15 14 * * *"
+    }
+  ]
+}

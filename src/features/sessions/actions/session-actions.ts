@@ -255,7 +255,7 @@ export async function createSession(prevState: SessionActionState, formData: For
   revalidatePath("/teacher/attendance/roster");
   revalidatePath("/attendance");
   revalidatePath("/attendance/monthly");
-  revalidatePath("/cr/attendance/monthly");
+  revalidatePath("/cr/attendance");
   revalidatePath("/admin/attendance/monthly");
   revalidatePath("/admin/attendance");
   revalidatePath("/cr");

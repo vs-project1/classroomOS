@@ -22,7 +22,7 @@ const nptDayFormatter = new Intl.DateTimeFormat("en-CA", {
 });
 
 export default async function TeacherLectureLogsPage({ searchParams }: Props) {
-  const user = await requireAuth(["TEACHER", "ADMIN"]);
+  const user = await requireAuth(["TEACHER"]);
   const { subject = "" } = await searchParams;
 
   if (!user.teacherId) {

@@ -5,6 +5,7 @@ import {
   getTelegramBroadcastLogs,
 } from "@/features/telegram/queries/telegram-queries";
 import { BotSettingsCard } from "@/features/telegram/components/bot-settings-card";
+import { CronAutomationCard } from "@/features/telegram/components/cron-automation-card";
 import { SemesterConfigsTable } from "@/features/telegram/components/semester-configs-table";
 import { BroadcastLogsTable } from "@/features/telegram/components/broadcast-logs-table";
 import Link from "next/link";
@@ -60,6 +61,9 @@ export default async function AdminTelegramSettingsPage() {
 
       {/* Main Bot Settings Card */}
       <BotSettingsCard initialSettings={settings} />
+
+      {/* Automated Routine Engine & Cron Webhook */}
+      <CronAutomationCard settings={settings} configs={configs} />
 
       {/* Semester Channels Binding Table */}
       <SemesterConfigsTable configs={configs} hasBotConfigured={hasBotConfigured} />

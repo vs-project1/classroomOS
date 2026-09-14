@@ -17,6 +17,7 @@ export type RoutineSlotData = {
   status?: "upcoming" | "ongoing" | "completed";
   notes?: string | null;
   isLab?: boolean;
+  semester?: string | null;
 };
 
 export type RoutineCardProps = {
@@ -25,6 +26,7 @@ export type RoutineCardProps = {
   renderActions?: (slot: RoutineSlotData) => React.ReactNode;
   compact?: boolean;
   className?: string;
+  viewRole?: "TEACHER" | "STUDENT" | "ADMIN" | "CR";
 };
 
 function parseMinutes(time: string): number {
@@ -33,7 +35,14 @@ function parseMinutes(time: string): number {
   return h * 60 + m;
 }
 
-export function RoutineCard({ slot, canManageRoutine = false, renderActions, compact = false, className }: RoutineCardProps) {
+export function RoutineCard({
+  slot,
+  canManageRoutine = false,
+  renderActions,
+  compact = false,
+  className,
+  viewRole,
+}: RoutineCardProps) {
   const isOngoing = slot.status === "ongoing";
   const isCompleted = slot.status === "completed";
   
@@ -78,6 +87,12 @@ export function RoutineCard({ slot, canManageRoutine = false, renderActions, com
             {slot.subjectCode && (
               <span className="shrink-0 text-[9px] font-bold px-1 py-0.5 rounded bg-muted text-muted-foreground border border-border/40 tabular-nums">
                 {slot.subjectCode}
+              </span>
+            )}
+
+            {slot.semester && (
+              <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/25">
+                Sem {slot.semester}
               </span>
             )}
 
@@ -146,10 +161,10 @@ export function RoutineCard({ slot, canManageRoutine = false, renderActions, com
         ) : null}
       </div>
 
-      {/* Footer: Teacher Name & Notes */}
-      {((slot.teacherName || slot.notes) && !compact) && (
+      {/* Footer: Teacher Name (for non-teachers) & Notes */}
+      {(((viewRole !== "TEACHER" && slot.teacherName) || slot.notes) && !compact) && (
         <div className="mt-2 pt-2 border-t border-border/30 flex items-center justify-between gap-2 text-xs text-muted-foreground flex-wrap">
-          {slot.teacherName && (
+          {viewRole !== "TEACHER" && slot.teacherName && (
             <span className="inline-flex items-center gap-1.5 font-medium text-foreground/80">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
                 {slot.teacherName.charAt(0)}
@@ -166,7 +181,7 @@ export function RoutineCard({ slot, canManageRoutine = false, renderActions, com
         </div>
       )}
 
-      {compact && slot.teacherName && (
+      {compact && viewRole !== "TEACHER" && slot.teacherName && (
         <div className="pt-1.5 border-t border-border/30 text-[10px] font-medium text-muted-foreground truncate">
           {slot.teacherName}
         </div>

@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Clock, ArrowRight, CalendarDays } from "lucide-react";
 import { formatTime12h } from "@/lib/timezone";
+import { areSemestersEqual } from "@/lib/utils/roman";
 
 export const SEMESTERS = ["All", "I", "II", "III", "IV", "V", "VI", "VII", "VIII"] as const;
 export type SemesterType = (typeof SEMESTERS)[number];
@@ -35,23 +36,7 @@ export function matchSemester(
   targetSem: string | null
 ): boolean {
   if (!targetSem || targetSem === "All") return true;
-  if (!subSem) return false;
-  const str = String(subSem).toUpperCase().trim();
-  const target = targetSem.toUpperCase().trim();
-
-  const romanMap: Record<string, string[]> = {
-    I: ["I", "1", "1ST"],
-    II: ["II", "2", "2ND"],
-    III: ["III", "3", "3RD"],
-    IV: ["IV", "4", "4TH"],
-    V: ["V", "5", "5TH"],
-    VI: ["VI", "6", "6TH"],
-    VII: ["VII", "7", "7TH"],
-    VIII: ["VIII", "8", "8TH"],
-  };
-
-  const equivalents = romanMap[target] || [target];
-  return equivalents.some((eq) => str === eq || str.startsWith(eq));
+  return areSemestersEqual(subSem, targetSem);
 }
 
 export function AdminTodaySchedule({

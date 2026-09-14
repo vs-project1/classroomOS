@@ -41,14 +41,14 @@ export class CRTakeAttendancePage extends BasePage {
       page.locator("p.font-semibold", { hasText: new RegExp(`^${escapeRegExp(name)}$`) });
 
     this.statusButton = (name: string, status) => {
-      // The roster row containing the student's name.
-      const row = page.locator("div").filter({
-        has: page.locator("p.font-semibold", { hasText: new RegExp(`^${escapeRegExp(name)}$`) }),
+      // The roster table row containing the student's name.
+      const row = page.locator("tr").filter({
+        hasText: name,
       });
       return row.getByRole("button", { name: new RegExp(`^${cap(status)}$`, "i") });
     };
 
-    this.submitButton = page.getByRole("button", { name: /(Submit Attendance|Submit Roll Call)/i });
+    this.submitButton = page.getByRole("button", { name: /(Submit|Update).*Attendance|Submit (Morning )?Roll Call/i });
     // The banner is a single leaf <div> with the result-classes combo. Match
     // by the data-attribute we render so this stays specific even when the
     // banner is a sibling of an unrelated <div> on the page.
@@ -66,6 +66,7 @@ export class CRTakeAttendancePage extends BasePage {
   }
 
   async submit() {
+    await this.page.waitForLoadState("networkidle");
     await this.submitButton.click();
   }
 }

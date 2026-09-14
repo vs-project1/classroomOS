@@ -65,7 +65,9 @@ test.describe("CR Daily Attendance — Morning Roll Call", () => {
     await expect(
       crPage.locator("h1", { hasText: /Good (morning|afternoon|evening), Aashish/i }),
     ).toBeVisible({ timeout: 30000 });
-    const morningRollCallLink = crPage.getByRole("link", { name: /(Take Attendance|Morning Roll Call)/i });
+    const morningRollCallLink = crPage
+      .getByTestId("cr-today-strip")
+      .getByRole("link", { name: /(Take Attendance|Morning Roll Call)/i });
     await expect(morningRollCallLink).toBeVisible({ timeout: 10000 });
 
     // Step 2: navigate to the roll-call form
@@ -86,7 +88,7 @@ test.describe("CR Daily Attendance — Morning Roll Call", () => {
     // seed inserts `"4th"`), this times out and the test surfaces the
     // bug instead of marking a vacuous pass.
     const bikash = rollCall.studentName("Bikash Thapa");
-    const bikashVisible = await bikash.isVisible().catch(() => false);
+    const bikashVisible = await bikash.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false);
 
     if (bikashVisible) {
       await rollCall.markStatus("Bikash Thapa", "absent");
@@ -178,7 +180,7 @@ test.describe("CR Daily Attendance — Morning Roll Call", () => {
     await rollCall.goto();
     await expect(rollCall.pageTitle).toBeVisible({ timeout: 15000 });
 
-    const submitBtn = crPage.getByRole("button", { name: /Submit Morning Roll Call/i });
+    const submitBtn = rollCall.submitButton;
     await submitBtn.click({ noWaitAfter: true });
     await submitBtn.click({ noWaitAfter: true });
     
@@ -252,7 +254,7 @@ test.describe("CR Daily Attendance — Morning Roll Call", () => {
     await rollCall.goto();
     await expect(rollCall.pageTitle).toBeVisible({ timeout: 15000 });
     
-    const submitBtn = crPage.getByRole("button", { name: /Submit Morning Roll Call/i });
-    await expect(submitBtn).toBeVisible();
+    const submitBtn = rollCall.submitButton;
+    await expect(submitBtn).toBeVisible({ timeout: 15000 });
   });
 });

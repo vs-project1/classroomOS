@@ -78,7 +78,7 @@ test.describe("F-01: write-form pages are view-guarded", () => {
     adminPage,
   }) => {
     await adminPage.goto("/notices/new");
-    await expect(adminPage.getByText("Publish Notice")).toBeVisible();
+    await expect(adminPage.getByRole("heading", { name: "Publish Notice" })).toBeVisible();
   });
 });
 
@@ -96,6 +96,7 @@ test.describe("F-04: grades surfaces are reachable from navigation", () => {
   test("admin sidebar exposes Gradebook (/admin/gradebook)", async ({
     adminPage,
   }) => {
+    await adminPage.setViewportSize({ width: 1280, height: 800 });
     await adminPage.goto("/admin");
 
     const sidebar = adminPage
@@ -108,6 +109,7 @@ test.describe("F-04: grades surfaces are reachable from navigation", () => {
   test("student sidebar exposes My Grades (/my-grades)", async ({
     studentPage,
   }) => {
+    await studentPage.setViewportSize({ width: 1280, height: 800 });
     await studentPage.goto("/");
 
     const sidebar = studentPage
@@ -175,6 +177,7 @@ test.describe("F-09/F-10/F-11: one name per destination", () => {
   test("admin nav says Attendance Disputes (matches page heading)", async ({
     adminPage,
   }) => {
+    await adminPage.setViewportSize({ width: 1280, height: 800 });
     await adminPage.goto("/admin");
 
     const sidebar = adminPage
@@ -188,6 +191,7 @@ test.describe("F-09/F-10/F-11: one name per destination", () => {
   test("student nav calls /routine 'Routine' everywhere (not Timetable)", async ({
     studentPage,
   }) => {
+    await studentPage.setViewportSize({ width: 1280, height: 800 });
     await studentPage.goto("/");
 
     const sidebar = studentPage

@@ -15,7 +15,7 @@ import Link from "next/link";
 import { getSemesterVariants } from "@/lib/utils/roman";
 
 export default async function TeacherDashboard() {
-  const user = await requireAuth(["TEACHER", "ADMIN"]);
+  const user = await requireAuth(["TEACHER"]);
   
   if (!user.teacherId) {
     return (

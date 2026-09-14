@@ -8,11 +8,7 @@ import { ResourcesWorkspace } from "@/features/resources/components/resources-wo
 export const dynamic = "force-dynamic";
 
 export default async function TeacherResourcesPage() {
-  const user = await requireAuth(["TEACHER", "ADMIN"]);
-
-  if (user.role === "ADMIN") {
-    redirect("/admin/resources");
-  }
+  const user = await requireAuth(["TEACHER"]);
 
   if (!user.teacherId) {
     return (

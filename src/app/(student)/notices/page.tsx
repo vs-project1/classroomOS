@@ -8,6 +8,7 @@ import { getPermissions } from "@/lib/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FilePreview } from "@/components/files/file-preview";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
+import { EmptyState } from "@/components/ui/empty-state";
 
 function inferFileType(url: string): string {
   const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
@@ -33,12 +34,11 @@ export default async function NoticesPage() {
   const renderNoticeList = (noticeList: typeof allNotices, isPast: boolean) => (
     <div className="flex flex-col gap-4">
       {noticeList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 space-y-4 max-w-md mx-auto text-center border rounded-xl border-dashed bg-muted/5">
-          <div className="h-12 w-12 bg-muted/30 rounded-full flex items-center justify-center mb-2">
-            <BellRing className="w-5 h-5 text-muted-foreground opacity-50" />
-          </div>
-          <p className="text-muted-foreground text-sm leading-relaxed">No notices in this tab.</p>
-        </div>
+        <EmptyState
+          className="py-16"
+          icon={<BellRing className="w-5 h-5 text-muted-foreground opacity-50" />}
+          description="No notices in this tab."
+        />
       ) : (
         noticeList.map(notice => (
           <div key={notice.id} className={`group relative p-6 rounded-xl border bg-card hover:bg-muted/10 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col md:flex-row gap-6 md:items-start overflow-hidden ${isPast ? 'opacity-60 grayscale-[0.2]' : ''}`}>
@@ -112,7 +112,7 @@ export default async function NoticesPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {permissions.canCreateNotices && (
-            <Link className={`text-xs font-semibold px-4 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-1 shadow-sm cursor-pointer`} href="/notices/new">
+            <Link className={`text-xs font-semibold px-4 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-1 shadow-sm cursor-pointer`} href="/admin/notices/new">
               <Plus className="h-3.5 w-3.5" /> Post Notice
             </Link>
           )}
@@ -120,15 +120,12 @@ export default async function NoticesPage() {
       </div>
 
       {allNotices.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 space-y-4 max-w-md mx-auto text-center border rounded-xl border-dashed bg-muted/5">
-          <div className="h-16 w-16 bg-muted/30 rounded-full flex items-center justify-center mb-2">
-            <Megaphone className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <h3 className="text-xl font-semibold font-fira-sans tracking-tight">No Notices Available</h3>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            There are currently no active administrative notices or broadcasts published.
-          </p>
-        </div>
+        <EmptyState
+          className="py-16"
+          icon={<Megaphone className="w-8 h-8 text-muted-foreground" />}
+          title="No Notices Available"
+          description="There are currently no active administrative notices or broadcasts published."
+        />
       ) : (
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="mb-6 w-full md:w-auto h-11 bg-muted/50 p-1 border rounded-xl">

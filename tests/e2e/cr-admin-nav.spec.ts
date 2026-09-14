@@ -79,6 +79,7 @@ test.describe("CR dashboard & admin nav", () => {
     adminPage,
   }) => {
     test.setTimeout(90_000);
+    await adminPage.setViewportSize({ width: 1280, height: 800 });
     await adminPage.goto("/admin/attendance");
     await expect(adminPage).toHaveURL(/\/admin\/attendance/, { timeout: 15000 });
     // Rendered page, not a not-found boundary: shell chrome present
