@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { sqliteTable, text, integer, unique, index, check } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, unique, index, uniqueIndex, check } from "drizzle-orm/sqlite-core";
 
 // Note on hard deletion: Hard deletion is acceptable for the current prototype.
 // A soft deletion strategy may be introduced later if audit trails are required.
@@ -1014,14 +1014,16 @@ export const telegramBroadcastLogs = sqliteTable("telegram_broadcast_logs", {
   id: text("id").primaryKey(),
   semester: text("semester").notNull(),
   type: text("type").notNull(), // 'routine_broadcast' | 'notice_broadcast' | 'morning_brief' | 'evening_brief' | 'test_message'
+  date: text("date"), // ISO date string "YYYY-MM-DD" for daily briefs, null for ad-hoc broadcasts
   messageText: text("message_text").notNull(),
-  status: text("status").notNull(), // 'success' | 'failed'
+  status: text("status").notNull(), // 'pending' | 'success' | 'failed'
   errorMessage: text("error_message"),
   sentByUserId: text("sent_by_user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
   index("idx_telegram_broadcast_logs_created").on(table.createdAt),
   index("idx_telegram_broadcast_logs_semester").on(table.semester),
+  uniqueIndex("idx_telegram_broadcast_logs_dedup").on(table.semester, table.type, table.date),
 ]);
 
 export const telegramBroadcastLogsRelations = relations(telegramBroadcastLogs, ({ one }) => ({

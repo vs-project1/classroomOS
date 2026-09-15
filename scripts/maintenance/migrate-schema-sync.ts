@@ -62,6 +62,7 @@ async function main() {
       id text PRIMARY KEY NOT NULL,
       semester text NOT NULL,
       type text NOT NULL,
+      date text,
       message_text text NOT NULL,
       status text NOT NULL,
       error_message text,
@@ -71,6 +72,16 @@ async function main() {
   `);
   await client.execute(`CREATE INDEX IF NOT EXISTS idx_telegram_broadcast_logs_created ON telegram_broadcast_logs (created_at);`);
   await client.execute(`CREATE INDEX IF NOT EXISTS idx_telegram_broadcast_logs_semester ON telegram_broadcast_logs (semester);`);
+
+  // Check telegram_broadcast_logs columns (date)
+  const logsInfo = await client.execute("PRAGMA table_info(telegram_broadcast_logs)");
+  const logsCols = logsInfo.rows.map((r) => r.name as string);
+  if (!logsCols.includes("date")) {
+    console.log("➕ Adding column 'date' to telegram_broadcast_logs table...");
+    await client.execute("ALTER TABLE telegram_broadcast_logs ADD COLUMN date text");
+    console.log("✅ Added date to telegram_broadcast_logs.");
+  }
+  await client.execute(`CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_broadcast_logs_dedup ON telegram_broadcast_logs (semester, type, date);`);
   console.log("✅ telegram_broadcast_logs ready.");
 
   // 4. Check students columns

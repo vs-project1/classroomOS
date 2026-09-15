@@ -79,9 +79,12 @@ async function runAudit() {
   // 3. Hardcoded Secrets in Staged Diffs
   let diffContent = "";
   try {
-    diffContent = execSync("git diff --cached", { encoding: "utf-8" });
-  } catch {
-    // If diff read fails, ignore and proceed
+    diffContent = execSync("git diff --cached", {
+      encoding: "utf-8",
+      maxBuffer: 10 * 1024 * 1024,
+    });
+  } catch (err: any) {
+    warn("Unable to read staged git diff (possible oversized diff or git error). Skipping diff secret audit.");
   }
 
   if (diffContent) {

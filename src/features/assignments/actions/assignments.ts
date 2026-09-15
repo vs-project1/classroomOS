@@ -368,8 +368,16 @@ export async function createHomework(prevState: any, formData: FormData) {
 
   revalidatePath("/homework");
   revalidatePath("/admin/homework");
+  revalidatePath("/teacher/homework");
+  revalidatePath("/teacher/subjects");
   revalidatePath("/");
-  redirect("/admin/homework");
+  if (user.role === "TEACHER") {
+    redirect("/teacher/homework");
+  } else if (user.role === "ADMIN") {
+    redirect("/admin/homework");
+  } else {
+    redirect("/homework");
+  }
 }
 
 /**
@@ -387,6 +395,9 @@ export async function updateHomeworkStatus(
       .set({ status, updatedAt: new Date() })
       .where(eq(homework.id, id));
     revalidatePath("/homework");
+    revalidatePath("/admin/homework");
+    revalidatePath("/teacher/homework");
+    revalidatePath("/teacher/subjects");
     revalidatePath("/");
   } catch (error) {
     console.error("Failed to update status:", error);

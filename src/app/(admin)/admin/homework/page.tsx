@@ -3,7 +3,7 @@ import { homework } from "@/db/schema";
 import { desc } from "drizzle-orm";
 import Link from "next/link";
 import { Plus, CheckCircle2, CheckSquare, Code } from "lucide-react";
-import { HomeworkStatusActions } from "./status-actions";
+import { HomeworkStatusActions } from "@/features/assignments/components/homework-status-actions";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getPermissions, requireAuth } from "@/lib/auth";

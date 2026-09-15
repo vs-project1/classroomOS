@@ -5,7 +5,7 @@ import { updateHomeworkStatus } from "@/features/assignments/actions/assignments
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Archive, PlayCircle } from "lucide-react";
 
-export function HomeworkStatusActions({ id, currentStatus }: { id: string, currentStatus: string }) {
+export function HomeworkStatusActions({ id, currentStatus }: { id: string; currentStatus: string }) {
   const [isPending, startTransition] = useTransition();
 
   const handleStatus = (status: "active" | "completed" | "archived") => {
@@ -15,7 +15,7 @@ export function HomeworkStatusActions({ id, currentStatus }: { id: string, curre
   };
 
   return (
-    <div className="flex gap-2 mt-4">
+    <div className="flex gap-2">
       {currentStatus !== "active" && (
         <Button variant="outline" size="sm" onClick={() => handleStatus("active")} disabled={isPending}>
           <PlayCircle className="mr-2 h-4 w-4 text-blue-500" /> Mark Active

@@ -406,6 +406,15 @@ export async function seedE2E(customClient?: Client) {
     { daysAgo: 1, student: "absent", atrisk: "absent" },
   ];
 
+  await client.execute({
+    sql: `DELETE FROM daily_attendance WHERE daily_session_id IN (SELECT id FROM daily_sessions WHERE id LIKE 'ds_hist_%');`,
+    args: [],
+  });
+  await client.execute({
+    sql: `DELETE FROM daily_sessions WHERE id LIKE 'ds_hist_%';`,
+    args: [],
+  });
+
   for (let i = 0; i < historicalSessions.length; i++) {
     const h = historicalSessions[i];
     const sessDateEpoch = getNptStartOfDayEpoch(h.daysAgo);

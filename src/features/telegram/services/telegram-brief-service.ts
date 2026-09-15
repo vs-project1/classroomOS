@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, eq, gte, lt, or } from "drizzle-orm";
 import { db } from "@/db";
 import {
   telegramSettings,
@@ -84,7 +84,6 @@ export async function executeTelegramBrief(
   const todayDayIndex = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(weekdayShort);
 
   const briefType = options.briefType || (hour < 12 ? "morning" : "evening");
-  const expectedLogType = briefType === "morning" ? "morning_brief" : "evening_brief";
 
   // NPT start & end of day for duplicate prevention
   const ymdNpt = new Intl.DateTimeFormat("en-CA", {
@@ -94,7 +93,7 @@ export async function executeTelegramBrief(
     day: "2-digit",
   }).format(now); // "YYYY-MM-DD"
   const startOfDayNpt = new Date(`${ymdNpt}T00:00:00+05:45`);
-  const endOfDayNpt = new Date(`${ymdNpt}T23:59:59+05:45`);
+  const startOfNextDayNpt = new Date(startOfDayNpt.getTime() + 24 * 60 * 60 * 1000);
 
   const weekendDays: number[] = settings.weekendDays || [0, 6]; // 0: Sunday, 6: Saturday
   const isTodayWeekend = weekendDays.includes(todayDayIndex);
@@ -170,8 +169,13 @@ export async function executeTelegramBrief(
             eq(telegramBroadcastLogs.semester, config.semester),
             eq(telegramBroadcastLogs.type, "morning_brief"),
             eq(telegramBroadcastLogs.status, "success"),
-            gte(telegramBroadcastLogs.createdAt, startOfDayNpt),
-            lte(telegramBroadcastLogs.createdAt, endOfDayNpt)
+            or(
+              eq(telegramBroadcastLogs.date, ymdNpt),
+              and(
+                gte(telegramBroadcastLogs.createdAt, startOfDayNpt),
+                lt(telegramBroadcastLogs.createdAt, startOfNextDayNpt)
+              )
+            )
           ),
         });
 
@@ -183,6 +187,43 @@ export async function executeTelegramBrief(
             reason: `Already broadcasted morning brief for today (${ymdNpt}).`,
           });
           continue;
+        }
+      }
+
+      // Cleanup prior failed or stale attempt, or clean up if force re-broadcast is requested
+      if (options.force) {
+        await db
+          .delete(telegramBroadcastLogs)
+          .where(
+            and(
+              eq(telegramBroadcastLogs.semester, config.semester),
+              eq(telegramBroadcastLogs.type, "morning_brief"),
+              eq(telegramBroadcastLogs.date, ymdNpt)
+            )
+          );
+      } else {
+        const uncompletedAttempt = await db.query.telegramBroadcastLogs.findFirst({
+          where: and(
+            eq(telegramBroadcastLogs.semester, config.semester),
+            eq(telegramBroadcastLogs.type, "morning_brief"),
+            eq(telegramBroadcastLogs.date, ymdNpt)
+          ),
+        });
+        if (uncompletedAttempt) {
+          const isStale = now.getTime() - uncompletedAttempt.createdAt.getTime() > 5 * 60 * 1000;
+          if (uncompletedAttempt.status === "failed" || isStale) {
+            await db
+              .delete(telegramBroadcastLogs)
+              .where(eq(telegramBroadcastLogs.id, uncompletedAttempt.id));
+          } else {
+            skippedCount++;
+            results.push({
+              semester: config.semester,
+              status: "skipped",
+              reason: `Morning brief broadcast is currently in progress by another worker (${ymdNpt}).`,
+            });
+            continue;
+          }
         }
       }
 
@@ -206,22 +247,47 @@ export async function executeTelegramBrief(
         appUrl,
       });
 
-      const sendRes = await sendTelegramMessage({
-        token: settings.botToken,
-        chatId: config.chatId,
-        text,
-        messageThreadId: config.messageThreadId,
-      });
+      // Atomic reservation before sending: unique constraint on (semester, type, date) prevents race conditions
+      const reservationId = crypto.randomUUID();
+      try {
+        await db.insert(telegramBroadcastLogs).values({
+          id: reservationId,
+          semester: config.semester,
+          type: "morning_brief",
+          date: ymdNpt,
+          messageText: text,
+          status: "pending",
+          sentByUserId: options.triggeredByUserId ?? null,
+        });
+      } catch {
+        skippedCount++;
+        results.push({
+          semester: config.semester,
+          status: "skipped",
+          reason: `Already broadcasted or broadcasting morning brief for today (${ymdNpt}).`,
+        });
+        continue;
+      }
 
-      await db.insert(telegramBroadcastLogs).values({
-        id: crypto.randomUUID(),
-        semester: config.semester,
-        type: "morning_brief",
-        messageText: text,
-        status: sendRes.ok ? "success" : "failed",
-        errorMessage: sendRes.error ?? null,
-        sentByUserId: options.triggeredByUserId ?? null,
-      });
+      let sendRes: { ok: boolean; error?: string };
+      try {
+        sendRes = await sendTelegramMessage({
+          token: settings.botToken,
+          chatId: config.chatId,
+          text,
+          messageThreadId: config.messageThreadId,
+        });
+      } catch (err: any) {
+        sendRes = { ok: false, error: err?.message || String(err) };
+      }
+
+      await db
+        .update(telegramBroadcastLogs)
+        .set({
+          status: sendRes.ok ? "success" : "failed",
+          errorMessage: sendRes.error ?? null,
+        })
+        .where(eq(telegramBroadcastLogs.id, reservationId));
 
       if (sendRes.ok) {
         sentCount++;
@@ -243,7 +309,7 @@ export async function executeTelegramBrief(
     const isTomorrowWeekend = weekendDays.includes(tomorrowDayIndex);
 
     // Case A: Friday evening (start of weekend)
-    if (isTomorrowWeekend && !isTodayWeekend && !options.force) {
+    if (isTomorrowWeekend && !isTodayWeekend) {
       for (const config of configs) {
         if (!config.chatId || (!config.autoEveningBrief && !options.force)) {
           skippedCount++;
@@ -255,27 +321,114 @@ export async function executeTelegramBrief(
           continue;
         }
 
+        if (!options.force) {
+          const existingBroadcast = await db.query.telegramBroadcastLogs.findFirst({
+            where: and(
+              eq(telegramBroadcastLogs.semester, config.semester),
+              eq(telegramBroadcastLogs.type, "evening_brief"),
+              eq(telegramBroadcastLogs.status, "success"),
+              or(
+                eq(telegramBroadcastLogs.date, ymdNpt),
+                and(
+                  gte(telegramBroadcastLogs.createdAt, startOfDayNpt),
+                  lt(telegramBroadcastLogs.createdAt, startOfNextDayNpt)
+                )
+              )
+            ),
+          });
+
+          if (existingBroadcast) {
+            skippedCount++;
+            results.push({
+              semester: config.semester,
+              status: "skipped",
+              reason: `Already broadcasted evening brief for today (${ymdNpt}).`,
+            });
+            continue;
+          }
+        }
+
+        if (options.force) {
+          await db
+            .delete(telegramBroadcastLogs)
+            .where(
+              and(
+                eq(telegramBroadcastLogs.semester, config.semester),
+                eq(telegramBroadcastLogs.type, "evening_brief"),
+                eq(telegramBroadcastLogs.date, ymdNpt)
+              )
+            );
+        } else {
+          const uncompletedAttempt = await db.query.telegramBroadcastLogs.findFirst({
+            where: and(
+              eq(telegramBroadcastLogs.semester, config.semester),
+              eq(telegramBroadcastLogs.type, "evening_brief"),
+              eq(telegramBroadcastLogs.date, ymdNpt)
+            ),
+          });
+          if (uncompletedAttempt) {
+            const isStale = now.getTime() - uncompletedAttempt.createdAt.getTime() > 5 * 60 * 1000;
+            if (uncompletedAttempt.status === "failed" || isStale) {
+              await db
+                .delete(telegramBroadcastLogs)
+                .where(eq(telegramBroadcastLogs.id, uncompletedAttempt.id));
+            } else {
+              skippedCount++;
+              results.push({
+                semester: config.semester,
+                status: "skipped",
+                reason: `Evening brief broadcast is currently in progress by another worker (${ymdNpt}).`,
+              });
+              continue;
+            }
+          }
+        }
+
         const text = formatWeekendGreetingMessage({
           type: "friday_wrap",
           semester: config.semester,
         });
 
-        const sendRes = await sendTelegramMessage({
-          token: settings.botToken,
-          chatId: config.chatId,
-          text,
-          messageThreadId: config.messageThreadId,
-        });
+        const reservationId = crypto.randomUUID();
+        try {
+          await db.insert(telegramBroadcastLogs).values({
+            id: reservationId,
+            semester: config.semester,
+            type: "evening_brief",
+            date: ymdNpt,
+            messageText: text,
+            status: "pending",
+            sentByUserId: options.triggeredByUserId ?? null,
+          });
+        } catch {
+          skippedCount++;
+          results.push({
+            semester: config.semester,
+            status: "skipped",
+            reason: `Already broadcasted or broadcasting evening brief for today (${ymdNpt}).`,
+          });
+          continue;
+        }
 
-        await db.insert(telegramBroadcastLogs).values({
-          id: crypto.randomUUID(),
-          semester: config.semester,
-          type: "evening_brief",
-          messageText: text,
-          status: sendRes.ok ? "success" : "failed",
-          errorMessage: sendRes.error ?? null,
-          sentByUserId: options.triggeredByUserId ?? null,
-        });
+        let sendRes: { ok: boolean; error?: string };
+        try {
+          sendRes = await sendTelegramMessage({
+            token: settings.botToken,
+            chatId: config.chatId,
+            text,
+            messageThreadId: config.messageThreadId,
+          });
+        } catch (err: any) {
+          sendRes = { ok: false, error: err?.message || String(err) };
+        }
+
+        await db
+          .update(telegramBroadcastLogs)
+          .set({
+            status: sendRes.ok ? "success" : "failed",
+            errorMessage: sendRes.error ?? null,
+          })
+          .where(eq(telegramBroadcastLogs.id, reservationId));
 
         if (sendRes.ok) {
           sentCount++;
@@ -348,8 +501,13 @@ export async function executeTelegramBrief(
               eq(telegramBroadcastLogs.semester, config.semester),
               eq(telegramBroadcastLogs.type, "evening_brief"),
               eq(telegramBroadcastLogs.status, "success"),
-              gte(telegramBroadcastLogs.createdAt, startOfDayNpt),
-              lte(telegramBroadcastLogs.createdAt, endOfDayNpt)
+              or(
+                eq(telegramBroadcastLogs.date, ymdNpt),
+                and(
+                  gte(telegramBroadcastLogs.createdAt, startOfDayNpt),
+                  lt(telegramBroadcastLogs.createdAt, startOfNextDayNpt)
+                )
+              )
             ),
           });
 
@@ -361,6 +519,42 @@ export async function executeTelegramBrief(
               reason: `Already broadcasted evening brief for today (${ymdNpt}).`,
             });
             continue;
+          }
+        }
+
+        if (options.force) {
+          await db
+            .delete(telegramBroadcastLogs)
+            .where(
+              and(
+                eq(telegramBroadcastLogs.semester, config.semester),
+                eq(telegramBroadcastLogs.type, "evening_brief"),
+                eq(telegramBroadcastLogs.date, ymdNpt)
+              )
+            );
+        } else {
+          const uncompletedAttempt = await db.query.telegramBroadcastLogs.findFirst({
+            where: and(
+              eq(telegramBroadcastLogs.semester, config.semester),
+              eq(telegramBroadcastLogs.type, "evening_brief"),
+              eq(telegramBroadcastLogs.date, ymdNpt)
+            ),
+          });
+          if (uncompletedAttempt) {
+            const isStale = now.getTime() - uncompletedAttempt.createdAt.getTime() > 5 * 60 * 1000;
+            if (uncompletedAttempt.status === "failed" || isStale) {
+              await db
+                .delete(telegramBroadcastLogs)
+                .where(eq(telegramBroadcastLogs.id, uncompletedAttempt.id));
+            } else {
+              skippedCount++;
+              results.push({
+                semester: config.semester,
+                status: "skipped",
+                reason: `Evening brief broadcast is currently in progress by another worker (${ymdNpt}).`,
+              });
+              continue;
+            }
           }
         }
 
@@ -384,22 +578,46 @@ export async function executeTelegramBrief(
           appUrl,
         });
 
-        const sendRes = await sendTelegramMessage({
-          token: settings.botToken,
-          chatId: config.chatId,
-          text,
-          messageThreadId: config.messageThreadId,
-        });
+        const reservationId = crypto.randomUUID();
+        try {
+          await db.insert(telegramBroadcastLogs).values({
+            id: reservationId,
+            semester: config.semester,
+            type: "evening_brief",
+            date: ymdNpt,
+            messageText: text,
+            status: "pending",
+            sentByUserId: options.triggeredByUserId ?? null,
+          });
+        } catch {
+          skippedCount++;
+          results.push({
+            semester: config.semester,
+            status: "skipped",
+            reason: `Already broadcasted or broadcasting evening brief for today (${ymdNpt}).`,
+          });
+          continue;
+        }
 
-        await db.insert(telegramBroadcastLogs).values({
-          id: crypto.randomUUID(),
-          semester: config.semester,
-          type: "evening_brief",
-          messageText: text,
-          status: sendRes.ok ? "success" : "failed",
-          errorMessage: sendRes.error ?? null,
-          sentByUserId: options.triggeredByUserId ?? null,
-        });
+        let sendRes: { ok: boolean; error?: string };
+        try {
+          sendRes = await sendTelegramMessage({
+            token: settings.botToken,
+            chatId: config.chatId,
+            text,
+            messageThreadId: config.messageThreadId,
+          });
+        } catch (err: any) {
+          sendRes = { ok: false, error: err?.message || String(err) };
+        }
+
+        await db
+          .update(telegramBroadcastLogs)
+          .set({
+            status: sendRes.ok ? "success" : "failed",
+            errorMessage: sendRes.error ?? null,
+          })
+          .where(eq(telegramBroadcastLogs.id, reservationId));
 
         if (sendRes.ok) {
           sentCount++;

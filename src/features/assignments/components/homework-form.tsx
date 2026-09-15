@@ -6,13 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export function HomeworkForm({ subjects }: { subjects: { id: string; name: string }[] }) {
   const [state, formAction, isPending] = useActionState(createHomework, null as SubmissionActionResult | null);
 
-  const getNepalDateString = () => {
-    return formatNepaliDate(new Date());
+  const getTodayDateString = () => {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kathmandu",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
   };
 
   return (
@@ -61,7 +65,7 @@ export function HomeworkForm({ subjects }: { subjects: { id: string; name: strin
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="assignedDate">Assigned Date *</Label>
-          <Input id="assignedDate" name="assignedDate" type="date" required defaultValue={getNepalDateString()} />
+          <Input id="assignedDate" name="assignedDate" type="date" required defaultValue={getTodayDateString()} />
           {state?.fieldErrors?.assignedDate && (
             <p className="text-sm text-red-500">{state.fieldErrors.assignedDate[0]}</p>
           )}

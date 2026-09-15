@@ -36,7 +36,7 @@ test.describe("F-01: write-form pages are view-guarded", () => {
   const cases = [
     { href: "/notices/new", heading: "Publish Notice" },
     { href: "/events/new", heading: "Schedule Event" },
-    { href: "/homework/new", heading: "Assign New Work" },
+    { href: "/teacher/homework/new", heading: "Assign New Work" },
     { href: "/routine/new", heading: "Add Routine Entry" },
   ];
 
@@ -65,10 +65,10 @@ test.describe("F-01: write-form pages are view-guarded", () => {
     await expect(studentPage.getByText("Edit Routine Entry")).toHaveCount(0);
   });
 
-  test("TEACHER can still open /homework/new (guard does not over-block)", async ({
+  test("TEACHER can still open /teacher/homework/new (guard does not over-block)", async ({
     teacherPage,
   }) => {
-    await teacherPage.goto("/homework/new");
+    await teacherPage.goto("/teacher/homework/new");
     await expect(
       teacherPage.getByText("Assign New Work", { exact: true })
     ).toBeVisible();

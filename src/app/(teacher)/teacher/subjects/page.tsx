@@ -46,22 +46,32 @@ export default async function TeacherSubjectsPage({ searchParams }: Props) {
 
   return (
     <div className="flex-1 space-y-8 max-w-5xl">
-      <div className="flex flex-col gap-1.5 pb-6 border-b border-border/40">
-        <div className="flex items-center gap-3">
-          {semester && (
-            <Link href="/teacher/subjects" className="text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-          )}
-          <h1 className="text-3xl md:text-4xl font-bold font-fira-sans tracking-tight text-foreground">
-            {semester ? `Semester ${semester} Subjects` : "My Subjects"}
-          </h1>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-border/40">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-3">
+            {semester && (
+              <Link href="/teacher/subjects" className="text-muted-foreground hover:text-foreground transition-colors">
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+            )}
+            <h1 className="text-3xl md:text-4xl font-bold font-fira-sans tracking-tight text-foreground">
+              {semester ? `Semester ${semester} Subjects` : "My Subjects"}
+            </h1>
+          </div>
+          <p className="text-muted-foreground text-base max-w-2xl">
+            {semester 
+              ? `Manage your assigned classes, track active assignments, and organize study materials for Semester ${semester}.`
+              : "Select a semester to view and manage your assigned classes."}
+          </p>
         </div>
-        <p className="text-muted-foreground text-base max-w-2xl">
-          {semester 
-            ? `Manage your assigned classes, track active assignments, and organize study materials for Semester ${semester}.`
-            : "Select a semester to view and manage your assigned classes."}
-        </p>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/teacher/homework/new"
+            className="text-xs font-semibold px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap"
+          >
+            <ClipboardList className="h-3.5 w-3.5" /> Assign Work
+          </Link>
+        </div>
       </div>
 
       {!semester ? (

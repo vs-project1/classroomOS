@@ -11,7 +11,7 @@ export default async function HomeworkPage() {
   const user = await getCurrentUser();
   if (user?.role === "TEACHER") {
     const { redirect } = await import("next/navigation");
-    redirect("/teacher/lecture-logs");
+    redirect("/teacher/homework");
   }
   if (user?.role === "ADMIN") {
     const { redirect } = await import("next/navigation");
