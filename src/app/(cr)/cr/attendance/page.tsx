@@ -1,7 +1,9 @@
 import { requireAuth } from "@/lib/auth/session";
+import { resolveCurrentStudent } from "@/lib/auth";
 import { db } from "@/db";
 import { studentProfiles, teachers } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { toOrdinalSemester } from "@/lib/utils/roman";
 import { getMonthlyAttendanceMatrixAction } from "@/features/attendance/actions/monthly";
 import { MonthlyAttendanceMatrix } from "@/features/attendance/components/monthly-attendance-matrix";
 import NepaliDate from "nepali-datetime";
@@ -24,8 +26,9 @@ export default async function CRAttendancePage({
     const crProfile = await db.query.studentProfiles.findFirst({
       where: eq(studentProfiles.userId, user.id),
     });
-    const semesterInt = crProfile?.semester || 1;
-    semesterStr = `${semesterInt}${semesterInt === 1 ? "st" : semesterInt === 2 ? "nd" : semesterInt === 3 ? "rd" : "th"} Semester`;
+    const student = !crProfile ? await resolveCurrentStudent() : null;
+    const semesterVal = crProfile?.semester ?? student?.semester ?? 1;
+    semesterStr = toOrdinalSemester(semesterVal);
   } else if (params.semester) {
     semesterStr = params.semester;
   } else if (user.role === "TEACHER" && user.teacherId) {

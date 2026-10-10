@@ -1,11 +1,9 @@
-import { db } from "@/db";
-import { weeklyRoutine, classSessions, enrollments } from "@/db/schema";
-import { desc, eq, asc, and, inArray, gte } from "drizzle-orm";
 import Link from "next/link";
 import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
-import { formatTime12h } from "@/lib/timezone";
+import { formatTime12h, getNptDayOfWeek } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { formatNepaliDate } from "@/lib/nepali-date";
+import { getCrDashboardData } from "./queries";
 import {
   CalendarDays,
   ClipboardList,
@@ -42,11 +40,7 @@ export default async function CRDashboard() {
   // `new Date()` gives Invalid Date and .getDay() returns NaN, which
   // then breaks the weekly_routine query at the SQLite layer.)
   const now = new Date();
-  const nptWeekday = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Kathmandu",
-    weekday: "short",
-  }).format(now);
-  const dayOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(nptWeekday);
+  const dayOfWeek = getNptDayOfWeek(now);
   const nptTime = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Kathmandu",
     hour: "2-digit",
@@ -58,64 +52,10 @@ export default async function CRDashboard() {
     nptHour < 12 ? "Good morning" : nptHour < 17 ? "Good afternoon" : "Good evening";
   const formattedDate = formatNepaliDate(now);
 
-  // CR's enrolled subject IDs
-  const crEnrollments = await db.query.enrollments.findMany({
-    where: eq(enrollments.studentId, student.id),
-  });
-  const enrolledSubjectIds = crEnrollments.map((e) => e.subjectId);
-
-  // Sessions logged this week (Mon=1..Sun=0 in JS, but we use 0-6)
-  const startOfWeek = new Date(now);
-  const dayOffset = startOfWeek.getDay() === 0 ? 6 : startOfWeek.getDay() - 1; // Monday-based
-  startOfWeek.setDate(startOfWeek.getDate() - dayOffset);
-  startOfWeek.setHours(0, 0, 0, 0);
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(endOfWeek.getDate() + 6);
-  endOfWeek.setHours(23, 59, 59, 999);
-
-  // Parallel queries
-  const [todaysClasses, recentSessionsWithLogs, weekSessions] = await Promise.all([
-    enrolledSubjectIds.length > 0
-      ? db.query.weeklyRoutine.findMany({
-          where: and(
-            eq(weeklyRoutine.dayOfWeek, dayOfWeek),
-            inArray(weeklyRoutine.subjectId, enrolledSubjectIds)
-          ),
-          orderBy: [asc(weeklyRoutine.startTime)],
-          with: { subject: { with: { teacher: true } } },
-        })
-      : Promise.resolve([]),
-    // Recent sessions with lecture logs (for Recent Activity)
-    enrolledSubjectIds.length > 0
-      ? db.query.classSessions.findMany({
-          orderBy: [desc(classSessions.sessionDate)],
-          limit: 5,
-          where: inArray(classSessions.subjectId, enrolledSubjectIds),
-          with: {
-            subject: true,
-            lectureLog: true,
-          },
-        })
-      : Promise.resolve([]),
-    // This week's sessions only — clamped at the DB level so the query
-    // cannot grow unboundedly with academic history.
-    enrolledSubjectIds.length > 0
-      ? db.query.classSessions.findMany({
-          where: and(
-            inArray(classSessions.subjectId, enrolledSubjectIds),
-            gte(classSessions.sessionDate, startOfWeek)
-          ),
-          with: { subject: true },
-        })
-      : Promise.resolve([]),
-  ]);
+  const { todaysClasses, recentSessionsWithLogs, weekSessions, sessionsThisWeek, enrolledSubjectIds } =
+    await getCrDashboardData(student.id, now, dayOfWeek);
 
   const allSessions = weekSessions;
-
-  const sessionsThisWeek = allSessions.filter((s) => {
-    const d = new Date(s.sessionDate);
-    return d >= startOfWeek && d <= endOfWeek;
-  });
 
   // KPI values
   const classesToday = todaysClasses.length;

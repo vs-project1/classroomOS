@@ -1,9 +1,10 @@
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/db";
 import { subjects, homework, courseUnits, resources } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { BookOpen, Layers, ClipboardList, FolderOpen, ArrowRight, ArrowLeft } from "lucide-react";
+import { getSemesterVariants } from "@/lib/utils/roman";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,8 @@ export default async function TeacherSubjectsPage({ searchParams }: Props) {
 
   const conditions = [eq(subjects.teacherId, user.teacherId)];
   if (semester) {
-    conditions.push(eq(subjects.semester, semester));
+    const semVariants = getSemesterVariants(semester);
+    conditions.push(semVariants.length > 0 ? inArray(subjects.semester, semVariants) : eq(subjects.semester, semester));
   }
 
   // Strictly filter by this teacher's ID

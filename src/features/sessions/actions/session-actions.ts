@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { classSessions, lectureLogs, subjects, students, homework, enrollments, studentProfiles, weeklyRoutine } from "@/db/schema";
-import { toRoman } from "@/lib/utils/roman";
+import { toRoman, areSemestersEqual } from "@/lib/utils/roman";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -99,7 +99,8 @@ function buildHomeworkTitle(topicsCovered: string): string {
 async function getSubjectAccessError(
   user: SessionUser,
   subjectId: string,
-  subjectTeacherId: string | null
+  subjectTeacherId: string | null,
+  subjectSemester?: string | null
 ): Promise<string | null> {
   if (user.role === "ADMIN") {
     return null;
@@ -122,10 +123,13 @@ async function getSubjectAccessError(
       .from(enrollments)
       .where(and(eq(enrollments.studentId, student.id), eq(enrollments.subjectId, subjectId)))
       .limit(1);
-    if (enrolled.length === 0) {
-      return "You are not enrolled in this subject.";
+    if (enrolled.length > 0) {
+      return null;
     }
-    return null;
+    if (student.semester && subjectSemester && areSemestersEqual(student.semester, subjectSemester)) {
+      return null;
+    }
+    return "You are not enrolled in this subject.";
   }
 
   return "You do not have permission to access this subject.";
@@ -172,7 +176,7 @@ export async function createSession(prevState: SessionActionState, formData: For
     }
 
     // 1b. Enforce subject ownership before any INSERT (audit: role != ownership)
-    const accessError = await getSubjectAccessError(user, subjectId, subjectRows[0].teacherId);
+    const accessError = await getSubjectAccessError(user, subjectId, subjectRows[0].teacherId, subjectRows[0].semester);
     if (accessError) {
       return { success: false, message: accessError };
     }

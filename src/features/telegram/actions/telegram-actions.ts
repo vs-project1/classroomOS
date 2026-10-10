@@ -19,17 +19,16 @@ import {
   type RoutineSlotInfo,
 } from "../services/formatters";
 import { executeTelegramBrief } from "../services/telegram-brief-service";
-import { areSemestersEqual } from "@/lib/utils/roman";
+import { areSemestersEqual, toRoman } from "@/lib/utils/roman";
 import {
   saveSemesterTelegramConfigSchema,
   saveTelegramSettingsSchema,
   type BroadcastNoticeInput,
   type BroadcastRoutineInput,
 } from "../types";
+import type { ActionResult } from "@/lib/types/action-result";
 
-export type ActionResult<T = void> =
-  | { success: true; data?: T; message?: string }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+export type { ActionResult };
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -37,7 +36,7 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
  * Saves global Telegram bot credentials and default preferences.
  */
 export async function saveTelegramSettingsAction(
-  prevState: any,
+  prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
   const user = await requireAuth(["ADMIN"]);
@@ -132,7 +131,7 @@ export async function testBotConnectionAction(botToken: string): Promise<ActionR
  * Saves or updates a semester's Telegram chat / topic binding.
  */
 export async function saveSemesterTelegramConfigAction(
-  prevState: any,
+  prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
   await requireAuth(["ADMIN"]);
@@ -325,7 +324,7 @@ export async function sendDirectTestMessageAction({
 }
 
 function normalizeSemesterToRoman(sem: string | number | null | undefined): string {
-  if (!sem) return "I";
+  return toRoman(sem);
   const s = String(sem).trim().toUpperCase();
   const map: Record<string, string> = {
     "1": "I", "1ST": "I", "I": "I",
@@ -356,7 +355,7 @@ export async function broadcastRoutineToTelegramAction(
   const [config] = await db
     .select()
     .from(semesterTelegramConfigs)
-    .where(eq(semesterTelegramConfigs.semester, input.semester))
+    .where(eq(semesterTelegramConfigs.semester, toRoman(input.semester)))
     .limit(1);
 
   if (!config || !config.chatId) {
@@ -545,7 +544,7 @@ export async function broadcastNoticeToTelegramAction(
     const [config] = await db
       .select()
       .from(semesterTelegramConfigs)
-      .where(eq(semesterTelegramConfigs.semester, semester))
+      .where(eq(semesterTelegramConfigs.semester, toRoman(semester)))
       .limit(1);
 
     if (!config || !config.chatId) {

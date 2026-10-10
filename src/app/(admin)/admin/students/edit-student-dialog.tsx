@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Pencil } from "lucide-react";
+import { toRoman } from "@/lib/utils/roman";
 
 const initialState: StudentActionState = {
   success: false,
@@ -105,7 +106,7 @@ export function EditStudentDialog({ student }: EditStudentDialogProps) {
               id={`edit-semester-${student.id}`}
               name="semester"
               className="flex h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
-              defaultValue={student.semester || ""}
+              defaultValue={student.semester ? toRoman(student.semester) : ""}
             >
               <option value="" disabled>Select Semester</option>
               <option value="I">I</option>

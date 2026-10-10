@@ -190,6 +190,23 @@ async function main() {
     console.error("⚠️ Failed to check/migrate attendance_correction_requests foreign key:", err);
   }
 
+  // 7b. Create missing performance indexes
+  console.log("⚡ Ensuring performance indexes exist...");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_teachers_user_id ON teachers (user_id);");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_subjects_semester ON subjects (semester);");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_subjects_teacher_id ON subjects (teacher_id);");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_students_user_id ON students (user_id);");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_students_semester ON students (semester);");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_students_faculty_semester ON students (faculty, semester);");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_class_sessions_routine_id ON class_sessions (routine_id);");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_course_materials_chapter ON course_materials (chapter_id);");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_attendance_correction_status_created ON attendance_correction_requests (status, created_at);");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_daily_sessions_semester_date ON daily_sessions (semester, date);");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_daily_sessions_marked_by ON daily_sessions (marked_by);");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_daily_attendance_student_id ON daily_attendance (student_id);");
+  await client.execute("CREATE INDEX IF NOT EXISTS idx_daily_attendance_student_status ON daily_attendance (student_id, status);");
+  console.log("✅ All performance indexes verified.");
+
   // 8. Verify counts
   const studentsCount = await client.execute("SELECT COUNT(*) as total, COUNT(user_id) as linked FROM students");
   console.log("📊 Students Migration Status:", studentsCount.rows[0]);

@@ -1,12 +1,9 @@
-import { db } from "@/db";
-import { weeklyRoutine, classSessions, homework, notices, events } from "@/db/schema";
-import { desc, eq, gte, asc } from "drizzle-orm";
 import Link from "next/link";
 import { Clock, Book, Bell, CalendarDays, Calendar, ArrowRight, PenTool, Megaphone, ClipboardList, Lock, CheckCircle } from "lucide-react";
 import { formatTime12h } from "@/lib/timezone";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
-
 import { AdminTodaySchedule } from "@/features/routine/components/admin-today-schedule";
+import { getAdminDashboardData } from "./queries";
 
 export const dynamic = "force-dynamic";
 
@@ -18,62 +15,16 @@ export default async function Dashboard({ searchParams }: Props) {
   const resolvedParams = searchParams ? await searchParams : {};
   const selectedSemester = typeof resolvedParams.semester === "string" ? resolvedParams.semester : undefined;
 
-  // Get Nepal Time
-  const nptDateString = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kathmandu', dateStyle: 'short' }).format(new Date());
-  const nptDate = new Date(nptDateString);
-  const dayOfWeek = nptDate.getDay();
-  const nptTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kathmandu', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
-  const timestampNow = new Date().getTime();
-
-  // Queries
-  const [
+  const {
     todaysClasses,
-    latestHomeworkList,
-    latestNotices,
-    upcomingEvents,
-    recentSessions,
+    latestHomework,
+    latestNotice,
+    upcomingEvent,
+    recentSession,
     activeHomeworkCount,
-    noticesCount
-  ] = await Promise.all([
-    db.query.weeklyRoutine.findMany({
-      where: eq(weeklyRoutine.dayOfWeek, dayOfWeek),
-      orderBy: [asc(weeklyRoutine.startTime)],
-      with: {
-        subject: {
-          with: { teacher: true }
-        }
-      }
-    }),
-    db.query.homework.findMany({
-      where: eq(homework.status, 'active'),
-      orderBy: [asc(homework.dueDate)],
-      limit: 1,
-      with: { subject: true }
-    }),
-    db.query.notices.findMany({
-      orderBy: [desc(notices.isPinned), desc(notices.createdAt)],
-      limit: 1
-    }),
-    db.query.events.findMany({
-      where: gte(events.eventDate, new Date(nptDate.toISOString().split('T')[0] + 'T00:00:00Z')),
-      orderBy: [asc(events.eventDate), asc(events.startTime)],
-      limit: 1
-    }),
-    db.query.classSessions.findMany({
-      orderBy: [desc(classSessions.sessionDate), desc(classSessions.startTime)],
-      limit: 1,
-      with: { subject: true }
-    }),
-    // Real counts — the KPI cards previously rendered `limit:1` list lengths
-    // (always 0 or 1) as totals.
-    db.$count(homework, eq(homework.status, 'active')),
-    db.$count(notices)
-  ]);
-
-  const latestHomework = latestHomeworkList[0] || null;
-  const latestNotice = latestNotices.find(n => !n.expiresAt || n.expiresAt.getTime() > timestampNow) || null;
-  const upcomingEvent = upcomingEvents[0] || null;
-  const recentSession = recentSessions[0] || null;
+    noticesCount,
+    nptTime,
+  } = await getAdminDashboardData();
 
   return (
     <div className="flex-1 space-y-8 p-6 md:p-10 max-w-7xl mx-auto">
@@ -104,7 +55,7 @@ export default async function Dashboard({ searchParams }: Props) {
 
       {/* 2. Quick Actions Strip */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Link href="/sessions/new" className="flex items-center gap-4 bg-card hover:bg-accent hover:text-accent-foreground rounded-xl p-4 transition-all border border-border/40 group cursor-pointer shadow-sm hover:shadow-md">
+        <Link href="/admin/sessions/new" className="flex items-center gap-4 bg-card hover:bg-accent hover:text-accent-foreground rounded-xl p-4 transition-all border border-border/40 group cursor-pointer shadow-sm hover:shadow-md">
           <PenTool className="h-5 w-5 text-primary" />
           <span className="font-semibold text-sm">Log Session</span>
         </Link>

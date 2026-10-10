@@ -107,7 +107,7 @@ export default async function TeacherRoutinePage({ searchParams }: Props) {
           </Link>
 
           {taughtSemesters.map((sem) => {
-            const isActive = selectedSemester === sem;
+            const isActive = areSemestersEqual(selectedSemester, sem);
             const count = rawRoutine.filter((r) => areSemestersEqual(r.subject?.semester, sem)).length;
 
             return (

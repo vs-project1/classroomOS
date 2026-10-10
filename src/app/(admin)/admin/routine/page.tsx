@@ -53,7 +53,9 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
       ? resolvedParams.semester
       : defaultSemester;
 
-  const allRoutine = rawRoutine.filter((r) => matchSemester(r.subject?.semester, selectedSemester));
+  const allRoutine = rawRoutine
+    .filter((r): r is typeof r & { subject: NonNullable<typeof r.subject> } => Boolean(r.subject))
+    .filter((r) => matchSemester(r.subject.semester, selectedSemester));
   const hasRoutine = allRoutine.length > 0;
 
   const nptTime = new Intl.DateTimeFormat("en-GB", {
@@ -112,7 +114,7 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
                 hasUnpublishedChanges={hasUnpublishedChanges}
                 unpublishedSemesters={unpublishedSemesters}
               />
-              <Link href="/routine/new" className={buttonVariants({ variant: "default", size: "sm" })}>
+              <Link href="/admin/routine/new" className={buttonVariants({ variant: "default", size: "sm" })}>
                 <Plus className="w-4 h-4 mr-2" /> Add Class Slot
               </Link>
             </>
@@ -150,7 +152,7 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
       {/* Semester Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-border/40">
         {SEMESTERS.map((sem) => {
-          const isActive = selectedSemester === sem;
+          const isActive = sem === "All" ? selectedSemester === "All" : areSemestersEqual(selectedSemester, sem);
           const isUnpub = sem === "All" ? unpublishedSemesters.length > 0 : unpublishedSemesters.includes(sem);
           const hasData = sem === "All" ? rawRoutine.length > 0 : semestersWithSlots.some((s) => areSemestersEqual(s, sem));
           const href = `/admin/routine?semester=${sem}`;
@@ -193,14 +195,14 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
               : `No class slots configured for Semester ${selectedSemester}. Click 'Add Class Slot' to schedule subjects.`}
           </p>
           {permissions.canManageRoutine && (
-            <Link href="/routine/new" className={buttonVariants({ variant: "default", size: "sm" })}>
+            <Link href="/admin/routine/new" className={buttonVariants({ variant: "default", size: "sm" })}>
               <Plus className="w-4 h-4 mr-2" /> Add First Class Slot
             </Link>
           )}
         </div>
       ) : (
         <RoutineView
-          allRoutines={allRoutine as any}
+          allRoutines={allRoutine}
           todayIndex={todayIndex < 0 ? 0 : todayIndex}
           nptTime={nptTime}
           canManageRoutine={permissions.canManageRoutine}

@@ -77,7 +77,7 @@ export default async function TeacherLectureLogsPage({ searchParams }: Props) {
           <p className="text-muted-foreground mt-1 text-sm">Review topics covered in your classes or record lecture notes.</p>
         </div>
         <Link
-          href="/cr/log-session"
+          href="/teacher/sessions/new"
           className={buttonVariants({ variant: "default", size: "sm", className: "gap-1.5 font-semibold" })}
         >
           <Plus className="w-4 h-4" /> Log Class Session

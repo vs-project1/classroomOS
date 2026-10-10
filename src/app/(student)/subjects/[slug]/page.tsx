@@ -19,7 +19,7 @@ import { ContextHeader } from "@/components/shell/context-header";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { User, Calendar, ShieldAlert } from "lucide-react";
-import { toRoman } from "@/lib/utils/roman";
+import { toRoman, areSemestersEqual } from "@/lib/utils/roman";
 import { AddUnitDialog } from "@/features/subjects/components/add-unit-dialog";
 import {
   OverviewTab,
@@ -143,15 +143,19 @@ export default async function SubjectDetailPage({
       : null;
 
     let isAllowedBySemester = false;
-    if (!enrollment && user.studentProfileId) {
-      const profile = await db.query.studentProfiles.findFirst({
-        where: eq(studentProfiles.id, user.studentProfileId),
-      });
-      if (profile && profile.semester != null) {
-        const semesterRoman = toRoman(profile.semester);
-        if (subject.semester === semesterRoman) {
-          isAllowedBySemester = true;
-        }
+    if (!enrollment) {
+      let semVal: string | number | null = null;
+      if (user.studentProfileId) {
+        const profile = await db.query.studentProfiles.findFirst({
+          where: eq(studentProfiles.id, user.studentProfileId),
+        });
+        if (profile?.semester != null) semVal = profile.semester;
+      }
+      if (semVal == null && student?.semester) {
+        semVal = student.semester;
+      }
+      if (semVal != null && areSemestersEqual(subject.semester, semVal)) {
+        isAllowedBySemester = true;
       }
     }
 

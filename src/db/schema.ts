@@ -19,7 +19,9 @@ export const teachers = sqliteTable("teachers", {
   updatedAt: integer("updated_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-});
+}, (table) => [
+  index("idx_teachers_user_id").on(table.userId),
+]);
 
 export const subjects = sqliteTable("subjects", {
   id: text("id").primaryKey(),
@@ -32,7 +34,10 @@ export const subjects = sqliteTable("subjects", {
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-});
+}, (table) => [
+  index("idx_subjects_semester").on(table.semester),
+  index("idx_subjects_teacher_id").on(table.teacherId),
+]);
 
 export const students = sqliteTable("students", {
   id: text("id").primaryKey(),
@@ -47,7 +52,11 @@ export const students = sqliteTable("students", {
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-});
+}, (table) => [
+  index("idx_students_user_id").on(table.userId),
+  index("idx_students_semester").on(table.semester),
+  index("idx_students_faculty_semester").on(table.faculty, table.semester),
+]);
 
 export const weeklyRoutine = sqliteTable("weekly_routine", {
   id: text("id").primaryKey(),
@@ -89,6 +98,7 @@ export const classSessions = sqliteTable("class_sessions", {
 }, (table) => [
   index("idx_class_sessions_subject_id").on(table.subjectId),
   index("idx_class_sessions_session_date").on(table.sessionDate),
+  index("idx_class_sessions_routine_id").on(table.routineId),
   unique("unq_class_session_subject_date").on(table.subjectId, table.sessionDate),
 ]);
 
@@ -234,7 +244,9 @@ export const courseMaterials = sqliteTable("course_materials", {
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-});
+}, (table) => [
+  index("idx_course_materials_chapter").on(table.chapterId),
+]);
 
 // --- Milestone 1: 10 New Tables ---
 
@@ -500,6 +512,7 @@ export const attendanceCorrectionRequests = sqliteTable("attendance_correction_r
   index("idx_attendance_correction_student").on(table.studentId),
   index("idx_attendance_correction_attendance").on(table.attendanceId),
   index("idx_attendance_correction_status").on(table.status),
+  index("idx_attendance_correction_status_created").on(table.status, table.createdAt),
   check("chk_attendance_correction_requested_status", sql`${table.requestedStatus} IN ('present', 'excused')`),
   check("chk_attendance_correction_status", sql`${table.status} IN ('pending', 'approved', 'rejected')`),
 ]);
@@ -593,6 +606,8 @@ export const subjectsRelations = relations(subjects, ({ one, many }) => ({
   enrollments: many(enrollments),
   resources: many(resources),
   studyTasks: many(studyTasks),
+  subjectGradeWeights: many(subjectGradeWeights),
+  exams: many(exams),
 }));
 
 export const subjectGradeWeightsRelations = relations(subjectGradeWeights, ({ one }) => ({
@@ -608,8 +623,10 @@ export const studentsRelations = relations(students, ({ one, many }) => ({
     references: [users.id],
   }),
   attendance: many(attendance),
+  dailyAttendance: many(dailyAttendance),
   enrollments: many(enrollments),
   assignmentSubmissions: many(assignmentSubmissions),
+  examResults: many(examResults),
   studyTasks: many(studyTasks),
   attendanceCorrectionRequests: many(attendanceCorrectionRequests),
 }));
@@ -646,7 +663,7 @@ export const lectureLogsRelations = relations(lectureLogs, ({ one }) => ({
   }),
 }));
 
-export const attendanceRelations = relations(attendance, ({ one, many }) => ({
+export const attendanceRelations = relations(attendance, ({ one }) => ({
   classSession: one(classSessions, {
     fields: [attendance.classSessionId],
     references: [classSessions.id],
@@ -655,7 +672,6 @@ export const attendanceRelations = relations(attendance, ({ one, many }) => ({
     fields: [attendance.studentId],
     references: [students.id],
   }),
-  correctionRequests: many(attendanceCorrectionRequests),
 }));
 
 export const homeworkRelations = relations(homework, ({ one, many }) => ({
@@ -710,6 +726,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
   notifications: many(notifications),
   sessions: many(sessions),
+  markedDailySessions: many(dailySessions),
+  broadcastLogs: many(telegramBroadcastLogs),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -809,9 +827,9 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
 }));
 
 export const attendanceCorrectionRequestsRelations = relations(attendanceCorrectionRequests, ({ one }) => ({
-  attendance: one(attendance, {
+  attendance: one(dailyAttendance, {
     fields: [attendanceCorrectionRequests.attendanceId],
-    references: [attendance.id],
+    references: [dailyAttendance.id],
   }),
   student: one(students, {
     fields: [attendanceCorrectionRequests.studentId],
@@ -948,6 +966,8 @@ export const dailySessions = sqliteTable("daily_sessions", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
   unique("unq_daily_session_date_sem").on(table.date, table.semester),
+  index("idx_daily_sessions_semester_date").on(table.semester, table.date),
+  index("idx_daily_sessions_marked_by").on(table.markedBy),
 ]);
 
 export const dailyAttendance = sqliteTable("daily_attendance", {
@@ -958,6 +978,8 @@ export const dailyAttendance = sqliteTable("daily_attendance", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
   unique("unq_daily_attendance_session_student").on(table.dailySessionId, table.studentId),
+  index("idx_daily_attendance_student_id").on(table.studentId),
+  index("idx_daily_attendance_student_status").on(table.studentId, table.status),
   check("chk_daily_attendance_status", sql`${table.status} IN ('present', 'absent', 'late', 'excused')`),
 ]);
 
@@ -969,7 +991,7 @@ export const dailySessionsRelations = relations(dailySessions, ({ many, one }) =
   }),
 }));
 
-export const dailyAttendanceRelations = relations(dailyAttendance, ({ one }) => ({
+export const dailyAttendanceRelations = relations(dailyAttendance, ({ one, many }) => ({
   dailySession: one(dailySessions, {
     fields: [dailyAttendance.dailySessionId],
     references: [dailySessions.id],
@@ -978,6 +1000,7 @@ export const dailyAttendanceRelations = relations(dailyAttendance, ({ one }) => 
     fields: [dailyAttendance.studentId],
     references: [students.id],
   }),
+  correctionRequests: many(attendanceCorrectionRequests),
 }));
 
 // --- 14. Telegram Bot Integration & Semester Routing ---

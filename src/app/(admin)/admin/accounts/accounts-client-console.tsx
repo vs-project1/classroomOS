@@ -8,6 +8,7 @@ import {
   deleteUserAccountAction,
   AccountActionState,
 } from "@/features/users/actions/accounts";
+import { areSemestersEqual, fromRoman, toOrdinalSemester } from "@/lib/utils/roman";
 import { CreateAccountDialog } from "@/components/admin/create-account-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,7 +105,7 @@ export function AccountsClientConsole({
     if (statusFilter === "DEACTIVATED" && acc.isActive) return false;
 
     if (semesterFilter !== "ALL") {
-      if (acc.semester?.toString() !== semesterFilter) return false;
+      if (!areSemestersEqual(acc.semester, semesterFilter)) return false;
     }
 
     if (search.trim()) {
@@ -160,7 +161,7 @@ export function AccountsClientConsole({
       email: user.email,
       role: user.role,
       rollNumber: user.rollNumber || "",
-      semester: user.semester?.toString() || "",
+      semester: user.semester ? String(fromRoman(user.semester)) : "",
     });
   };
 
@@ -380,7 +381,7 @@ export function AccountsClientConsole({
                       {/* Semester */}
                       <td className="px-4 py-3.5">
                         <span className="text-muted-foreground">
-                          {account.semester ? `Sem ${account.semester}` : "-"}
+                          {account.semester ? toOrdinalSemester(account.semester) : "-"}
                         </span>
                       </td>
 

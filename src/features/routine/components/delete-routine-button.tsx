@@ -1,14 +1,14 @@
 "use client";
 
 import { useActionState } from "react";
-import { deleteRoutine } from "@/features/routine/actions/routine-actions";
+import { deleteRoutineAction } from "@/features/routine/actions/routine-actions";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
+import type { ActionResult } from "@/lib/types/action-result";
 
 export function DeleteRoutineButton({ id }: { id: string }) {
-  const deleteWithId = deleteRoutine.bind(null, id);
-  // @ts-ignore
-  const [state, formAction, isPending] = useActionState(deleteWithId, null);
+  const deleteWithId = deleteRoutineAction.bind(null, id);
+  const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(deleteWithId, null);
 
   return (
     <form action={formAction}>

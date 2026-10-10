@@ -12,7 +12,7 @@ import {
   users,
 } from "@/db/schema";
 import { resolveCurrentStudent } from "@/lib/auth";
-import { toRoman } from "@/lib/utils/roman";
+import { toRoman, getSemesterVariants } from "@/lib/utils/roman";
 import { and, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 
 export type ResourceWithDetails = {
@@ -63,11 +63,11 @@ const getStudentAccessibleSubjectIds = cache(async (studentId: string): Promise<
         where: eq(studentProfiles.userId, user.id),
       });
       if (profile?.semester != null) {
-        const semesterRoman = toRoman(profile.semester);
+        const variants = getSemesterVariants(profile.semester);
         const semesterSubjects = await db
           .select({ id: subjects.id })
           .from(subjects)
-          .where(eq(subjects.semester, semesterRoman));
+          .where(variants.length > 0 ? inArray(subjects.semester, variants) : eq(subjects.semester, toRoman(profile.semester)));
         if (semesterSubjects.length > 0) {
           return semesterSubjects.map((s) => s.id);
         }
@@ -75,13 +75,12 @@ const getStudentAccessibleSubjectIds = cache(async (studentId: string): Promise<
     }
 
     if (student.semester) {
-      const parsedNum = parseInt(student.semester.replace(/\D/g, ""), 10);
-      if (!isNaN(parsedNum) && parsedNum >= 1 && parsedNum <= 8) {
-        const semesterRoman = toRoman(parsedNum);
+      const variants = getSemesterVariants(student.semester);
+      if (variants.length > 0) {
         const semesterSubjects = await db
           .select({ id: subjects.id })
           .from(subjects)
-          .where(eq(subjects.semester, semesterRoman));
+          .where(inArray(subjects.semester, variants));
         if (semesterSubjects.length > 0) {
           return semesterSubjects.map((s) => s.id);
         }

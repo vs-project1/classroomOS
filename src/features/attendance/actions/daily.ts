@@ -2,6 +2,7 @@
 import { db } from "@/db";
 import { dailySessions, dailyAttendance, students, users, studentProfiles } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/session";
+import { resolveCurrentStudent } from "@/lib/auth";
 import crypto from "node:crypto";
 import { eq, and, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -29,8 +30,9 @@ export async function getDailyAttendanceForDateAction(semester: string, date: Da
     const crProfile = await db.query.studentProfiles.findFirst({
       where: eq(studentProfiles.userId, user.id),
     });
-    const crSemInt = crProfile?.semester || 1;
-    activeSemester = `${crSemInt}${crSemInt === 1 ? 'st' : crSemInt === 2 ? 'nd' : crSemInt === 3 ? 'rd' : 'th'} Semester`;
+    const student = !crProfile ? await resolveCurrentStudent() : null;
+    const crSem = crProfile?.semester ?? student?.semester ?? 1;
+    activeSemester = toOrdinalSemester(crSem);
   }
   const targetDate = nptStartOfDay(typeof date === "string" ? new Date(date) : date);
 
@@ -70,8 +72,9 @@ export async function submitDailyAttendanceAction(
     const crProfile = await db.query.studentProfiles.findFirst({
       where: eq(studentProfiles.userId, user.id),
     });
-    const crSemInt = crProfile?.semester || 1;
-    targetSemester = `${crSemInt}${crSemInt === 1 ? 'st' : crSemInt === 2 ? 'nd' : crSemInt === 3 ? 'rd' : 'th'} Semester`;
+    const student = !crProfile ? await resolveCurrentStudent() : null;
+    const crSem = crProfile?.semester ?? student?.semester ?? 1;
+    targetSemester = toOrdinalSemester(crSem);
   }
   const normalizedDate = nptStartOfDay(date);
   const semVariants = getSemesterVariants(targetSemester);

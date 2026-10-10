@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth/session";
-import { assertCanRead } from "@/lib/files/authz";
+import { assertCanReadFile } from "@/lib/files/authz";
 import { db } from "@/db";
 import { files } from "@/db/schema";
 
@@ -27,18 +27,12 @@ export async function GET(
       return Response.json({ error: "File not found" }, { status: 404 });
     }
 
-    // Authz: if file is linked to a course, enforce course read
-    if (file.courseId) {
-      try {
-        await assertCanRead(file.courseId, user.id);
-      } catch (e) {
-        const message = e instanceof Error ? e.message : "Forbidden";
-        return Response.json({ error: message }, { status: 403 });
-      }
-    } else {
-      // No course link — allow owner, ADMIN, or any authenticated for now.
-      // Could tighten later per notice/submission ownership.
-      // For safety, allow any authenticated to preview non-course files.
+    // Enforce authorization for the file (course, chapter, submission, notice, or owner)
+    try {
+      await assertCanReadFile(file, user.id);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Forbidden";
+      return Response.json({ error: message }, { status: 403 });
     }
 
     // For now, files.url is the UploadThing URL; redirect 302.

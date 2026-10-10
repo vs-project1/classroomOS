@@ -45,8 +45,9 @@ export function AdminTodaySchedule({
   initialSemester,
 }: AdminTodayScheduleProps) {
   const [selectedSemester, setSelectedSemester] = useState<string>(() => {
-    if (initialSemester && SEMESTERS.includes(initialSemester as SemesterType)) {
-      return initialSemester;
+    if (initialSemester) {
+      const match = SEMESTERS.find((s) => s !== "All" && areSemestersEqual(s, initialSemester));
+      if (match) return match;
     }
     return "All";
   });
@@ -106,7 +107,7 @@ export function AdminTodaySchedule({
       {/* 2. Horizontal Semester Filter Tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-5 scrollbar-thin scrollbar-thumb-border/40">
         {SEMESTERS.map((sem) => {
-          const isSelected = selectedSemester === sem;
+          const isSelected = sem === "All" ? selectedSemester === "All" : areSemestersEqual(selectedSemester, sem);
           const count = semesterCounts[sem] || 0;
           const hasClasses = count > 0;
 

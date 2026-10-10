@@ -1,9 +1,9 @@
 import { db } from "@/db";
 import { enrollments, subjects, homework, resources, courseUnits } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { resolveCurrentStudent, requireAuth } from "@/lib/auth";
 import Link from "next/link";
-import { toRoman } from "@/lib/utils/roman";
+import { toRoman, getSemesterVariants } from "@/lib/utils/roman";
 import { studentProfiles } from "@/db/schema";
 import { BookOpen, User, ArrowRight, Layers } from "lucide-react";
 
@@ -24,10 +24,13 @@ export default async function SubjectsPage() {
     resourceCount: number;
   }> = [];
 
-  if (student && user.studentProfileId) {
-    const profile = await db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.id, user.studentProfileId),
-    });
+  if (student) {
+    let profile = null;
+    if (user.studentProfileId) {
+      profile = await db.query.studentProfiles.findFirst({
+        where: eq(studentProfiles.id, user.studentProfileId),
+      });
+    }
 
     // 1. Try querying explicit student enrollments
     const userEnrollments = await db.query.enrollments.findMany({
@@ -57,18 +60,20 @@ export default async function SubjectsPage() {
           activeHwCount: e.subject.homework?.length || 0,
           resourceCount: e.subject.resources?.length || 0,
         }));
-    } else if (profile && profile.semester != null) {
+    } else {
       // 2. Dynamic Fallback: fetch subjects matching the student's semester
-      const semesterRoman = toRoman(profile.semester);
-      const semesterSubjects = await db.query.subjects.findMany({
-        where: eq(subjects.semester, semesterRoman),
-        with: {
-          teacher: true,
-          courseUnits: true,
-          homework: { where: eq(homework.status, "active") },
-          resources: true,
-        },
-      });
+      const semValue = profile?.semester ?? student.semester ?? null;
+      if (semValue != null) {
+        const variants = getSemesterVariants(semValue);
+        const semesterSubjects = await db.query.subjects.findMany({
+          where: variants.length > 0 ? inArray(subjects.semester, variants) : eq(subjects.semester, toRoman(semValue)),
+          with: {
+            teacher: true,
+            courseUnits: true,
+            homework: { where: eq(homework.status, "active") },
+            resources: true,
+          },
+        });
 
       enrolledSubjects = semesterSubjects.map((s) => ({
         id: s.id,
@@ -81,6 +86,7 @@ export default async function SubjectsPage() {
         resourceCount: s.resources?.length || 0,
       }));
     }
+  }
   }
 
   // Security: STUDENT/CR are strictly enrollment-scoped. An unresolvable

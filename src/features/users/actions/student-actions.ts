@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import crypto from "crypto";
 import { PhoneNumberUtil } from "google-libphonenumber";
+import { fromRoman, toOrdinalSemester } from "@/lib/utils/roman";
 
 const phoneUtil = PhoneNumberUtil.getInstance();
 
@@ -78,7 +79,7 @@ export async function createStudent(prevState: StudentActionState, formData: For
       email: email ?? null,
       phone: phone ?? null,
       faculty,
-      semester,
+      semester: toOrdinalSemester(semester),
     });
 
     revalidatePath("/admin/students");
@@ -127,6 +128,9 @@ export async function updateStudent(prevState: StudentActionState, formData: For
       return { success: false, message: "Student record not found." };
     }
 
+    const semInt = fromRoman(semester);
+    const ordinalSem = toOrdinalSemester(semester);
+
     await db.transaction(async (tx) => {
       await tx.update(students).set({
         name,
@@ -134,7 +138,7 @@ export async function updateStudent(prevState: StudentActionState, formData: For
         email: email ?? null,
         phone: phone ?? null,
         faculty,
-        semester,
+        semester: ordinalSem,
       }).where(eq(students.id, id));
 
       const userId = existing.userId;
@@ -142,8 +146,6 @@ export async function updateStudent(prevState: StudentActionState, formData: For
         if (email) {
           await tx.update(users).set({ email, updatedAt: new Date() }).where(eq(users.id, userId));
         }
-        const semDigitMatch = semester.match(/(\d+)/);
-        const semInt = semDigitMatch ? parseInt(semDigitMatch[1], 10) : 1;
         await tx.update(studentProfiles).set({
           rollNumber,
           semester: semInt,
@@ -156,8 +158,6 @@ export async function updateStudent(prevState: StudentActionState, formData: For
         });
         if (profile) {
           await tx.update(students).set({ userId: profile.userId }).where(eq(students.id, id));
-          const semDigitMatch = semester.match(/(\d+)/);
-          const semInt = semDigitMatch ? parseInt(semDigitMatch[1], 10) : 1;
           await tx.update(studentProfiles).set({
             rollNumber,
             semester: semInt,

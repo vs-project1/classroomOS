@@ -2,11 +2,12 @@ import { db } from "@/db";
 import { students } from "@/db/schema";
 import { StudentForm } from "@/features/users/components/student-form";
 import { EditStudentDialog } from "./edit-student-dialog";
-import { asc, like, or, eq, and } from "drizzle-orm";
+import { asc, like, or, eq, and, inArray } from "drizzle-orm";
 import { Users, GraduationCap, Search, FileDown } from "lucide-react";
 import { getPermissions } from "@/lib/auth";
 import { SearchFilterBar } from "@/components/admin/search-filter-bar";
 import { formatNepaliDate } from "@/lib/nepali-date";
+import { getSemesterVariants } from "@/lib/utils/roman";
 
 export const dynamic = "force-dynamic";
 
@@ -32,17 +33,12 @@ export default async function StudentsPage({ searchParams }: Props) {
     );
   }
   if (semester) {
-    const romanToOrdinal: Record<string, string> = {
-      "I": "1st Semester",
-      "II": "2nd Semester",
-      "III": "3rd Semester",
-      "IV": "4th Semester",
-      "V": "5th Semester",
-      "VI": "6th Semester",
-      "VII": "7th Semester",
-      "VIII": "8th Semester"
-    };
-    conditions.push(eq(students.semester, romanToOrdinal[semester] || semester));
+    const semVariants = getSemesterVariants(semester);
+    if (semVariants.length > 0) {
+      conditions.push(inArray(students.semester, semVariants));
+    } else {
+      conditions.push(eq(students.semester, semester));
+    }
   }
 
   const allStudents = await db

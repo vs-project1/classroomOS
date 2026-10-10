@@ -9,6 +9,7 @@ import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth/session";
 import { notifyMany } from "@/lib/notifications";
+import type { ActionResult } from "@/lib/types/action-result";
 
 const noticeSchema = z.object({
   title: z.string().trim().min(1, "Title is required"),
@@ -18,7 +19,10 @@ const noticeSchema = z.object({
   attachments: z.array(z.string().url()).optional().default([]),
 });
 
-export async function createNotice(prevState: any, formData: FormData) {
+export async function createNotice(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
   await requireAuth(["ADMIN"]);
 
   let attachments: string[] = [];

@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { courseChapters, courseUnits, enrollments, subjects, studentProfiles } from "@/db/schema";
-import { toRoman } from "@/lib/utils/roman";
-import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { toRoman, getSemesterVariants } from "@/lib/utils/roman";
+import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { getCurrentUser, resolveCurrentStudent } from "@/lib/auth";
 
 export type SidebarSubject = { id: string; name: string; slug: string };
@@ -61,11 +61,11 @@ export async function getSubjectsForSidebar(): Promise<SidebarSubject[]> {
         where: eq(studentProfiles.id, user.studentProfileId),
       });
       if (profile && profile.semester != null) {
-        const semesterRoman = toRoman(profile.semester);
+        const variants = getSemesterVariants(profile.semester);
         return db
           .select({ id: subjects.id, name: subjects.name, slug: subjects.slug })
           .from(subjects)
-          .where(eq(subjects.semester, semesterRoman))
+          .where(variants.length > 0 ? inArray(subjects.semester, variants) : eq(subjects.semester, toRoman(profile.semester)))
           .orderBy(asc(subjects.name));
       }
     }

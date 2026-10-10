@@ -16,6 +16,7 @@ import { z } from "zod";
 import { and, asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { UTApi } from "uploadthing/server";
+import type { ActionResult } from "@/lib/types/action-result";
 
 const createResourceSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -88,7 +89,10 @@ export async function getChapterTreeAction(
   }
 }
 
-export async function createResourceAction(prevState: any, formData: FormData) {
+export async function createResourceAction(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
   const user = await requireAuth(["TEACHER", "ADMIN"]);
   let uploadedFileKey: string | undefined;
 

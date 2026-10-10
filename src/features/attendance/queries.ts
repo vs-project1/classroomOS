@@ -12,7 +12,7 @@ import {
 } from "@/db/schema";
 import { eq, desc, and, inArray, count, gte, lte, or, lt, asc } from "drizzle-orm";
 import { calculateAttendanceMetrics } from "@/features/attendance/calculations/attendance-projection";
-import { getSemesterVariants } from "@/lib/utils/roman";
+import { getSemesterVariants, toRoman, areSemestersEqual } from "@/lib/utils/roman";
 
 export interface StudentAttendanceResult {
   records: Array<{
@@ -104,7 +104,8 @@ export const getTeacherAttendanceSummary = cache(async function getTeacherAttend
     teacherSubjects = await db.query.subjects.findMany();
   }
 
-  const distinctSemesters = [...new Set(teacherSubjects.map((s) => s.semester))];
+  const distinctSemesters = [...new Set(teacherSubjects.map((s) => toRoman(s.semester)).filter(Boolean))] as string[];
+  const allVariants = distinctSemesters.flatMap((sem) => getSemesterVariants(sem));
 
   // NPT start of today
   const now = new Date();
@@ -116,25 +117,33 @@ export const getTeacherAttendanceSummary = cache(async function getTeacherAttend
   }).format(now);
   const todayStartNpt = new Date(`${ymd}T00:00:00Z`);
 
-  const semesterSummaries = await Promise.all(
-    distinctSemesters.map(async (semester) => {
-      const variants = getSemesterVariants(semester);
+  let semesterSummaries: Array<{
+    semester: string;
+    enrolledCount: number;
+    hasLoggedToday: boolean;
+    todaySessionLogged: boolean;
+    todaySessionId: string | null;
+    subjectsCount: number;
+  }> = [];
 
-      const [studentCountRow] = await db
-        .select({ value: count() })
+  if (allVariants.length > 0) {
+    const [allStudents, todaySessions] = await Promise.all([
+      db
+        .select({ semester: students.semester })
         .from(students)
-        .where(inArray(students.semester, variants));
-
-      const enrolledCount = Number(studentCountRow?.value ?? 0);
-
-      const todaySession = await db.query.dailySessions.findFirst({
+        .where(inArray(students.semester, allVariants)),
+      db.query.dailySessions.findMany({
         where: and(
-          inArray(dailySessions.semester, variants),
+          inArray(dailySessions.semester, allVariants),
           eq(dailySessions.date, todayStartNpt)
         ),
-      });
+      }),
+    ]);
 
-      const semesterSubjects = teacherSubjects.filter((s) => s.semester === semester);
+    semesterSummaries = distinctSemesters.map((semester) => {
+      const enrolledCount = allStudents.filter((st) => st.semester && areSemestersEqual(st.semester, semester)).length;
+      const todaySession = todaySessions.find((sess) => areSemestersEqual(sess.semester, semester));
+      const semesterSubjects = teacherSubjects.filter((s) => areSemestersEqual(s.semester, semester));
 
       return {
         semester,
@@ -144,10 +153,10 @@ export const getTeacherAttendanceSummary = cache(async function getTeacherAttend
         todaySessionId: todaySession?.id ?? null,
         subjectsCount: semesterSubjects.length,
       };
-    })
-  );
+    });
+  }
 
-  const teacherSemesterVariants = distinctSemesters.flatMap((sem) => getSemesterVariants(sem));
+  const teacherSemesterVariants = allVariants;
 
   let pendingDisputes: Array<{
     id: string;

@@ -1,10 +1,11 @@
-﻿"use server";
+"use server";
 
 import { db } from "@/db";
 import { dailySessions, dailyAttendance, students } from "@/db/schema";
 import { eq, and, asc, gte, lte, inArray } from "drizzle-orm";
 import NepaliDate from "nepali-datetime";
 import { requireAuth } from "@/lib/auth/session";
+import { getSemesterVariants } from "@/lib/utils/roman";
 
 export interface MonthlyAttendanceDay {
   dayNumber: number;
@@ -53,13 +54,15 @@ export async function getMonthlyAttendanceMatrixAction(
 ): Promise<MonthlyAttendanceMatrixResult> {
   await requireAuth(["CR", "ADMIN", "TEACHER"]);
 
+  const semVariants = getSemesterVariants(semester);
+
   // 1. Fetch all students for the semester
   const studentList = await db.select({
     id: students.id,
     name: students.name,
     rollNumber: students.rollNumber,
   }).from(students)
-    .where(eq(students.semester, semester))
+    .where(semVariants.length > 0 ? inArray(students.semester, semVariants) : eq(students.semester, semester))
     .orderBy(asc(students.rollNumber));
 
   // 2. Generate all days in the Nepali month
@@ -115,7 +118,7 @@ export async function getMonthlyAttendanceMatrixAction(
   const sessions = await db.select().from(dailySessions)
     .where(
       and(
-        eq(dailySessions.semester, semester),
+        semVariants.length > 0 ? inArray(dailySessions.semester, semVariants) : eq(dailySessions.semester, semester),
         gte(dailySessions.date, new Date(startEpoch * 1000)),
         lte(dailySessions.date, new Date(endEpoch * 1000))
       )

@@ -8,9 +8,11 @@ import { z } from "zod";
 import crypto from "crypto";
 import { and, eq, ne, gte, lte, inArray } from "drizzle-orm";
 import { parseAndNormalizeTime } from "@/lib/timezone";
+import { areSemestersEqual } from "@/lib/utils/roman";
 import { requireAuth } from "@/lib/auth/session";
 import { notifyMany } from "@/lib/notifications";
 import { markSemesterRoutineModified } from "@/features/telegram/actions/telegram-actions";
+import type { ActionResult } from "@/lib/types/action-result";
 
 const routineSchema = z.object({
   subjectId: z.string().min(1, "Subject is required"),
@@ -59,7 +61,7 @@ async function checkOverlap(
          return { reason: `The assigned teacher is already teaching ${r.subject.name}` };
       }
       // 3. Semester overlap
-      if (newSubject?.semester && r.subject?.semester && newSubject.semester === r.subject.semester) {
+      if (newSubject?.semester && r.subject?.semester && areSemestersEqual(newSubject.semester, r.subject.semester)) {
          return { reason: `Semester ${newSubject.semester} already has ${r.subject.name} scheduled at this time` };
       }
     }
@@ -194,7 +196,10 @@ async function syncSessionsForRoutine(params: {
   await notifyEnrolledStudents(subjectId, `Timetable updated: ${subject?.name ?? "A class"} on ${dayName} ${startTime}–${endTime}`, "/routine");
 }
 
-export async function saveRoutine(prevState: any, formData: FormData) {
+export async function saveRoutine(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
   const user = await requireAuth(["TEACHER", "ADMIN"]);
 
   const id = formData.get("id")?.toString();
@@ -307,7 +312,7 @@ export async function saveRoutine(prevState: any, formData: FormData) {
   revalidatePath("/admin/settings/telegram");
   revalidatePath("/");
   revalidatePath("/today");
-  const redirectTo = user.role === "ADMIN" ? "/admin/routine" : "/routine";
+  const redirectTo = user.role === "ADMIN" ? "/admin/routine" : user.role === "TEACHER" ? "/teacher/routine" : "/routine";
   redirect(redirectTo);
 }
 
@@ -388,7 +393,20 @@ export async function deleteRoutine(id: string) {
   } catch (error) {
     if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;
     console.error("Failed to delete routine:", error);
+    return {
+      success: false,
+      error: "Failed to delete routine.",
+      message: "Failed to delete routine.",
+    };
   }
-  const redirectTo = user.role === "ADMIN" ? "/admin/routine" : "/routine";
+  const redirectTo = user.role === "ADMIN" ? "/admin/routine" : user.role === "TEACHER" ? "/teacher/routine" : "/routine";
   redirect(redirectTo);
+}
+
+export async function deleteRoutineAction(
+  id: string,
+  prevState?: ActionResult | null,
+  formData?: FormData
+): Promise<ActionResult> {
+  return deleteRoutine(id);
 }

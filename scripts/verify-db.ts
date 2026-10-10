@@ -26,6 +26,8 @@ import {
   studyTasks,
   notifications,
   attendanceCorrectionRequests,
+  dailySessions,
+  dailyAttendance,
 } from "../src/db/schema";
 import { eq, sql } from "drizzle-orm";
 import crypto from "crypto";
@@ -121,6 +123,8 @@ async function verify() {
     noticeIds: new Set<string>(),
     eventIds: new Set<string>(),
     enrollmentIds: new Set<string>(),
+    dailyAttendanceIds: new Set<string>(),
+    dailySessionIds: new Set<string>(),
   };
 
   try {
@@ -152,6 +156,8 @@ async function verify() {
     const notifId = `${prefix}_notif_1`;
     const corrId = `${prefix}_corr_1`;
     const enrollId = `${prefix}_enr_1`;
+    const dailySessId = `${prefix}_dsess_1`;
+    const dailyAttId = `${prefix}_datt_1`;
 
     await runTest("Suite 1", "1.1 Insert Users & Student Profiles", async () => {
       await db.insert(users).values([
@@ -414,9 +420,25 @@ async function verify() {
       });
       cleanupBag.notificationIds.add(notifId);
 
+      await db.insert(dailySessions).values({
+        id: dailySessId,
+        date: new Date(),
+        semester: "IV",
+        markedBy: uAdminId,
+      });
+      cleanupBag.dailySessionIds.add(dailySessId);
+
+      await db.insert(dailyAttendance).values({
+        id: dailyAttId,
+        dailySessionId: dailySessId,
+        studentId: studentId,
+        status: "present",
+      });
+      cleanupBag.dailyAttendanceIds.add(dailyAttId);
+
       await db.insert(attendanceCorrectionRequests).values({
         id: corrId,
-        attendanceId: attId,
+        attendanceId: dailyAttId,
         studentId: studentId,
         requestedStatus: "present",
         reason: "I was present in the second row during Sunday morning lecture.",
@@ -424,8 +446,8 @@ async function verify() {
       });
       cleanupBag.correctionRequestIds.add(corrId);
 
-      const attQuery = await db.query.attendance.findFirst({
-        where: eq(attendance.id, attId),
+      const attQuery = await db.query.dailyAttendance.findFirst({
+        where: eq(dailyAttendance.id, dailyAttId),
         with: {
           correctionRequests: { with: { student: true } },
         },
@@ -812,22 +834,21 @@ async function verify() {
       const attCascId = `${prefix}_att_corr_casc`;
       const corrCascId = `${prefix}_corr_casc`;
 
-      await db.insert(classSessions).values({
+      await db.insert(dailySessions).values({
         id: sessCorrCascId,
-        subjectId: subjectId,
-        sessionDate: new Date(Date.now() + 3600000),
-        startTime: "13:00",
-        endTime: "14:00",
+        date: new Date(),
+        semester: "III",
+        markedBy: uAdminId,
       });
-      cleanupBag.sessionIds.add(sessCorrCascId);
+      cleanupBag.dailySessionIds.add(sessCorrCascId);
 
-      await db.insert(attendance).values({
+      await db.insert(dailyAttendance).values({
         id: attCascId,
-        classSessionId: sessCorrCascId,
+        dailySessionId: sessCorrCascId,
         studentId: studentId,
         status: "absent",
       });
-      cleanupBag.attendanceIds.add(attCascId);
+      cleanupBag.dailyAttendanceIds.add(attCascId);
 
       await db.insert(attendanceCorrectionRequests).values({
         id: corrCascId,
@@ -838,8 +859,8 @@ async function verify() {
       });
 
       // Delete Attendance
-      await db.delete(attendance).where(eq(attendance.id, attCascId));
-      cleanupBag.attendanceIds.delete(attCascId);
+      await db.delete(dailyAttendance).where(eq(dailyAttendance.id, attCascId));
+      cleanupBag.dailyAttendanceIds.delete(attCascId);
 
       const checkCorr = await db.select().from(attendanceCorrectionRequests).where(eq(attendanceCorrectionRequests.id, corrCascId));
       assert(checkCorr.length === 0, "attendanceCorrectionRequests not cascade deleted when Attendance was deleted");
@@ -909,23 +930,22 @@ async function verify() {
       });
       cleanupBag.resourceIds.add(resSetNullId);
 
-      // Session, Attendance & Correction Request with reviewedBy
-      await db.insert(classSessions).values({
+      // Daily Session, Daily Attendance & Correction Request with reviewedBy
+      await db.insert(dailySessions).values({
         id: sessTempId,
-        subjectId: sSetNullId,
-        sessionDate: new Date(),
-        startTime: "14:00",
-        endTime: "15:00",
+        date: new Date(),
+        semester: "II",
+        markedBy: uAdminId,
       });
-      cleanupBag.sessionIds.add(sessTempId);
+      cleanupBag.dailySessionIds.add(sessTempId);
 
-      await db.insert(attendance).values({
+      await db.insert(dailyAttendance).values({
         id: attTempId,
-        classSessionId: sessTempId,
+        dailySessionId: sessTempId,
         studentId: studentId,
         status: "excused",
       });
-      cleanupBag.attendanceIds.add(attTempId);
+      cleanupBag.dailyAttendanceIds.add(attTempId);
 
       await db.insert(attendanceCorrectionRequests).values({
         id: corrSetNullId,
@@ -1063,6 +1083,12 @@ async function verify() {
       }
       for (const id of cleanupBag.attendanceIds) {
         await db.delete(attendance).where(eq(attendance.id, id));
+      }
+      for (const id of cleanupBag.dailyAttendanceIds) {
+        await db.delete(dailyAttendance).where(eq(dailyAttendance.id, id));
+      }
+      for (const id of cleanupBag.dailySessionIds) {
+        await db.delete(dailySessions).where(eq(dailySessions.id, id));
       }
       for (const id of cleanupBag.logIds) {
         await db.delete(lectureLogs).where(eq(lectureLogs.id, id));

@@ -1,13 +1,10 @@
-import { db } from "@/db";
-import { weeklyRoutine, classSessions } from "@/db/schema";
-import { asc, eq, and, gte, lt } from "drizzle-orm";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { CheckCircle2, Clock, Play, ArrowLeft, ArrowRight, Calendar, Radio, ListTodo } from "lucide-react";
 import { formatTime12h } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { DayStripSelector } from "./day-strip-selector";
-import { getTodayDeadlines } from "./queries";
+import { getTodayDeadlines, getTodayClassSessions, getAllDayRoutines } from "./queries";
 import { getPermissions, requireAuth, resolveCurrentStudent } from "@/lib/auth";
 import { getNavBadges } from "@/lib/navigation/badges";
 import { TimelineRiver, type TimelineRiverSlot } from "@/components/timetable/timeline-river";
@@ -104,12 +101,7 @@ export default async function TodayPage({ searchParams }: Props) {
   const firstName = (user?.name ?? "").split(/\s+/)[0];
 
   const [loggedSessions, permissions, deadlines, navBadges] = await Promise.all([
-    db.query.classSessions.findMany({
-      where: and(
-        gte(classSessions.sessionDate, dayStart),
-        lt(classSessions.sessionDate, dayEnd)
-      ),
-    }),
+    getTodayClassSessions(dayStart, dayEnd),
     getPermissions(),
     getTodayDeadlines(),
     getNavBadges(),
@@ -141,15 +133,7 @@ export default async function TodayPage({ searchParams }: Props) {
   } else if (role === "TEACHER" && user.teacherId) {
     dayRoutines = await getTeacherTodaySchedule(user.teacherId, dayOfWeek);
   } else {
-    dayRoutines = await db.query.weeklyRoutine.findMany({
-      where: eq(weeklyRoutine.dayOfWeek, dayOfWeek),
-      orderBy: [asc(weeklyRoutine.startTime)],
-      with: {
-        subject: {
-          with: { teacher: true },
-        },
-      },
-    });
+    dayRoutines = await getAllDayRoutines(dayOfWeek);
   }
 
   const routinesWithStatus = dayRoutines.map((routine) => {

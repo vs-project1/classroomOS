@@ -13,8 +13,8 @@ import {
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/session";
 import { notify } from "@/lib/notifications";
-import { toRoman } from "@/lib/utils/roman";
-import { eq, and, or } from "drizzle-orm";
+import { toRoman, getSemesterVariants } from "@/lib/utils/roman";
+import { eq, and, or, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import crypto from "node:crypto";
@@ -120,27 +120,16 @@ export async function submitAttendanceCorrectionAction(
       });
 
       if (session) {
-        let semRoman = "I";
-        const numMatch = session.semester.match(/\d+/);
-        if (numMatch) {
-          semRoman = toRoman(parseInt(numMatch[0], 10));
-        } else {
-          const upper = session.semester.trim().toUpperCase();
-          if (/^(VIII|VII|VI|IV|V|III|II|I)$/.test(upper)) {
-            semRoman = upper;
-          }
-        }
-
+        const variants = getSemesterVariants(session.semester);
         const teacherUsers = await db
           .selectDistinct({ userId: users.id })
           .from(subjects)
           .innerJoin(teachers, eq(teachers.id, subjects.teacherId))
           .innerJoin(users, or(eq(users.id, teachers.userId), eq(users.email, teachers.email)))
           .where(
-            or(
-              eq(subjects.semester, semRoman),
-              eq(subjects.semester, session.semester)
-            )
+            variants.length > 0
+              ? inArray(subjects.semester, variants)
+              : eq(subjects.semester, session.semester)
           );
 
         for (const t of teacherUsers) {

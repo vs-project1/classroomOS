@@ -1,9 +1,11 @@
 import { requireAuth } from "@/lib/auth/session";
+import { resolveCurrentStudent } from "@/lib/auth";
 import { db } from "@/db";
 import { studentProfiles, students, teachers } from "@/db/schema";
 import { eq, asc, inArray } from "drizzle-orm";
 import { DailyAttendanceClient } from "./client-page";
 import { formatNepaliDate } from "@/lib/nepali-date";
+import { getSemesterVariants, toOrdinalSemester } from "@/lib/utils/roman";
 
 export default async function TakeDailyAttendancePage({
   searchParams,
@@ -18,8 +20,9 @@ export default async function TakeDailyAttendancePage({
     const crProfile = await db.query.studentProfiles.findFirst({
       where: eq(studentProfiles.userId, user.id),
     });
-    const semesterInt = crProfile?.semester || 1;
-    semesterStr = `${semesterInt}${semesterInt === 1 ? 'st' : semesterInt === 2 ? 'nd' : semesterInt === 3 ? 'rd' : 'th'} Semester`;
+    const student = !crProfile ? await resolveCurrentStudent() : null;
+    const semesterVal = crProfile?.semester ?? student?.semester ?? 1;
+    semesterStr = toOrdinalSemester(semesterVal);
   } else if (params.semester) {
     semesterStr = params.semester;
   } else if (user.role === "TEACHER" && user.teacherId) {
@@ -31,15 +34,14 @@ export default async function TakeDailyAttendancePage({
     semesterStr = "1st Semester";
   }
   
-  const shortSem = semesterStr.replace(/ Semester/i, "").trim();
-  const fullSem = shortSem.toLowerCase().includes("sem") ? shortSem : `${shortSem} Semester`;
+  const semVariants = getSemesterVariants(semesterStr);
 
   const roster = await db.select({
     id: students.id,
     name: students.name,
     rollNumber: students.rollNumber
   }).from(students)
-    .where(inArray(students.semester, [semesterStr, shortSem, fullSem]))
+    .where(semVariants.length > 0 ? inArray(students.semester, semVariants) : eq(students.semester, semesterStr))
     .orderBy(asc(students.rollNumber));
 
   const now = new Date();

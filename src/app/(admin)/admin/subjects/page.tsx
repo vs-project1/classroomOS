@@ -3,9 +3,10 @@ import { subjects, teachers } from "@/db/schema";
 import Link from "next/link";
 import { SubjectForm } from "@/features/subjects/components/subject-form";
 import { EditSubjectDialog } from "@/features/subjects/components/edit-subject-dialog";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { BookOpen, Search, ArrowRight, LibraryBig, BookCopy, Fingerprint, ArrowLeft } from "lucide-react";
 import { getPermissions } from "@/lib/auth";
+import { getSemesterVariants } from "@/lib/utils/roman";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function SubjectsPage({ searchParams }: Props) {
 
   const [allSubjects, allTeachers] = await Promise.all([
     db.query.subjects.findMany({
-      where: semester ? eq(subjects.semester, semester) : undefined,
+      where: semester ? inArray(subjects.semester, getSemesterVariants(semester)) : undefined,
       orderBy: [asc(subjects.name)],
       with: { teacher: true }
     }),

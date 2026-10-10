@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { classSessions, courseUnits, enrollments, studentProfiles, subjects } from "@/db/schema";
 import { desc, eq, inArray } from "drizzle-orm";
 import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
-import { toRoman } from "@/lib/utils/roman";
+import { toRoman, fromRoman, getSemesterVariants } from "@/lib/utils/roman";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,14 +49,30 @@ export default async function LectureLogsPage({ searchParams }: Props) {
       semestersBySubjectId.set(enrollment.subjectId, semesters);
     }
 
-    if (enrolledSubjectIds.length === 0 && user?.studentProfileId) {
-      const profile = await db.query.studentProfiles.findFirst({
-        where: eq(studentProfiles.id, user.studentProfileId),
-      });
-      if (profile && profile.semester != null) {
-        const semesterRoman = toRoman(profile.semester);
-        const mappedSubjects = await db.select({ id: subjects.id }).from(subjects).where(eq(subjects.semester, semesterRoman));
+    if (enrolledSubjectIds.length === 0) {
+      let semValue: string | number | null = null;
+      if (user?.studentProfileId) {
+        const profile = await db.query.studentProfiles.findFirst({
+          where: eq(studentProfiles.id, user.studentProfileId),
+        });
+        if (profile?.semester != null) semValue = profile.semester;
+      }
+      if (semValue == null && student.semester) {
+        semValue = student.semester;
+      }
+      if (semValue != null) {
+        const semInt = fromRoman(semValue);
+        const variants = getSemesterVariants(semValue);
+        const mappedSubjects = await db
+          .select({ id: subjects.id })
+          .from(subjects)
+          .where(variants.length > 0 ? inArray(subjects.semester, variants) : eq(subjects.semester, toRoman(semValue)));
         enrolledSubjectIds = mappedSubjects.map((s) => s.id);
+        for (const sid of enrolledSubjectIds) {
+          const sems = semestersBySubjectId.get(sid) ?? new Set<number>();
+          sems.add(semInt);
+          semestersBySubjectId.set(sid, sems);
+        }
       }
     }
   } else {
@@ -118,7 +134,7 @@ export default async function LectureLogsPage({ searchParams }: Props) {
 
   // Text search covers subject name and everything faculty logged.
   const needle = q.trim().toLowerCase();
-  const selectedSemester = /^\d+$/.test(semester) ? Number.parseInt(semester, 10) : null;
+  const selectedSemester = semester ? fromRoman(semester) : null;
   const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
   const hasFilters = Boolean(needle || subject || semester || date || unit);
 

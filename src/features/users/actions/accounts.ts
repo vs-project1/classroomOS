@@ -8,6 +8,7 @@ import { hashPassword, generateMemorablePassword } from "@/lib/auth/password";
 import { requireAuth, revokeUserSessions } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import crypto from "node:crypto";
+import { fromRoman, toOrdinalSemester, toRoman } from "@/lib/utils/roman";
 
 export type AccountActionState = {
   success: boolean;
@@ -21,53 +22,13 @@ export type AccountActionState = {
   };
 };
 
-function getOrdinalSuffix(n: number): string {
-  if (n === 1) return "st";
-  if (n === 2) return "nd";
-  if (n === 3) return "rd";
-  return "th";
-}
-
 function normalizeSemester(input: string | number | undefined): {
   intVal: number;
   strVal: string;
 } {
-  if (typeof input === "number") {
-    const clamped = Math.max(1, Math.min(8, Math.floor(input)));
-    return {
-      intVal: clamped,
-      strVal: `${clamped}${getOrdinalSuffix(clamped)} Semester`,
-    };
-  }
-  if (!input) return { intVal: 1, strVal: "1st Semester" };
-  const clean = input.toString().trim();
-  const digitMatch = clean.match(/(\d+)/);
-  if (digitMatch) {
-    const num = parseInt(digitMatch[1], 10);
-    const clamped = Math.max(1, Math.min(8, num));
-    return {
-      intVal: clamped,
-      strVal: `${clamped}${getOrdinalSuffix(clamped)} Semester`,
-    };
-  }
-  const romanMap: Record<string, number> = {
-    i: 1,
-    ii: 2,
-    iii: 3,
-    iv: 4,
-    v: 5,
-    vi: 6,
-    vii: 7,
-    viii: 8,
-  };
-  const romanVal = romanMap[clean.toLowerCase()];
-  if (romanVal) {
-    return {
-      intVal: romanVal,
-      strVal: `${romanVal}${getOrdinalSuffix(romanVal)} Semester`,
-    };
-  }
-  return { intVal: 1, strVal: "1st Semester" };
+  const intVal = fromRoman(input);
+  const strVal = toOrdinalSemester(input);
+  return { intVal, strVal };
 }
 
 const CreateAccountSchema = z
@@ -208,8 +169,8 @@ export async function createAccountAction(
               : ["BCA"],
           semesters:
             data.semesters && data.semesters.length > 0
-              ? data.semesters
-              : ["4th Semester"],
+              ? data.semesters.map(toRoman)
+              : ["IV"],
         });
       }
     });
@@ -411,8 +372,8 @@ export async function editUserAccountAction(
         .where(eq(users.id, userId));
       
       if (data.role === "STUDENT" || data.role === "CR") {
-        const studentSem = data.semester ? parseInt(data.semester, 10) : 1;
-        const ordinalSem = data.semester ? `${data.semester}${getOrdinalSuffix(parseInt(data.semester, 10))} Semester` : "1st Semester";
+        const studentSem = data.semester ? fromRoman(data.semester) : 1;
+        const ordinalSem = data.semester ? toOrdinalSemester(data.semester) : "1st Semester";
 
         await tx.update(studentProfiles)
           .set({ rollNumber: data.rollNumber || "", semester: studentSem, updatedAt: new Date() })

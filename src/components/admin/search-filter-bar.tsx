@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState, useEffect } from "react";
 import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
+import { areSemestersEqual } from "@/lib/utils/roman";
 
 export function SearchFilterBar() {
   const router = useRouter();
@@ -69,7 +70,7 @@ export function SearchFilterBar() {
         {SEMESTERS.map((sem) => (
           <Button
             key={sem}
-            variant={currentSemester === sem ? "secondary" : "ghost"}
+            variant={currentSemester && areSemestersEqual(currentSemester, sem) ? "secondary" : "ghost"}
             size="sm"
             className="rounded-full h-8 text-xs font-semibold whitespace-nowrap"
             onClick={() => updateQueryParams({ semester: sem })}

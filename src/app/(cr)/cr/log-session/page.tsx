@@ -5,8 +5,13 @@ import { SessionForm } from "@/features/sessions/components/session-form";
 import { asc, eq, inArray } from "drizzle-orm";
 import { toRoman } from "@/lib/utils/roman";
 
-export default async function LogSessionPage() {
+export default async function LogSessionPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const user = await requireAuth(["CR", "ADMIN", "TEACHER"]);
+  const params = searchParams ? await searchParams : undefined;
   
   let allSubjects: Array<typeof subjects.$inferSelect> = [];
   if (user.role === "ADMIN") {
@@ -62,6 +67,13 @@ export default async function LogSessionPage() {
         subjects={allSubjects}
         routineSlots={routineSlots}
         userRole={user.role as "ADMIN" | "TEACHER" | "CR"}
+        defaultValues={{
+          subjectId: typeof params?.subjectId === "string" ? params.subjectId : undefined,
+          startTime: typeof params?.startTime === "string" ? params.startTime : undefined,
+          endTime: typeof params?.endTime === "string" ? params.endTime : undefined,
+          routineId: typeof params?.routineId === "string" ? params.routineId : undefined,
+          sessionDate: typeof params?.sessionDate === "string" ? params.sessionDate : undefined,
+        }}
       />
     </div>
   );
