@@ -90,10 +90,11 @@ async function injectAuthSession(
     },
   ];
 
-  if ("studentProfileId" in persona && persona.studentProfileId) {
+  const studentId = ("studentId" in persona && (persona as any).studentId) || ("studentProfileId" in persona && (persona as any).studentProfileId);
+  if (studentId) {
     cookies.push({
       name: "DEMO_STUDENT_ID",
-      value: persona.studentProfileId,
+      value: String(studentId),
       domain: url.hostname,
       path: "/",
       httpOnly: false,

@@ -8,11 +8,10 @@ import {
   dailyAttendance,
   dailySessions,
 } from "@/db/schema";
-import { eq, and, inArray, count } from "drizzle-orm";
+import { eq, and, or, isNull, inArray, count } from "drizzle-orm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarRange, BookOpen, Clock, AlertCircle, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { getSemesterVariants } from "@/lib/utils/roman";
 
 export default async function TeacherDashboard() {
   const user = await requireAuth(["TEACHER"]);
@@ -28,18 +27,44 @@ export default async function TeacherDashboard() {
     );
   }
 
-  // Fetch assigned subjects
-  const assignedSubjects = await db
-    .select()
+  // Fetch assigned subjects (both directly assigned and via weekly routine timetable slots)
+  const directlyAssigned = await db
+    .select({
+      id: subjects.id,
+      name: subjects.name,
+      slug: subjects.slug,
+      code: subjects.code,
+      semester: subjects.semester,
+      teacherId: subjects.teacherId,
+      createdAt: subjects.createdAt,
+    })
     .from(subjects)
-    .where(eq(subjects.teacherId, user.teacherId));
+    .where(and(eq(subjects.teacherId, user.teacherId), eq(subjects.isActive, true)));
+
+  const routineSubjects = await db
+    .select({
+      id: subjects.id,
+      name: subjects.name,
+      slug: subjects.slug,
+      code: subjects.code,
+      semester: subjects.semester,
+      teacherId: subjects.teacherId,
+      createdAt: subjects.createdAt,
+    })
+    .from(weeklyRoutine)
+    .innerJoin(subjects, eq(weeklyRoutine.subjectId, subjects.id))
+    .where(and(eq(weeklyRoutine.teacherId, user.teacherId), eq(subjects.isActive, true)));
+
+  const allSubjectsMap = new Map<string, typeof directlyAssigned[0]>();
+  for (const s of directlyAssigned) allSubjectsMap.set(s.id, s);
+  for (const s of routineSubjects) allSubjectsMap.set(s.id, s);
+  const assignedSubjects = Array.from(allSubjectsMap.values());
 
   // Pending disputes: pending attendance correction requests for teacher's semesters
   const teacherSemesters = [...new Set(assignedSubjects.map((s) => s.semester))];
-  const teacherSemesterVariants = teacherSemesters.flatMap((sem) => getSemesterVariants(sem));
 
   let pendingDisputes = 0;
-  if (teacherSemesterVariants.length > 0 || user.role === "ADMIN") {
+  if (teacherSemesters.length > 0 || user.role === "ADMIN") {
     const [disputesRow] = await db
       .select({ value: count() })
       .from(attendanceCorrectionRequests)
@@ -48,7 +73,7 @@ export default async function TeacherDashboard() {
       .where(
         and(
           eq(attendanceCorrectionRequests.status, "pending"),
-          user.role === "ADMIN" ? undefined : inArray(dailySessions.semester, teacherSemesterVariants)
+          user.role === "ADMIN" ? undefined : inArray(dailySessions.semester, teacherSemesters)
         )
       );
     pendingDisputes = Number(disputesRow?.value ?? 0);
@@ -77,7 +102,13 @@ export default async function TeacherDashboard() {
     .where(
       and(
         eq(weeklyRoutine.dayOfWeek, dayOfWeek),
-        eq(subjects.teacherId, user.teacherId)
+        or(
+          eq(weeklyRoutine.teacherId, user.teacherId),
+          and(
+            isNull(weeklyRoutine.teacherId),
+            eq(subjects.teacherId, user.teacherId)
+          )
+        )
       )
     );
 

@@ -1,3 +1,5 @@
+import { toSemesterNumber } from "@/lib/semester";
+
 const ROMAN_NUMERALS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"] as const;
 
 const ROMAN_TO_INT: Record<string, number> = {
@@ -191,16 +193,5 @@ export function areSemestersEqual(
   b: string | number | null | undefined
 ): boolean {
   if (a === null || a === undefined || b === null || b === undefined) return false;
-  if (a === b) return true;
-
-  const numA = parseSemesterNumber(a);
-  const numB = parseSemesterNumber(b);
-
-  if (numA !== null && numB !== null) {
-    return numA === numB;
-  }
-
-  const aStr = String(a).trim().toUpperCase();
-  const bStr = String(b).trim().toUpperCase();
-  return aStr === bStr;
+  return toSemesterNumber(a) === toSemesterNumber(b);
 }

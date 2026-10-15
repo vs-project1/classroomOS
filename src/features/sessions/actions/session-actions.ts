@@ -1,13 +1,13 @@
 "use server";
 
 import { db } from "@/db";
-import { classSessions, lectureLogs, subjects, students, homework, enrollments, studentProfiles, weeklyRoutine } from "@/db/schema";
-import { toRoman, areSemestersEqual } from "@/lib/utils/roman";
+import { classSessions, lectureLogs, subjects, students, homework, enrollments, weeklyRoutine } from "@/db/schema";
+import { toSemesterNumber } from "@/lib/semester";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import crypto from "crypto";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { parseAndNormalizeTime } from "@/lib/timezone";
 import { requireAuth } from "@/lib/auth/session";
 import { resolveCurrentStudent } from "@/lib/auth";
@@ -100,15 +100,31 @@ async function getSubjectAccessError(
   user: SessionUser,
   subjectId: string,
   subjectTeacherId: string | null,
-  subjectSemester?: string | null
+  subjectSemester?: string | number | null
 ): Promise<string | null> {
   if (user.role === "ADMIN") {
     return null;
   }
 
   if (user.role === "TEACHER") {
-    if (user.teacherId && subjectTeacherId === user.teacherId) {
-      return null;
+    if (user.teacherId) {
+      if (subjectTeacherId === user.teacherId) {
+        return null;
+      }
+      const routineSlot = await db
+        .select({ id: weeklyRoutine.id })
+        .from(weeklyRoutine)
+        .where(
+          and(
+            eq(weeklyRoutine.teacherId, user.teacherId),
+            eq(weeklyRoutine.subjectId, subjectId)
+          )
+        )
+        .limit(1);
+
+      if (routineSlot.length > 0) {
+        return null;
+      }
     }
     return "You can only log sessions for subjects you teach.";
   }
@@ -126,7 +142,7 @@ async function getSubjectAccessError(
     if (enrolled.length > 0) {
       return null;
     }
-    if (student.semester && subjectSemester && areSemestersEqual(student.semester, subjectSemester)) {
+    if (student.semester != null && subjectSemester != null && toSemesterNumber(student.semester) === toSemesterNumber(subjectSemester)) {
       return null;
     }
     return "You are not enrolled in this subject.";
@@ -186,8 +202,14 @@ export async function createSession(prevState: SessionActionState, formData: For
       const sessionDay = new Date(sessionDate).getDay();
       const matchingRoutine = await db.query.weeklyRoutine.findFirst({
         where: and(
+          eq(weeklyRoutine.dayOfWeek, sessionDay),
           eq(weeklyRoutine.subjectId, subjectId),
-          eq(weeklyRoutine.dayOfWeek, sessionDay)
+          or(
+            user.teacherId ? eq(weeklyRoutine.teacherId, user.teacherId) : undefined,
+            user.teacherId && subjectRows[0].teacherId === user.teacherId
+              ? isNull(weeklyRoutine.teacherId)
+              : undefined
+          )
         ),
       });
       if (!matchingRoutine) {

@@ -25,6 +25,7 @@ export const TEST_PERSONAS = {
   },
   cr: {
     id: "usr_cr_001",
+    studentId: "std_cr_001",
     studentProfileId: "sp_cr_001",
     email: "cr@classroom.edu.np",
     password: "CrPassword123!",
@@ -38,6 +39,7 @@ export const TEST_PERSONAS = {
   },
   activeStudent: {
     id: "usr_student_001",
+    studentId: "std_student_001",
     studentProfileId: "sp_student_001",
     email: "student@classroom.edu.np",
     password: "StudentPassword123!",
@@ -51,6 +53,7 @@ export const TEST_PERSONAS = {
   },
   atRiskStudent: {
     id: "usr_atrisk_001",
+    studentId: "std_atrisk_001",
     studentProfileId: "sp_atrisk_001",
     email: "atrisk@classroom.edu.np",
     password: "AtriskPassword123!",
@@ -64,6 +67,7 @@ export const TEST_PERSONAS = {
   },
   newStudentQuarantined: {
     id: "usr_newstudent_001",
+    studentId: "std_newstudent_001",
     studentProfileId: "sp_newstudent_001",
     email: "newstudent@classroom.edu.np",
     password: "TempPassword123!",
@@ -77,6 +81,7 @@ export const TEST_PERSONAS = {
   },
   unauthorizedStudent: {
     id: "usr_unauthorized_001",
+    studentId: "std_unauthorized_001",
     studentProfileId: "sp_unauthorized_001",
     email: "unauthorized@classroom.edu.np",
     password: "StudentPassword123!",

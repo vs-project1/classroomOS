@@ -37,7 +37,6 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
           courseChapters: {
             orderBy: (chapters, { asc }) => [asc(chapters.order)],
             with: {
-              courseMaterials: true,
               resources: {
                 orderBy: (res, { desc }) => [desc(res.createdAt)],
               },
@@ -124,13 +123,13 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
                   {unit.resources.map((res) => (
                     <li key={res.id} className="group flex items-center gap-2.5 rounded-lg border bg-background/80 p-2.5 hover:bg-background transition-colors">
                       <div className="flex items-center justify-center w-6 h-6 rounded-md bg-muted border shrink-0">
-                        {getMaterialIcon(res.fileType)}
+                        {getMaterialIcon(res.fileType || "file")}
                       </div>
                       <a href={res.fileUrl} target="_blank" rel="noreferrer" className="text-xs font-medium text-foreground hover:underline truncate flex-1">
                         {res.title}
                       </a>
                       <span className="text-[10px] font-semibold text-muted-foreground uppercase shrink-0">
-                        {res.fileType}
+                        {res.fileType || "file"}
                       </span>
                     </li>
                   ))}
@@ -169,10 +168,12 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
                   </div>
                   
                   {(() => {
-                    const combinedMaterials = [
-                      ...chapter.courseMaterials.map((m) => ({ id: m.id, title: m.title, fileUrl: m.fileUrl, fileType: m.fileType })),
-                      ...chapter.resources.map((r) => ({ id: r.id, title: r.title, fileUrl: r.fileUrl, fileType: r.fileType })),
-                    ];
+                    const combinedMaterials = chapter.resources.map((r) => ({
+                      id: r.id,
+                      title: r.title,
+                      fileUrl: r.fileUrl,
+                      fileType: r.fileType || "file",
+                    }));
 
                     if (combinedMaterials.length === 0) {
                       return <p className="text-sm text-muted-foreground">No materials or resources added.</p>;

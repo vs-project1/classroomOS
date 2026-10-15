@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { subjects, weeklyRoutine } from "@/db/schema";
 import { SessionForm } from "@/features/sessions/components/session-form";
-import { asc, eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray, and, or, isNull } from "drizzle-orm";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -17,27 +17,61 @@ export default async function TeacherNewSessionPage({
   const user = await requireAuth(["TEACHER"]);
   const params = await searchParams;
 
-  const allSubjects = user.teacherId
-    ? await db.select().from(subjects).where(eq(subjects.teacherId, user.teacherId)).orderBy(asc(subjects.name))
-    : [];
-
-  const subjectIds = allSubjects.map((s) => s.id);
+  let allSubjects: Array<typeof subjects.$inferSelect> = [];
   let routineSlots: any[] = [];
-  if (subjectIds.length > 0) {
-    routineSlots = await db.query.weeklyRoutine.findMany({
-      where: inArray(weeklyRoutine.subjectId, subjectIds),
-      orderBy: [asc(weeklyRoutine.dayOfWeek), asc(weeklyRoutine.startTime)],
-      with: {
-        subject: {
-          columns: {
-            id: true,
-            name: true,
-            code: true,
-            semester: true,
+
+  if (user.teacherId) {
+    const directSubjects = await db
+      .select()
+      .from(subjects)
+      .where(and(eq(subjects.teacherId, user.teacherId), eq(subjects.isActive, true)));
+
+    const routineSubjects = await db
+      .select({
+        id: subjects.id,
+        name: subjects.name,
+        slug: subjects.slug,
+        code: subjects.code,
+        semester: subjects.semester,
+        teacherId: subjects.teacherId,
+        createdAt: subjects.createdAt,
+        isActive: subjects.isActive,
+      })
+      .from(weeklyRoutine)
+      .innerJoin(subjects, eq(weeklyRoutine.subjectId, subjects.id))
+      .where(and(eq(weeklyRoutine.teacherId, user.teacherId), eq(subjects.isActive, true)));
+
+    const subjectMap = new Map<string, typeof directSubjects[0]>();
+    for (const s of directSubjects) subjectMap.set(s.id, s);
+    for (const s of routineSubjects) subjectMap.set(s.id, s);
+    allSubjects = Array.from(subjectMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+    const subjectIds = allSubjects.map((s) => s.id);
+    const directSubjectIds = directSubjects.map((s) => s.id);
+    if (subjectIds.length > 0) {
+      routineSlots = await db.query.weeklyRoutine.findMany({
+        where: and(
+          inArray(weeklyRoutine.subjectId, subjectIds),
+          or(
+            eq(weeklyRoutine.teacherId, user.teacherId),
+            directSubjectIds.length > 0
+              ? and(isNull(weeklyRoutine.teacherId), inArray(weeklyRoutine.subjectId, directSubjectIds))
+              : undefined
+          )
+        ),
+        orderBy: [asc(weeklyRoutine.dayOfWeek), asc(weeklyRoutine.startTime)],
+        with: {
+          subject: {
+            columns: {
+              id: true,
+              name: true,
+              code: true,
+              semester: true,
+            },
           },
         },
-      },
-    });
+      });
+    }
   }
 
   if (allSubjects.length === 0) {

@@ -8,7 +8,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { and, eq, ne, gte, lte, inArray } from "drizzle-orm";
 import { parseAndNormalizeTime } from "@/lib/timezone";
-import { areSemestersEqual } from "@/lib/utils/roman";
+import { toSemesterNumber, toSemesterRoman, zSemester } from "@/lib/semester";
 import { requireAuth } from "@/lib/auth/session";
 import { notifyMany } from "@/lib/notifications";
 import { markSemesterRoutineModified } from "@/features/telegram/actions/telegram-actions";
@@ -17,7 +17,7 @@ import type { ActionResult } from "@/lib/types/action-result";
 const routineSchema = z.object({
   subjectId: z.string().optional().nullable(),
   teacherId: z.string().optional().nullable(),
-  semester: z.string().default("I"),
+  semester: z.preprocess((val) => toSemesterNumber(val as string | number), zSemester).default(1),
   section: z.string().default("A"),
   slotType: z.enum(["LECTURE", "LAB", "BREAK", "ECA", "LIBRARY"]).default("LECTURE"),
   customTitle: z.string().optional().nullable(),
@@ -43,7 +43,7 @@ export async function checkOverlap(
   dayOfWeek: number, 
   startTime: string, 
   endTime: string, 
-  semester: string,
+  semester: string | number,
   section: string = "A",
   subjectId?: string | null,
   room?: string,
@@ -61,6 +61,7 @@ export async function checkOverlap(
 
   const newSubject = subjectId ? await db.query.subjects.findFirst({ where: eq(subjects.id, subjectId) }) : null;
   const effectiveTeacherId = teacherId || newSubject?.teacherId || null;
+  const targetSemNum = toSemesterNumber(semester);
 
   for (const r of existingRoutines) {
     if (startTime < r.endTime && endTime > r.startTime) {
@@ -75,14 +76,14 @@ export async function checkOverlap(
       }
       // 3. Semester + section overlap:
       // Validates across ALL slot types (including BREAK, LAB, ECA with customTitle)
-      const existingSemester = r.semester || r.subject?.semester;
+      const existingSemester = r.semester ?? r.subject?.semester;
       if (
-        existingSemester &&
-        areSemestersEqual(semester, existingSemester) &&
+        existingSemester != null &&
+        existingSemester === targetSemNum &&
         (r.section?.trim().toUpperCase() === section?.trim().toUpperCase())
       ) {
          const slotName = r.subject?.name ?? r.customTitle ?? r.slotType ?? "another slot";
-         return { reason: `Semester ${semester} (Section ${section}) already has ${slotName} scheduled at this time` };
+         return { reason: `Semester ${toSemesterRoman(targetSemNum)} (Section ${section}) already has ${slotName} scheduled at this time` };
       }
     }
   }
@@ -252,10 +253,10 @@ export async function saveRoutine(
   const data = validatedFields.data;
 
   // Resolve effective semester: if subject is selected, match subject's semester
-  let effectiveSemester = data.semester;
+  let effectiveSemester: number = data.semester;
   if (data.subjectId) {
     const subject = await db.query.subjects.findFirst({ where: eq(subjects.id, data.subjectId) });
-    if (subject?.semester) {
+    if (subject?.semester != null) {
       effectiveSemester = subject.semester;
     }
   }
@@ -280,14 +281,14 @@ export async function saveRoutine(
   }
 
   // Track previous semester if editing
-  let previousSemester: string | null = null;
+  let previousSemester: number | null = null;
   if (id) {
     try {
       const existingRoutine = await db.query.weeklyRoutine.findFirst({
         where: eq(weeklyRoutine.id, id),
         with: { subject: true },
       });
-      previousSemester = existingRoutine?.semester || existingRoutine?.subject?.semester || null;
+      previousSemester = existingRoutine?.semester ?? existingRoutine?.subject?.semester ?? null;
     } catch {}
   }
 
@@ -363,7 +364,7 @@ export async function deleteRoutine(id: string) {
   const user = await requireAuth(["TEACHER", "ADMIN"]);
 
   // Capture routine for notification + session cleanup before delete
-  let routineForNotify: { subjectId: string | null; dayOfWeek: number; semester?: string | null } | null = null;
+  let routineForNotify: { subjectId: string | null; dayOfWeek: number; semester?: number | null } | null = null;
   try {
     const found = await db.query.weeklyRoutine.findFirst({
       where: eq(weeklyRoutine.id, id),
@@ -373,7 +374,7 @@ export async function deleteRoutine(id: string) {
       routineForNotify = {
         subjectId: found.subjectId,
         dayOfWeek: found.dayOfWeek,
-        semester: found.semester || found.subject?.semester || null,
+        semester: found.semester ?? found.subject?.semester ?? null,
       };
     }
   } catch {}

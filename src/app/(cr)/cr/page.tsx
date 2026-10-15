@@ -287,16 +287,21 @@ export default async function CRDashboard() {
                                   : "text-foreground"
                               )}
                             >
-                              {cls.subject.name}
+                              {cls.subject?.name || cls.customTitle || "Scheduled Slot"}
                             </h3>
                             {isCurrent && (
                               <span className="px-2.5 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-bold tracking-wider animate-pulse">
                                 NOW
                               </span>
                             )}
+                            {cls.slotType && cls.slotType !== "LECTURE" && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground uppercase">
+                                {cls.slotType}
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs font-medium text-muted-foreground flex items-center gap-2">
-                            {cls.subject.teacher?.name || "TBA"}
+                            {cls.teacher?.name || cls.subject?.teacher?.name || "TBA"}
                             {cls.room && (
                               <>
                                 <span className="opacity-40">&bull;</span>

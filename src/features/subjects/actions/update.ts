@@ -7,13 +7,14 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAuth } from "@/lib/auth";
 import { slugify, uniqueSlugify } from "@/utils/slug";
+import { toSemesterNumber } from "@/lib/semester";
 import type { SubjectActionState } from "./create";
 
 const UpdateSubjectSchema = z.object({
   id: z.string().min(1, "ID is required"),
   name: z.string().trim().min(1, "Name is required"),
   code: z.string().trim().min(1, "Code is required"),
-  semester: z.string().trim().min(1, "Semester is required"),
+  semester: z.preprocess((val) => toSemesterNumber(val as string | number), z.number().int().min(1).max(8)),
   teacherId: z.string().optional().or(z.literal("")),
 });
 

@@ -8,12 +8,13 @@ import {
   students,
   subjects,
   users,
+  weeklyRoutine,
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth/session";
 import { notify } from "@/lib/notifications";
-import { areSemestersEqual } from "@/lib/utils/roman";
+import { toSemesterNumber } from "@/lib/semester";
 import { z } from "zod";
 
 const ReviewSchema = z.object({
@@ -76,8 +77,16 @@ export async function reviewDisputeAction(
         .from(subjects)
         .where(eq(subjects.teacherId, user.teacherId));
 
-      const isTeacherOfSemester = teacherSubjects.some((sub) =>
-        areSemestersEqual(sub.semester, dailySession.semester)
+      const routineSubjects = await db
+        .select({ semester: subjects.semester })
+        .from(weeklyRoutine)
+        .innerJoin(subjects, eq(weeklyRoutine.subjectId, subjects.id))
+        .where(eq(weeklyRoutine.teacherId, user.teacherId));
+
+      const allTeacherSemesters = [...teacherSubjects, ...routineSubjects].map((s) => s.semester);
+
+      const isTeacherOfSemester = allTeacherSemesters.some(
+        (subSem) => toSemesterNumber(subSem) === toSemesterNumber(dailySession.semester)
       );
 
       if (!isTeacherOfSemester) {
@@ -127,16 +136,15 @@ export async function reviewDisputeAction(
       return { success: false, message: "This dispute has already been reviewed." };
     }
 
-    // Notify the requesting student of the outcome.
+    // Notify the requesting student of the outcome using unified students.userId
     try {
       const [recipient] = await db
-        .select({ userId: users.id })
+        .select({ userId: students.userId })
         .from(students)
-        .innerJoin(users, eq(users.email, students.email))
         .where(eq(students.id, dispute.studentId))
         .limit(1);
 
-      if (recipient) {
+      if (recipient?.userId) {
         await notify({
           userId: recipient.userId,
           type: "attendance",
@@ -154,7 +162,10 @@ export async function reviewDisputeAction(
     revalidatePath("/teacher/attendance");
     revalidatePath("/teacher/attendance/roster");
     revalidatePath("/attendance");
+    revalidatePath("/attendance/monthly");
+    revalidatePath("/cr/attendance");
     revalidatePath("/admin/attendance");
+    revalidatePath("/admin/attendance/monthly");
 
     return {
       success: true,

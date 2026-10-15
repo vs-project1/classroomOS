@@ -30,12 +30,16 @@ export type RoutineViewProps = {
     room?: string | null;
     notes?: string | null;
     teacherName?: string | null;
-    subject: {
+    customTitle?: string | null;
+    slotType?: string | null;
+    section?: string | null;
+    teacher?: { id?: string; name: string } | null;
+    subject?: {
       name: string;
       code: string;
-      semester?: string | null;
+      semester?: string | number | null;
       teacher?: { name: string } | null;
-    };
+    } | null;
   }[];
   todayIndex: number;
   nptTime: string;
@@ -88,15 +92,15 @@ export function RoutineView({
 
         return {
           id: r.id,
-          subjectName: r.subject.name,
-          subjectCode: r.subject.code,
+          subjectName: r.subject?.name || r.customTitle || "Scheduled Slot",
+          subjectCode: r.subject?.code || r.slotType || "",
           startTime: r.startTime,
           endTime: r.endTime,
           room: r.room,
-          teacherName: r.subject.teacher?.name || r.teacherName,
+          teacherName: r.teacher?.name || r.subject?.teacher?.name || r.teacherName || null,
           notes: r.notes,
           status,
-          semester: r.subject.semester,
+          semester: r.subject?.semester || null,
         };
       });
 

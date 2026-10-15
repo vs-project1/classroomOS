@@ -6,7 +6,6 @@ import {
   classSessions,
   homework,
   resources,
-  studentProfiles,
 } from "@/db/schema";
 import { eq, and, asc, desc } from "drizzle-orm";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -19,8 +18,8 @@ import { ContextHeader } from "@/components/shell/context-header";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { User, Calendar, ShieldAlert } from "lucide-react";
-import { toRoman, areSemestersEqual } from "@/lib/utils/roman";
 import { AddUnitDialog } from "@/features/subjects/components/add-unit-dialog";
+import { toSemesterNumber } from "@/lib/semester";
 import {
   OverviewTab,
   SyllabusTab,
@@ -60,7 +59,6 @@ function loadSubjectUnits(subjectId: string) {
       courseChapters: {
         orderBy: [asc(courseUnits.order)],
         with: {
-          courseMaterials: true,
           resources: {
             orderBy: (res, { desc }) => [desc(res.createdAt)],
           },
@@ -144,17 +142,8 @@ export default async function SubjectDetailPage({
 
     let isAllowedBySemester = false;
     if (!enrollment) {
-      let semVal: string | number | null = null;
-      if (user.studentProfileId) {
-        const profile = await db.query.studentProfiles.findFirst({
-          where: eq(studentProfiles.id, user.studentProfileId),
-        });
-        if (profile?.semester != null) semVal = profile.semester;
-      }
-      if (semVal == null && student?.semester) {
-        semVal = student.semester;
-      }
-      if (semVal != null && areSemestersEqual(subject.semester, semVal)) {
+      const semVal = student?.semester ?? null;
+      if (semVal != null && toSemesterNumber(subject.semester) === toSemesterNumber(semVal)) {
         isAllowedBySemester = true;
       }
     }
@@ -269,36 +258,40 @@ export default async function SubjectDetailPage({
         : 0;
   }
 
-  // Extract all materials for the Resources tab
-  const allMaterials = [
-    ...subjectResources.map((r) => ({
-      id: r.id,
-      title: r.title,
-      description:
-        r.description || "Course study material & reference document.",
-      fileUrl: r.fileUrl,
-      fileType: r.fileType,
-      fileSize: r.fileSize,
-      groupLabel: r.chapter
-        ? r.chapter.title
-        : r.unit
-          ? r.unit.title
-          : "General",
-    })),
-    ...units.flatMap((u) =>
-      u.courseChapters.flatMap((c) =>
-        c.courseMaterials.map((m) => ({
-          id: m.id,
-          title: m.title,
-          description: `Chapter resource: ${c.title}`,
-          fileUrl: m.fileUrl,
-          fileType: m.fileType,
-          fileSize: null,
-          groupLabel: c.title,
-        }))
-      )
-    ),
-  ];
+  // Extract all materials for the Resources tab (deduplicated by id)
+  const allMaterials = Array.from(
+    new Map(
+      [
+        ...subjectResources.map((r) => ({
+          id: r.id,
+          title: r.title,
+          description:
+            r.description || "Course study material & reference document.",
+          fileUrl: r.fileUrl,
+          fileType: r.fileType,
+          fileSize: r.fileSize,
+          groupLabel: r.chapter
+            ? r.chapter.title
+            : r.unit
+              ? r.unit.title
+              : "General",
+        })),
+        ...units.flatMap((u) =>
+          u.courseChapters.flatMap((c) =>
+            (c.resources ?? []).map((m) => ({
+              id: m.id,
+              title: m.title,
+              description: m.description || `Chapter resource: ${c.title}`,
+              fileUrl: m.fileUrl,
+              fileType: m.fileType,
+              fileSize: m.fileSize,
+              groupLabel: c.title,
+            }))
+          )
+        ),
+      ].map((item) => [item.id, item])
+    ).values()
+  );
 
   return (
     <div className="flex-1 space-y-6 max-w-6xl mx-auto w-full">

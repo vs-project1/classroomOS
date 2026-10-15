@@ -6,7 +6,6 @@ import {
   enrollments,
   subjects,
   users,
-  studentProfiles,
   students,
   teachers,
   files,
@@ -15,28 +14,17 @@ import {
   courseChapters,
   courseUnits,
 } from "@/db/schema";
+import { toSemesterNumber } from "@/lib/semester";
 
 /**
- * Resolve student.id(s) owned by a given users.id via studentProfiles -> students.
+ * Resolve student.id(s) owned by a given users.id.
  * Returns empty array if no link exists.
  */
 async function resolveStudentIds(userId: string): Promise<string[]> {
-  const profiles = await db.query.studentProfiles.findMany({
-    where: eq(studentProfiles.userId, userId),
+  const student = await db.query.students.findFirst({
+    where: eq(students.userId, userId),
   });
-
-  if (profiles.length === 0) return [];
-
-  const rollNumbers = profiles.map((p) => p.rollNumber);
-  // Fetch students matching those rollNumbers
-  const matched: string[] = [];
-  for (const rn of rollNumbers) {
-    const st = await db.query.students.findFirst({
-      where: eq(students.rollNumber, rn),
-    });
-    if (st) matched.push(st.id);
-  }
-  return matched;
+  return student ? [student.id] : [];
 }
 
 async function resolveTeacherId(userId: string): Promise<string | null> {
@@ -91,12 +79,11 @@ export async function assertCanRead(courseId: string, userId: string): Promise<v
 
   // Fallback to semester-level cohort matching for students/CRs
   if (user.role === "STUDENT" || user.role === "CR") {
-    const profile = await db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.userId, userId),
+    const student = await db.query.students.findFirst({
+      where: eq(students.userId, userId),
     });
-    if (profile && profile.semester != null && subject.semester) {
-      const { areSemestersEqual } = await import("@/lib/utils/roman");
-      if (areSemestersEqual(profile.semester, subject.semester)) {
+    if (student && student.semester != null && subject.semester != null) {
+      if (toSemesterNumber(student.semester) === toSemesterNumber(subject.semester)) {
         return;
       }
     }

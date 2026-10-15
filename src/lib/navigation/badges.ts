@@ -14,7 +14,6 @@ import {
   dailySessions,
 } from "@/db/schema";
 import { getCurrentUser, resolveCurrentStudent, type SessionUser } from "@/lib/auth";
-import { getSemesterVariants } from "@/lib/utils/roman";
 
 /**
  * Server-resolved navigation badge counts for the current session user.
@@ -94,9 +93,8 @@ async function getPendingDisputesBadge(user: SessionUser): Promise<NavBadges> {
     .where(eq(subjects.teacherId, user.teacherId));
 
   const teacherSemesters = [...new Set(assignedSubjects.map((s) => s.semester))];
-  const teacherSemesterVariants = teacherSemesters.flatMap((sem) => getSemesterVariants(sem));
 
-  if (teacherSemesterVariants.length === 0) return {};
+  if (teacherSemesters.length === 0) return {};
 
   const rows = await db
     .select({ value: count() })
@@ -106,7 +104,7 @@ async function getPendingDisputesBadge(user: SessionUser): Promise<NavBadges> {
     .where(
       and(
         eq(attendanceCorrectionRequests.status, "pending"),
-        inArray(dailySessions.semester, teacherSemesterVariants)
+        inArray(dailySessions.semester, teacherSemesters)
       )
     );
 

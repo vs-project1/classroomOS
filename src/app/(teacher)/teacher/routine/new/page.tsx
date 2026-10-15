@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { RoutineForm } from "@/features/routine/components/routine-form";
-import { asc } from "drizzle-orm";
-import { subjects } from "@/db/schema";
+import { asc, eq } from "drizzle-orm";
+import { subjects, teachers } from "@/db/schema";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -12,9 +12,15 @@ export const dynamic = "force-dynamic";
 export default async function TeacherNewRoutinePage() {
   await requireAuth(["TEACHER"]);
 
-  const allSubjects = await db.query.subjects.findMany({
-    orderBy: [asc(subjects.name)],
-  });
+  const [allSubjects, allTeachers] = await Promise.all([
+    db.query.subjects.findMany({
+      where: eq(subjects.isActive, true),
+      orderBy: [asc(subjects.name)],
+    }),
+    db.query.teachers.findMany({
+      orderBy: [asc(teachers.name)],
+    }),
+  ]);
 
   return (
     <div className="flex-1 space-y-6 max-w-4xl mx-auto w-full">
@@ -28,7 +34,7 @@ export default async function TeacherNewRoutinePage() {
         </div>
       </div>
       
-      <RoutineForm subjects={allSubjects} />
+      <RoutineForm subjects={allSubjects} teachers={allTeachers} />
     </div>
   );
 }

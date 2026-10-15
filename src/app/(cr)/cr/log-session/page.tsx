@@ -1,9 +1,9 @@
 import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
 import { db } from "@/db";
-import { subjects, enrollments, studentProfiles, weeklyRoutine } from "@/db/schema";
+import { subjects, enrollments, weeklyRoutine } from "@/db/schema";
 import { SessionForm } from "@/features/sessions/components/session-form";
-import { asc, eq, inArray } from "drizzle-orm";
-import { toRoman } from "@/lib/utils/roman";
+import { and, asc, eq, inArray } from "drizzle-orm";
+import { toSemesterNumber } from "@/lib/semester";
 
 export default async function LogSessionPage({
   searchParams,
@@ -15,24 +15,19 @@ export default async function LogSessionPage({
   
   let allSubjects: Array<typeof subjects.$inferSelect> = [];
   if (user.role === "ADMIN") {
-    allSubjects = await db.query.subjects.findMany({ orderBy: [asc(subjects.name)] });
+    allSubjects = await db.query.subjects.findMany({ where: eq(subjects.isActive, true), orderBy: [asc(subjects.name)] });
   } else if (user.role === "TEACHER" && user.teacherId) {
-    allSubjects = await db.select().from(subjects).where(eq(subjects.teacherId, user.teacherId)).orderBy(asc(subjects.name));
+    allSubjects = await db.select().from(subjects).where(and(eq(subjects.teacherId, user.teacherId), eq(subjects.isActive, true))).orderBy(asc(subjects.name));
   } else {
     const student = await resolveCurrentStudent();
     if (student) {
       const crEnrollments = await db.query.enrollments.findMany({ where: eq(enrollments.studentId, student.id) });
       const subjectIds = crEnrollments.map((e) => e.subjectId);
       if (subjectIds.length > 0) {
-        allSubjects = await db.select().from(subjects).where(inArray(subjects.id, subjectIds)).orderBy(asc(subjects.name));
-      } else if (user.studentProfileId) {
-        const profile = await db.query.studentProfiles.findFirst({
-          where: eq(studentProfiles.id, user.studentProfileId),
-        });
-        if (profile && profile.semester != null) {
-          const semesterRoman = toRoman(profile.semester);
-          allSubjects = await db.select().from(subjects).where(eq(subjects.semester, semesterRoman)).orderBy(asc(subjects.name));
-        }
+        allSubjects = await db.select().from(subjects).where(and(inArray(subjects.id, subjectIds), eq(subjects.isActive, true))).orderBy(asc(subjects.name));
+      } else if (student.semester != null) {
+        const semNum = toSemesterNumber(student.semester);
+        allSubjects = await db.select().from(subjects).where(and(eq(subjects.semester, semNum), eq(subjects.isActive, true))).orderBy(asc(subjects.name));
       }
     }
   }

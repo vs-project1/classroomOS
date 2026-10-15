@@ -32,7 +32,7 @@ export interface RoutineSlotInfo {
     id: string;
     name: string;
     code: string;
-    semester?: string | null;
+    semester?: string | number | null;
   };
 }
 
@@ -43,7 +43,7 @@ export interface MergedClassBlock {
     id: string;
     name: string;
     code: string;
-    semester?: string | null;
+    semester?: string | number | null;
   };
   startTime: string;
   endTime: string;

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { classSessions, subjects, lectureLogs } from "@/db/schema";
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
 import { formatTime12h } from "@/lib/timezone";
@@ -38,7 +38,7 @@ export default async function TeacherLectureLogsPage({ searchParams }: Props) {
 
   // Find all subjects taught by this teacher
   const assignedSubjects = await db.query.subjects.findMany({
-    where: eq(subjects.teacherId, user.teacherId),
+    where: and(eq(subjects.teacherId, user.teacherId), eq(subjects.isActive, true)),
     orderBy: subjects.name,
   });
 

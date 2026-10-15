@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { courseUnits, courseChapters, courseMaterials } from "@/db/schema";
+import { courseUnits, courseChapters, resources } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth/session";
 import { z } from "zod";
@@ -116,7 +116,7 @@ export async function addCourseMaterial(
   prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  await requireAuth(["TEACHER", "ADMIN"]);
+  const user = await requireAuth(["TEACHER", "ADMIN"]);
 
   const chapterId = formData.get("chapterId") as string;
   const validatedFields = MaterialSchema.safeParse({
@@ -133,12 +133,24 @@ export async function addCourseMaterial(
   }
 
   try {
-    await db.insert(courseMaterials).values({
+    const chapter = await db.query.courseChapters.findFirst({
+      where: (c, { eq }) => eq(c.id, chapterId),
+      with: { unit: true },
+    });
+
+    if (!chapter?.unit?.subjectId) {
+      return { success: false, message: "Associated subject not found for this chapter." };
+    }
+
+    await db.insert(resources).values({
       id: crypto.randomUUID(),
-      chapterId,
       title: validatedFields.data.title,
       fileUrl: validatedFields.data.fileUrl,
       fileType: validatedFields.data.fileType,
+      unitId: chapter.unitId,
+      chapterId,
+      subjectId: chapter.unit.subjectId,
+      uploadedBy: user.id,
     });
 
     revalidatePath("/subjects", "layout");

@@ -11,15 +11,12 @@ import {
   weeklyRoutine,
   classSessions,
   lectureLogs,
-  attendance,
   homework,
   notices,
   events,
   courseUnits,
   courseChapters,
-  courseMaterials,
   users,
-  studentProfiles,
   enrollments,
   assignmentSubmissions,
   resources,
@@ -86,6 +83,7 @@ async function runTest(
     stats.errors.push({ suite: suiteName, name: testName, error });
     console.error(`  ✗ [FAIL] ${testName}`);
     console.error(`     -> Error: ${error?.message || error}`);
+    if (error?.cause) console.error(`     -> Cause: ${error.cause?.message || error.cause}`);
   }
 }
 
@@ -101,21 +99,18 @@ async function verify() {
   // Track created IDs for guaranteed cleanup
   const cleanupBag = {
     userIds: new Set<string>(),
-    studentProfileIds: new Set<string>(),
     teacherIds: new Set<string>(),
     subjectIds: new Set<string>(),
     studentIds: new Set<string>(),
     routineIds: new Set<string>(),
     sessionIds: new Set<string>(),
     logIds: new Set<string>(),
-    attendanceIds: new Set<string>(),
     homeworkIds: new Set<string>(),
     submissionIds: new Set<string>(),
     examIds: new Set<string>(),
     examResultIds: new Set<string>(),
     unitIds: new Set<string>(),
     chapterIds: new Set<string>(),
-    materialIds: new Set<string>(),
     resourceIds: new Set<string>(),
     studyTaskIds: new Set<string>(),
     notificationIds: new Set<string>(),
@@ -128,6 +123,20 @@ async function verify() {
   };
 
   try {
+    // Clean up any stale test subjects and their dependents from prior abortive runs
+    const staleSubjects = await db.query.subjects.findMany({
+      where: sql`slug IN ('cascade-test-subject', 'set-null-subject') OR slug LIKE 'cascade-test-subject-%' OR slug LIKE 'set-null-subject-%'`,
+    });
+    for (const sub of staleSubjects) {
+      await db.delete(weeklyRoutine).where(eq(weeklyRoutine.subjectId, sub.id));
+      await db.delete(classSessions).where(eq(classSessions.subjectId, sub.id));
+      await db.delete(homework).where(eq(homework.subjectId, sub.id));
+      await db.delete(resources).where(eq(resources.subjectId, sub.id));
+      await db.delete(courseUnits).where(eq(courseUnits.subjectId, sub.id));
+      await db.delete(enrollments).where(eq(enrollments.subjectId, sub.id));
+      await db.delete(subjects).where(eq(subjects.id, sub.id));
+    }
+
     // -------------------------------------------------------------------------
     // SUITE 1: Full Schema Lifecycle & Relations (All 23 Tables)
     // -------------------------------------------------------------------------
@@ -188,25 +197,27 @@ async function verify() {
       ]);
       cleanupBag.userIds.add(uAdminId).add(uTeacherId).add(uStudentId);
 
-      await db.insert(studentProfiles).values({
-        id: profileId,
+      await db.insert(students).values({
+        id: studentId,
         userId: uStudentId,
+        name: "Aarav Sharma",
         rollNumber: `ROLL-${runId}-01`,
+        email: `${prefix}_aarav@classroom.os`,
         faculty: "BCA",
         semester: 4,
         section: "A",
         batchYear: 2024,
         phone: "9800000001",
       });
-      cleanupBag.studentProfileIds.add(profileId);
+      cleanupBag.studentIds.add(studentId);
 
       const insertedUser = await db.query.users.findFirst({
         where: eq(users.id, uStudentId),
-        with: { studentProfile: true },
+        with: { student: true },
       });
       assert(!!insertedUser, "User query returned null");
       assert(insertedUser?.role === "STUDENT", "User role mismatch");
-      assert(insertedUser?.studentProfile?.rollNumber === `ROLL-${runId}-01`, "Student profile relation mismatch");
+      assert(insertedUser?.student?.rollNumber === `ROLL-${runId}-01`, "Student relation mismatch");
     });
 
     await runTest("Suite 1", "1.2 Insert Teachers, Subjects, Students, Course Units & Chapters", async () => {
@@ -229,16 +240,6 @@ async function verify() {
       });
       cleanupBag.subjectIds.add(subjectId);
 
-      await db.insert(students).values({
-        id: studentId,
-        name: "Aarav Sharma",
-        rollNumber: `ROLL-${runId}-01`,
-        email: `${prefix}_aarav@classroom.os`,
-        faculty: "BCA",
-        semester: "4th Semester",
-      });
-      cleanupBag.studentIds.add(studentId);
-
       await db.insert(courseUnits).values({
         id: unitId,
         subjectId: subjectId,
@@ -255,14 +256,16 @@ async function verify() {
       });
       cleanupBag.chapterIds.add(chapterId);
 
-      await db.insert(courseMaterials).values({
+      await db.insert(resources).values({
         id: materialId,
         chapterId: chapterId,
+        unitId: unitId,
+        subjectId: subjectId,
         title: "BCNF Slides PDF",
         fileUrl: "https://files.classroom.os/bcnf.pdf",
         fileType: "pdf",
       });
-      cleanupBag.materialIds.add(materialId);
+      cleanupBag.resourceIds.add(materialId);
 
       const subjQuery = await db.query.subjects.findFirst({
         where: eq(subjects.id, subjectId),
@@ -271,24 +274,26 @@ async function verify() {
           courseUnits: {
             with: {
               courseChapters: {
-                with: { courseMaterials: true },
+                with: { resources: true },
               },
             },
           },
         },
       });
       assert(subjQuery?.teacher?.id === teacherId, "Subject -> Teacher relation mismatch");
-      assert(subjQuery?.courseUnits[0]?.courseChapters[0]?.courseMaterials[0]?.title === "BCNF Slides PDF", "Course hierarchy mismatch");
+      assert(subjQuery?.courseUnits[0]?.courseChapters[0]?.resources[0]?.title === "BCNF Slides PDF", "Course hierarchy mismatch");
     });
 
-    await runTest("Suite 1", "1.3 Insert Routine, Class Sessions, Lecture Logs & Attendance", async () => {
+    await runTest("Suite 1", "1.3 Insert Routine, Class Sessions & Lecture Logs", async () => {
       await db.insert(weeklyRoutine).values({
         id: routineId,
         subjectId: subjectId,
+        teacherId: teacherId,
+        section: "A",
+        slotType: "LECTURE",
         dayOfWeek: 1, // Sunday
         startTime: "07:00",
         endTime: "08:30",
-        teacherName: "Dr. Rajesh Shrestha",
         room: "Room 401",
       });
       cleanupBag.routineIds.add(routineId);
@@ -312,24 +317,14 @@ async function verify() {
       });
       cleanupBag.logIds.add(logId);
 
-      await db.insert(attendance).values({
-        id: attId,
-        classSessionId: sessionId,
-        studentId: studentId,
-        status: "present",
-      });
-      cleanupBag.attendanceIds.add(attId);
-
       const sessQuery = await db.query.classSessions.findFirst({
         where: eq(classSessions.id, sessionId),
         with: {
           subject: true,
           lectureLog: true,
-          attendance: { with: { student: true } },
         },
       });
       assert(sessQuery?.lectureLog?.topicsCovered === "Functional Dependencies & 3NF", "LectureLog mismatch");
-      assert(sessQuery?.attendance[0]?.student?.id === studentId, "Attendance student relation mismatch");
     });
 
     await runTest("Suite 1", "1.4 Insert Enrollments, Homework & Assignment Submissions", async () => {
@@ -393,7 +388,7 @@ async function verify() {
         fileUrl: "https://files.classroom.os/dbms-ref.pdf",
         fileType: "pdf",
         fileSize: 1048576,
-        uploadedBy: teacherId,
+        uploadedBy: uTeacherId,
       });
       cleanupBag.resourceIds.add(resourceId);
 
@@ -423,7 +418,7 @@ async function verify() {
       await db.insert(dailySessions).values({
         id: dailySessId,
         date: new Date(),
-        semester: "IV",
+        semester: 4,
         markedBy: uAdminId,
       });
       cleanupBag.dailySessionIds.add(dailySessId);
@@ -473,33 +468,35 @@ async function verify() {
       );
     });
 
-    await runTest("Suite 2", "2.2 Reject Out-of-Range Student Profile Semester (Semester 0 & 9)", async () => {
+    await runTest("Suite 2", "2.2 Reject Out-of-Range Student Semester (Semester 0 & 9)", async () => {
       await assertRejects(
         () =>
-          db.insert(studentProfiles).values({
+          db.insert(students).values({
             id: `${prefix}_inv_sem_0`,
             userId: uAdminId,
+            name: "Invalid Sem 0",
             rollNumber: `INV-ROLL-0`,
             faculty: "BCA",
             semester: 0,
             section: "A",
             batchYear: 2024,
           }),
-        "Student Profile Semester 0"
+        "Student Semester 0"
       );
 
       await assertRejects(
         () =>
-          db.insert(studentProfiles).values({
+          db.insert(students).values({
             id: `${prefix}_inv_sem_9`,
             userId: uAdminId,
+            name: "Invalid Sem 9",
             rollNumber: `INV-ROLL-9`,
             faculty: "BCA",
             semester: 9,
             section: "A",
             batchYear: 2024,
           }),
-        "Student Profile Semester 9"
+        "Student Semester 9"
       );
     });
 
@@ -599,35 +596,37 @@ async function verify() {
       );
     });
 
-    await runTest("Suite 3", "3.2 Reject Multiple Student Profiles for Same User (1:1)", async () => {
+    await runTest("Suite 3", "3.2 Reject Multiple Students for Same User (1:1)", async () => {
       await assertRejects(
         () =>
-          db.insert(studentProfiles).values({
-            id: `${prefix}_dup_user_prof`,
+          db.insert(students).values({
+            id: `${prefix}_dup_user_stud`,
             userId: uStudentId,
+            name: "Duplicate User Student",
             rollNumber: `ROLL-${runId}-99`,
             faculty: "BCA",
             semester: 4,
             section: "B",
             batchYear: 2024,
           }),
-        "Duplicate student profile for same userId"
+        "Duplicate student for same userId"
       );
     });
 
-    await runTest("Suite 3", "3.3 Reject Duplicate Student Profile Roll Number", async () => {
+    await runTest("Suite 3", "3.3 Reject Duplicate Student Roll Number", async () => {
       await assertRejects(
         () =>
-          db.insert(studentProfiles).values({
+          db.insert(students).values({
             id: `${prefix}_dup_roll`,
             userId: uAdminId,
+            name: "Duplicate Roll Student",
             rollNumber: `ROLL-${runId}-01`,
             faculty: "BCA",
             semester: 4,
             section: "A",
             batchYear: 2024,
           }),
-        "Duplicate student profile rollNumber"
+        "Duplicate student rollNumber"
       );
     });
 
@@ -657,16 +656,16 @@ async function verify() {
       );
     });
 
-    await runTest("Suite 3", "3.7 Reject Duplicate Attendance (classSessionId + studentId)", async () => {
+    await runTest("Suite 3", "3.7 Reject Duplicate Daily Attendance (dailySessionId + studentId)", async () => {
       await assertRejects(
         () =>
-          db.insert(attendance).values({
+          db.insert(dailyAttendance).values({
             id: `${prefix}_dup_att`,
-            classSessionId: sessionId,
+            dailySessionId: dailySessId,
             studentId: studentId,
             status: "absent",
           }),
-        "Duplicate attendance record for same session and student"
+        "Duplicate daily attendance record for same session and student"
       );
     });
 
@@ -675,9 +674,9 @@ async function verify() {
     // -------------------------------------------------------------------------
     console.log("\n⚡ SUITE 4: Foreign Key CASCADE Deletion Verification");
 
-    await runTest("Suite 4", "4.1 User Deletion Cascades to Student Profiles & Notifications", async () => {
+    await runTest("Suite 4", "4.1 User Deletion With Linked Student is Restricted & Cascades to Notifications", async () => {
       const uCascId = `${prefix}_u_casc`;
-      const pCascId = `${prefix}_p_casc`;
+      const sCascId = `${prefix}_s_casc`;
       const nCascId = `${prefix}_n_casc`;
 
       await db.insert(users).values({
@@ -688,9 +687,10 @@ async function verify() {
       });
       cleanupBag.userIds.add(uCascId);
 
-      await db.insert(studentProfiles).values({
-        id: pCascId,
+      await db.insert(students).values({
+        id: sCascId,
         userId: uCascId,
+        name: "Cascade Test Student",
         rollNumber: `ROLL-CASC-${runId}`,
         faculty: "BCA",
         semester: 2,
@@ -706,32 +706,37 @@ async function verify() {
         type: "system",
       });
 
-      // Delete User
+      // Deleting a user with a linked student MUST fail due to onDelete: "restrict"
+      await assertRejects(
+        () => db.delete(users).where(eq(users.id, uCascId)),
+        "Deleting user with linked student should be restricted"
+      );
+
+      // Explicitly delete student first, then deleting user cascades to notifications
+      await db.delete(students).where(eq(students.id, sCascId));
       await db.delete(users).where(eq(users.id, uCascId));
       cleanupBag.userIds.delete(uCascId);
 
-      const checkProf = await db.select().from(studentProfiles).where(eq(studentProfiles.id, pCascId));
       const checkNotif = await db.select().from(notifications).where(eq(notifications.id, nCascId));
-
-      assert(checkProf.length === 0, "Student Profile was not cascade deleted when User was deleted");
       assert(checkNotif.length === 0, "Notification was not cascade deleted when User was deleted");
     });
 
-    await runTest("Suite 4", "4.2 Subject Deletion Cascades to Routine, Sessions, Exams, Resources, Course Units & Enrollments", async () => {
+    await runTest("Suite 4", "4.2 Subject Deletion is Restricted When Dependent Rows Exist (P1 Restrict)", async () => {
       const sCascId = `${prefix}_s_casc`;
       const rCascId = `${prefix}_r_casc`;
       const sessCascId = `${prefix}_sess_casc`;
       const hwCascId = `${prefix}_hw_casc`;
       const eCascId = `${prefix}_e_casc`;
       const resCascId = `${prefix}_res_casc`;
-      const uCascId = `${prefix}_unit_casc`;
+      const uCascId = `${prefix}_u_casc`;
       const enrCascId = `${prefix}_enr_casc`;
 
       await db.insert(subjects).values({
         id: sCascId,
         name: "Cascade Test Subject",
-        slug: slugify("Cascade Test Subject"),
+        slug: slugify(`Cascade Test Subject ${runId}`),
         code: `CASC-${runId}`,
+        semester: 1,
       });
       cleanupBag.subjectIds.add(sCascId);
 
@@ -741,6 +746,7 @@ async function verify() {
         dayOfWeek: 2,
         startTime: "10:00",
         endTime: "11:00",
+        semester: 1,
       });
 
       await db.insert(classSessions).values({
@@ -781,23 +787,23 @@ async function verify() {
         semester: 4,
       });
 
-      // Delete Subject
+      // Deleting a subject with dependent rows MUST fail due to onDelete: "restrict" (P1)
+      await assertRejects(
+        () => db.delete(subjects).where(eq(subjects.id, sCascId)),
+        "Deleting subject with dependent rows should be restricted"
+      );
+
+      // Clean up children
+      await db.delete(weeklyRoutine).where(eq(weeklyRoutine.id, rCascId));
+      await db.delete(classSessions).where(eq(classSessions.id, sessCascId));
+      await db.delete(homework).where(eq(homework.id, hwCascId));
+      await db.delete(resources).where(eq(resources.id, resCascId));
+      await db.delete(courseUnits).where(eq(courseUnits.id, uCascId));
+      await db.delete(enrollments).where(eq(enrollments.id, enrCascId));
+
+      // Now deleting the subject succeeds
       await db.delete(subjects).where(eq(subjects.id, sCascId));
       cleanupBag.subjectIds.delete(sCascId);
-
-      const checkRout = await db.select().from(weeklyRoutine).where(eq(weeklyRoutine.id, rCascId));
-      const checkSess = await db.select().from(classSessions).where(eq(classSessions.id, sessCascId));
-      const checkHw = await db.select().from(homework).where(eq(homework.id, hwCascId));
-      const checkRes = await db.select().from(resources).where(eq(resources.id, resCascId));
-      const checkUnit = await db.select().from(courseUnits).where(eq(courseUnits.id, uCascId));
-      const checkEnr = await db.select().from(enrollments).where(eq(enrollments.id, enrCascId));
-
-      assert(checkRout.length === 0, "weeklyRoutine not cascade deleted");
-      assert(checkSess.length === 0, "classSessions not cascade deleted");
-      assert(checkHw.length === 0, "homework not cascade deleted");
-      assert(checkRes.length === 0, "resources not cascade deleted");
-      assert(checkUnit.length === 0, "courseUnits not cascade deleted");
-      assert(checkEnr.length === 0, "enrollments not cascade deleted");
     });
 
     await runTest("Suite 4", "4.4 Homework Deletion Cascades to Assignment Submissions", async () => {
@@ -837,7 +843,7 @@ async function verify() {
       await db.insert(dailySessions).values({
         id: sessCorrCascId,
         date: new Date(),
-        semester: "III",
+        semester: 3,
         markedBy: uAdminId,
       });
       cleanupBag.dailySessionIds.add(sessCorrCascId);
@@ -871,11 +877,11 @@ async function verify() {
     // -------------------------------------------------------------------------
     console.log("\n🔄 SUITE 5: Foreign Key SET NULL Verification");
 
-    await runTest("Suite 5", "5.1 Teacher Deletion SET NULL on Subject, Submission, Resource & Correction Request", async () => {
+    await runTest("Suite 5", "5.1 Teacher Deletion SET NULL on Subject, Submission, Routine & Correction Request", async () => {
       const tSetNullId = `${prefix}_t_setnull`;
       const sSetNullId = `${prefix}_s_setnull`;
       const subSetNullId = `${prefix}_sub_setnull`;
-      const resSetNullId = `${prefix}_res_setnull`;
+      const rtSetNullId = `${prefix}_rt_setnull`;
       const corrSetNullId = `${prefix}_corr_setnull`;
       const hwTempId = `${prefix}_hw_temp`;
       const sessTempId = `${prefix}_sess_temp`;
@@ -893,8 +899,9 @@ async function verify() {
       await db.insert(subjects).values({
         id: sSetNullId,
         name: "Set Null Subject",
-        slug: slugify("Set Null Subject"),
+        slug: slugify(`Set Null Subject ${runId}`),
         code: `SN-${runId}`,
+        semester: 1,
         teacherId: tSetNullId,
       });
       cleanupBag.subjectIds.add(sSetNullId);
@@ -919,22 +926,22 @@ async function verify() {
       });
       cleanupBag.submissionIds.add(subSetNullId);
 
-      // Resource with uploadedBy
-      await db.insert(resources).values({
-        id: resSetNullId,
+      // Weekly Routine with teacherId
+      await db.insert(weeklyRoutine).values({
+        id: rtSetNullId,
+        dayOfWeek: 1,
+        startTime: "07:00",
+        endTime: "07:50",
         subjectId: sSetNullId,
-        title: "Resource for SET NULL",
-        fileUrl: "https://files.com/doc.pdf",
-        fileType: "pdf",
-        uploadedBy: tSetNullId,
+        teacherId: tSetNullId,
       });
-      cleanupBag.resourceIds.add(resSetNullId);
+      cleanupBag.routineIds.add(rtSetNullId);
 
       // Daily Session, Daily Attendance & Correction Request with reviewedBy
       await db.insert(dailySessions).values({
         id: sessTempId,
         date: new Date(),
-        semester: "II",
+        semester: 2,
         markedBy: uAdminId,
       });
       cleanupBag.dailySessionIds.add(sessTempId);
@@ -964,12 +971,12 @@ async function verify() {
       // Assert references are set to NULL
       const [updatedSubj] = await db.select().from(subjects).where(eq(subjects.id, sSetNullId));
       const [updatedSub] = await db.select().from(assignmentSubmissions).where(eq(assignmentSubmissions.id, subSetNullId));
-      const [updatedRes] = await db.select().from(resources).where(eq(resources.id, resSetNullId));
+      const [updatedRt] = await db.select().from(weeklyRoutine).where(eq(weeklyRoutine.id, rtSetNullId));
       const [updatedCorr] = await db.select().from(attendanceCorrectionRequests).where(eq(attendanceCorrectionRequests.id, corrSetNullId));
 
       assert(updatedSubj?.teacherId === null, "Subject teacherId was not set to NULL upon teacher deletion");
       assert(updatedSub?.gradedBy === null, "Submission gradedBy was not set to NULL upon teacher deletion");
-      assert(updatedRes?.uploadedBy === null, "Resource uploadedBy was not set to NULL upon teacher deletion");
+      assert(updatedRt?.teacherId === null, "WeeklyRoutine teacherId was not set to NULL upon teacher deletion");
       assert(updatedCorr?.reviewedBy === null, "Correction Request reviewedBy was not set to NULL upon teacher deletion");
     });
 
@@ -1032,9 +1039,9 @@ async function verify() {
           });
 
           // Deliberate constraint violation: Non-existent student ID
-          await tx.insert(attendance).values({
+          await tx.insert(dailyAttendance).values({
             id: `${prefix}_tx_att_fail`,
-            classSessionId: txSessionId,
+            dailySessionId: dailySessId,
             studentId: "non_existent_student_99999",
             status: "present",
           });
@@ -1081,9 +1088,6 @@ async function verify() {
       for (const id of cleanupBag.homeworkIds) {
         await db.delete(homework).where(eq(homework.id, id));
       }
-      for (const id of cleanupBag.attendanceIds) {
-        await db.delete(attendance).where(eq(attendance.id, id));
-      }
       for (const id of cleanupBag.dailyAttendanceIds) {
         await db.delete(dailyAttendance).where(eq(dailyAttendance.id, id));
       }
@@ -1099,9 +1103,6 @@ async function verify() {
       for (const id of cleanupBag.routineIds) {
         await db.delete(weeklyRoutine).where(eq(weeklyRoutine.id, id));
       }
-      for (const id of cleanupBag.materialIds) {
-        await db.delete(courseMaterials).where(eq(courseMaterials.id, id));
-      }
       for (const id of cleanupBag.chapterIds) {
         await db.delete(courseChapters).where(eq(courseChapters.id, id));
       }
@@ -1111,17 +1112,14 @@ async function verify() {
       for (const id of cleanupBag.subjectIds) {
         await db.delete(subjects).where(eq(subjects.id, id));
       }
-      for (const id of cleanupBag.studentProfileIds) {
-        await db.delete(studentProfiles).where(eq(studentProfiles.id, id));
-      }
-      for (const id of cleanupBag.userIds) {
-        await db.delete(users).where(eq(users.id, id));
-      }
       for (const id of cleanupBag.studentIds) {
         await db.delete(students).where(eq(students.id, id));
       }
       for (const id of cleanupBag.teacherIds) {
         await db.delete(teachers).where(eq(teachers.id, id));
+      }
+      for (const id of cleanupBag.userIds) {
+        await db.delete(users).where(eq(users.id, id));
       }
       console.log("  ✓ All test artifacts cleanly purged from database.");
     } catch (cleanupError) {

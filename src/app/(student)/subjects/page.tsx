@@ -1,10 +1,9 @@
 import { db } from "@/db";
 import { enrollments, subjects, homework, resources, courseUnits } from "@/db/schema";
-import { eq, inArray } from "drizzle-orm";
-import { resolveCurrentStudent, requireAuth } from "@/lib/auth";
+import { and, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
-import { toRoman, getSemesterVariants } from "@/lib/utils/roman";
-import { studentProfiles } from "@/db/schema";
+import { resolveCurrentStudent, requireAuth } from "@/lib/auth";
+import { toSemesterNumber } from "@/lib/semester";
 import { BookOpen, User, ArrowRight, Layers } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -25,13 +24,6 @@ export default async function SubjectsPage() {
   }> = [];
 
   if (student) {
-    let profile = null;
-    if (user.studentProfileId) {
-      profile = await db.query.studentProfiles.findFirst({
-        where: eq(studentProfiles.id, user.studentProfileId),
-      });
-    }
-
     // 1. Try querying explicit student enrollments
     const userEnrollments = await db.query.enrollments.findMany({
       where: eq(enrollments.studentId, student.id),
@@ -49,7 +41,7 @@ export default async function SubjectsPage() {
 
     if (userEnrollments.length > 0) {
       enrolledSubjects = userEnrollments
-        .filter((e) => e.subject != null)
+        .filter((e) => e.subject != null && e.subject.isActive)
         .map((e) => ({
           id: e.subject.id,
           name: e.subject.name,
@@ -61,12 +53,12 @@ export default async function SubjectsPage() {
           resourceCount: e.subject.resources?.length || 0,
         }));
     } else {
-      // 2. Dynamic Fallback: fetch subjects matching the student's semester
-      const semValue = profile?.semester ?? student.semester ?? null;
+      // 2. Dynamic Fallback: fetch active subjects matching the student's semester
+      const semValue = student.semester ?? null;
       if (semValue != null) {
-        const variants = getSemesterVariants(semValue);
+        const semNum = toSemesterNumber(semValue);
         const semesterSubjects = await db.query.subjects.findMany({
-          where: variants.length > 0 ? inArray(subjects.semester, variants) : eq(subjects.semester, toRoman(semValue)),
+          where: and(eq(subjects.semester, semNum), eq(subjects.isActive, true)),
           with: {
             teacher: true,
             courseUnits: true,
@@ -99,6 +91,7 @@ export default async function SubjectsPage() {
     (user.role === "TEACHER" || user.role === "ADMIN")
   ) {
     const allSubjects = await db.query.subjects.findMany({
+      where: eq(subjects.isActive, true),
       with: {
         teacher: true,
         courseUnits: true,

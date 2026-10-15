@@ -10,7 +10,7 @@ async function main() {
 
   console.log("🧪 Testing atomic deduplication unique constraint on telegram_broadcast_logs...");
   const testDate = "2099-01-01";
-  const testSemester = "Test Sem";
+  const testSemester = 8;
   const testType = "morning_brief";
 
   // Clean up any test records

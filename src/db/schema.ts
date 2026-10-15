@@ -28,15 +28,20 @@ export const subjects = sqliteTable("subjects", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   code: text("code").notNull().unique(),
-  semester: text("semester").notNull().default("I"), // Added semester field for filtering
+  semester: integer("semester").notNull().default(1),
   teacherId: text("teacher_id")
     .references(() => teachers.id, { onDelete: "set null" }),
+  isActive: integer("is_active", { mode: "boolean" })
+    .notNull()
+    .default(true),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
 }, (table) => [
   index("idx_subjects_semester").on(table.semester),
   index("idx_subjects_teacher_id").on(table.teacherId),
+  index("idx_subjects_is_active").on(table.isActive),
+  check("chk_subjects_semester", sql`${table.semester} BETWEEN 1 AND 8`),
 ]);
 
 export const students = sqliteTable("students", {
@@ -67,8 +72,8 @@ export const students = sqliteTable("students", {
 export const weeklyRoutine = sqliteTable("weekly_routine", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id")
-    .references(() => subjects.id, { onDelete: "cascade" }),
-  semester: text("semester").notNull().default("I"),
+    .references(() => subjects.id, { onDelete: "restrict" }),
+  semester: integer("semester").notNull().default(1),
   slotType: text("slot_type").notNull().default("LECTURE"),
   customTitle: text("custom_title"),
   section: text("section").notNull().default("A"),
@@ -95,13 +100,14 @@ export const weeklyRoutine = sqliteTable("weekly_routine", {
   check("chk_weekly_routine_day", sql`${table.dayOfWeek} BETWEEN 0 AND 6`),
   check("chk_weekly_routine_time", sql`${table.startTime} < ${table.endTime}`),
   check("chk_weekly_routine_type", sql`${table.slotType} IN ('LECTURE', 'LAB', 'BREAK', 'ECA', 'LIBRARY')`),
+  check("chk_weekly_routine_semester", sql`${table.semester} BETWEEN 1 AND 8`),
 ]);
 
 export const classSessions = sqliteTable("class_sessions", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id")
     .notNull()
-    .references(() => subjects.id, { onDelete: "cascade" }),
+    .references(() => subjects.id, { onDelete: "restrict" }),
   routineId: text("routine_id")
     .references(() => weeklyRoutine.id, { onDelete: "set null" }),
   sessionDate: integer("session_date", { mode: "timestamp" }).notNull(),
@@ -142,7 +148,7 @@ export const homework = sqliteTable("homework", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id")
     .notNull()
-    .references(() => subjects.id, { onDelete: "cascade" }),
+    .references(() => subjects.id, { onDelete: "restrict" }),
   title: text("title").notNull(),
   description: text("description").notNull(),
   assignedDate: integer("assigned_date", { mode: "timestamp" }).notNull(),
@@ -214,7 +220,7 @@ export const courseUnits = sqliteTable("course_units", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id")
     .notNull()
-    .references(() => subjects.id, { onDelete: "cascade" }),
+    .references(() => subjects.id, { onDelete: "restrict" }),
   title: text("title").notNull(),
   order: integer("order").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" })
@@ -278,7 +284,7 @@ export const enrollments = sqliteTable("enrollments", {
     .references(() => students.id, { onDelete: "cascade" }),
   subjectId: text("subject_id")
     .notNull()
-    .references(() => subjects.id, { onDelete: "cascade" }),
+    .references(() => subjects.id, { onDelete: "restrict" }),
   semester: integer("semester").notNull(),
   enrolledAt: integer("enrolled_at", { mode: "timestamp" })
     .notNull()
@@ -332,7 +338,7 @@ export const exams = sqliteTable("exams", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id")
     .notNull()
-    .references(() => subjects.id, { onDelete: "cascade" }),
+    .references(() => subjects.id, { onDelete: "restrict" }),
   title: text("title").notNull(),
   examType: text("exam_type").notNull(), // 'unit_test' | 'midterm' | 'pre_board' | 'practical' | 'final'
   totalMarks: integer("total_marks").notNull(),
@@ -539,7 +545,7 @@ export const subjectGradeWeights = sqliteTable("subject_grade_weights", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id")
     .notNull()
-    .references(() => subjects.id, { onDelete: "cascade" }),
+    .references(() => subjects.id, { onDelete: "restrict" }),
   category: text("category").notNull(), // reuses exams.examType values
   weightPct: integer("weight_pct").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" })
@@ -915,7 +921,7 @@ export type NewSubjectGradeWeight = typeof subjectGradeWeights.$inferInsert;
 export const dailySessions = sqliteTable("daily_sessions", {
   id: text("id").primaryKey(),
   date: integer("date", { mode: "timestamp" }).notNull(),
-  semester: text("semester").notNull(),
+  semester: integer("semester").notNull().default(1),
   section: text("section").notNull().default("A"),
   markedBy: text("marked_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
@@ -923,6 +929,7 @@ export const dailySessions = sqliteTable("daily_sessions", {
   unique("unq_daily_session_date_sem_sec").on(table.date, table.semester, table.section),
   index("idx_daily_sessions_semester_date").on(table.semester, table.date),
   index("idx_daily_sessions_marked_by").on(table.markedBy),
+  check("chk_daily_sessions_semester", sql`${table.semester} BETWEEN 1 AND 8`),
 ]);
 
 export const dailyAttendance = sqliteTable("daily_attendance", {
@@ -975,7 +982,7 @@ export const telegramSettings = sqliteTable("telegram_settings", {
 
 export const semesterTelegramConfigs = sqliteTable("semester_telegram_configs", {
   id: text("id").primaryKey(),
-  semester: text("semester").notNull(), // Roman numeral: "I" through "VIII"
+  semester: integer("semester").notNull().default(1),
   section: text("section").notNull().default("A"),
   chatId: text("chat_id").notNull(),
   messageThreadId: integer("message_thread_id"), // Optional forum topic thread ID
@@ -989,11 +996,12 @@ export const semesterTelegramConfigs = sqliteTable("semester_telegram_configs", 
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
   unique("unq_semester_telegram_configs_sem_sec").on(table.semester, table.section),
+  check("chk_semester_telegram_configs_semester", sql`${table.semester} BETWEEN 1 AND 8`),
 ]);
 
 export const telegramBroadcastLogs = sqliteTable("telegram_broadcast_logs", {
   id: text("id").primaryKey(),
-  semester: text("semester").notNull(),
+  semester: integer("semester").notNull().default(1),
   type: text("type").notNull(), // 'routine_broadcast' | 'notice_broadcast' | 'morning_brief' | 'evening_brief' | 'test_message'
   date: text("date"), // ISO date string "YYYY-MM-DD" for daily briefs, null for ad-hoc broadcasts
   messageText: text("message_text").notNull(),
@@ -1006,6 +1014,7 @@ export const telegramBroadcastLogs = sqliteTable("telegram_broadcast_logs", {
   index("idx_telegram_broadcast_logs_semester").on(table.semester),
   index("idx_telegram_broadcast_logs_sent_by").on(table.sentByUserId),
   uniqueIndex("idx_telegram_broadcast_logs_dedup").on(table.semester, table.type, table.date),
+  check("chk_telegram_broadcast_logs_semester", sql`${table.semester} BETWEEN 1 AND 8`),
 ]);
 
 export const telegramBroadcastLogsRelations = relations(telegramBroadcastLogs, ({ one }) => ({

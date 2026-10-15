@@ -10,6 +10,7 @@ import {
   sendTestTelegramMessageAction,
   type ActionResult,
 } from "../actions/telegram-actions";
+import { toSemesterRoman } from "@/lib/semester";
 import type { SemesterTelegramConfig } from "@/db/schema";
 
 const ALL_SEMESTERS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"] as const;
@@ -25,7 +26,7 @@ export function SemesterConfigsTable({ configs, hasBotConfigured }: SemesterConf
 
   // Map existing configs by semester
   const configMap = new Map<string, SemesterTelegramConfig>();
-  configs.forEach((c) => configMap.set(c.semester, c));
+  configs.forEach((c) => configMap.set(toSemesterRoman(c.semester), c));
 
   return (
     <Card className="rounded-2xl border border-border bg-card shadow-xs overflow-hidden">

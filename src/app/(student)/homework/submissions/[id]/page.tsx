@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { assignmentSubmissions, studentProfiles, students } from "@/db/schema";
+import { assignmentSubmissions, students } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getCurrentUser, requireAuth } from "@/lib/auth";
 import { notFound } from "next/navigation";
@@ -7,6 +7,7 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Breadcrumbs } from "@/components/shell/breadcrumbs";
 import { ShieldAlert, FileText, ArrowLeft, CheckCircle2, Award } from "lucide-react";
+import { DriveSubmissionPreview } from "@/features/assignments/components/drive-submission-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -37,23 +38,19 @@ export default async function SubmissionDetailPage({ params }: Props) {
 
   // Strict ownership check for student role
   if (user.role === "STUDENT" || user.role === "CR") {
-    let studentId: string | null = null;
-    if (user.studentProfileId) {
-      const profile = await db.query.studentProfiles.findFirst({
-        where: eq(studentProfiles.id, user.studentProfileId),
-      });
-      if (profile) {
-        const std = await db.query.students.findFirst({
-          where: eq(students.rollNumber, profile.rollNumber),
-        });
-        if (std) studentId = std.id;
-      }
-    }
-    if (!studentId && user.email) {
+    let studentId: string | null = user.studentId ?? null;
+    if (!studentId) {
       const std = await db.query.students.findFirst({
-        where: eq(students.email, user.email),
+        where: eq(students.userId, user.id),
       });
-      if (std) studentId = std.id;
+      if (std) {
+        studentId = std.id;
+      } else if (user.email) {
+        const byEmail = await db.query.students.findFirst({
+          where: eq(students.email, user.email),
+        });
+        if (byEmail) studentId = byEmail.id;
+      }
     }
 
     if (submission.studentId !== studentId) {
@@ -180,22 +177,23 @@ export default async function SubmissionDetailPage({ params }: Props) {
           </div>
         )}
 
-        {submission.fileName && (
+        {submission.fileUrl ? (
+          <div className="space-y-2 pt-2">
+            <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+              Submitted Deliverable / Attachment
+            </h3>
+            <DriveSubmissionPreview
+              fileUrl={submission.fileUrl}
+              fileName={submission.fileName}
+              title={submission.homework.title}
+            />
+          </div>
+        ) : submission.fileName ? (
           <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/10 text-xs">
             <FileText className="w-4 h-4 text-primary" />
             <span className="font-medium text-foreground">{submission.fileName}</span>
-            {submission.fileUrl && (
-              <a
-                href={submission.fileUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="ml-auto text-primary hover:underline font-semibold"
-              >
-                Download Attachment
-              </a>
-            )}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

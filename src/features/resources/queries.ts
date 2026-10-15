@@ -5,14 +5,13 @@ import {
   courseUnits,
   enrollments,
   resources,
-  studentProfiles,
   students,
   subjects,
   teachers,
   users,
 } from "@/db/schema";
 import { resolveCurrentStudent } from "@/lib/auth";
-import { toRoman, getSemesterVariants } from "@/lib/utils/roman";
+import { toSemesterNumber } from "@/lib/semester";
 import { and, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 
 export type ResourceWithDetails = {
@@ -37,60 +36,30 @@ export type ResourceWithDetails = {
 };
 
 const getStudentAccessibleSubjectIds = cache(async (studentId: string): Promise<string[]> => {
-  // 1. Check direct enrollments
+  // 1. Direct enrollments
   const enrolledRows = await db
     .select({ subjectId: enrollments.subjectId })
     .from(enrollments)
     .where(eq(enrollments.studentId, studentId));
+  const enrolledSubjectIds = enrolledRows.map((r) => r.subjectId);
 
-  if (enrolledRows.length > 0) {
-    return enrolledRows.map((r) => r.subjectId);
-  }
-
-  // 2. Fallback to student profile semester
+  // 2. Cohort subjects matching student's semester
   const student = await db.query.students.findFirst({
     where: eq(students.id, studentId),
   });
 
-  if (student) {
-    // Check if user has studentProfile
-    const user = await db.query.users.findFirst({
-      where: eq(users.email, student.email ?? ""),
-    });
-
-    if (user) {
-      const profile = await db.query.studentProfiles.findFirst({
-        where: eq(studentProfiles.userId, user.id),
-      });
-      if (profile?.semester != null) {
-        const variants = getSemesterVariants(profile.semester);
-        const semesterSubjects = await db
-          .select({ id: subjects.id })
-          .from(subjects)
-          .where(variants.length > 0 ? inArray(subjects.semester, variants) : eq(subjects.semester, toRoman(profile.semester)));
-        if (semesterSubjects.length > 0) {
-          return semesterSubjects.map((s) => s.id);
-        }
-      }
-    }
-
-    if (student.semester) {
-      const variants = getSemesterVariants(student.semester);
-      if (variants.length > 0) {
-        const semesterSubjects = await db
-          .select({ id: subjects.id })
-          .from(subjects)
-          .where(inArray(subjects.semester, variants));
-        if (semesterSubjects.length > 0) {
-          return semesterSubjects.map((s) => s.id);
-        }
-      }
-    }
+  let semesterSubjectIds: string[] = [];
+  if (student && student.semester != null) {
+    const semNum = toSemesterNumber(student.semester);
+    const semesterSubjects = await db
+      .select({ id: subjects.id })
+      .from(subjects)
+      .where(and(eq(subjects.semester, semNum), eq(subjects.isActive, true)));
+    semesterSubjectIds = semesterSubjects.map((s) => s.id);
   }
 
-  // Fallback: Return all subject IDs if no specific filter
-  const allSubjects = await db.select({ id: subjects.id }).from(subjects);
-  return allSubjects.map((s) => s.id);
+  // Fail-closed: returns union of enrolled and semester subjects
+  return [...new Set([...enrolledSubjectIds, ...semesterSubjectIds])];
 });
 
 export const getRecentStudentResources = cache(
@@ -130,7 +99,13 @@ export const getRecentStudentResources = cache(
         courseUnits,
         eq(courseUnits.id, sql`coalesce(${resources.unitId}, ${courseChapters.unitId})`)
       )
-      .leftJoin(teachers, eq(resources.uploadedBy, teachers.id))
+      .leftJoin(
+        teachers,
+        or(
+          eq(teachers.userId, resources.uploadedBy),
+          eq(teachers.id, resources.uploadedBy)
+        )
+      )
       .where(inArray(resources.subjectId, accessibleSubjectIds))
       .orderBy(desc(resources.createdAt))
       .limit(limitCount);
@@ -235,7 +210,13 @@ export const getAllStudentResources = cache(
         courseUnits,
         eq(courseUnits.id, sql`coalesce(${resources.unitId}, ${courseChapters.unitId})`)
       )
-      .leftJoin(teachers, eq(resources.uploadedBy, teachers.id))
+      .leftJoin(
+        teachers,
+        or(
+          eq(teachers.userId, resources.uploadedBy),
+          eq(teachers.id, resources.uploadedBy)
+        )
+      )
       .where(and(...conditions))
       .orderBy(desc(resources.createdAt));
 

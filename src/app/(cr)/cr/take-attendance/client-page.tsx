@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useMemo, useEffect } from "react";
+import { useState, useTransition, useMemo, useEffect, useRef } from "react";
 import { 
   submitDailyAttendanceAction, 
   getDailyAttendanceForDateAction 
@@ -37,9 +37,15 @@ interface Student {
 interface Props {
   roster: Student[];
   semester: string;
+  section?: string;
+  availableSections?: string[];
+  userRole?: "CR" | "TEACHER" | "ADMIN" | "STUDENT";
   initialIsoDate?: string;
+  maxDate?: string;
   initialNepaliDate: string;
   initialGregorianDate: string;
+  initialAttendance?: Record<string, Status>;
+  initialExistingSession?: { id: string; markedByName: string } | null;
 }
 
 type Status = "present" | "absent" | "late" | "excused";
@@ -47,10 +53,27 @@ type Status = "present" | "absent" | "late" | "excused";
 export function DailyAttendanceClient({
   roster,
   semester,
+  section = "A",
+  availableSections = ["A"],
+  userRole = "CR",
   initialIsoDate,
+  maxDate,
   initialNepaliDate,
   initialGregorianDate,
+  initialAttendance,
+  initialExistingSession,
 }: Props) {
+  const backHref =
+    userRole === "TEACHER"
+      ? "/teacher/attendance"
+      : userRole === "ADMIN"
+      ? "/admin/attendance"
+      : "/cr";
+  const backLabel =
+    userRole === "TEACHER" || userRole === "ADMIN"
+      ? "Back to Attendance Dashboard"
+      : "Back to CR Dashboard";
+
   // ISO date string "YYYY-MM-DD" for the HTML date picker
   const [selectedIsoDate, setSelectedIsoDate] = useState(() => {
     if (initialIsoDate) return initialIsoDate;
@@ -63,15 +86,19 @@ export function DailyAttendanceClient({
     }).format(d);
   });
 
-  const [attendance, setAttendance] = useState<Record<string, Status>>(
-    roster.reduce((acc, s) => ({ ...acc, [s.id]: "present" }), {})
-  );
+  const [attendance, setAttendance] = useState<Record<string, Status>>(() => {
+    if (initialAttendance && Object.keys(initialAttendance).length > 0) {
+      return initialAttendance;
+    }
+    return roster.reduce((acc, s) => ({ ...acc, [s.id]: "present" }), {});
+  });
 
   const [existingSessionInfo, setExistingSessionInfo] = useState<{
     id: string;
     markedByName: string;
-  } | null>(null);
+  } | null>(initialExistingSession ?? null);
 
+  const isInitialMount = useRef(true);
   const [isPending, startTransition] = useTransition();
   const [loadingDate, setLoadingDate] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -102,7 +129,7 @@ export function DailyAttendanceClient({
     setLoadingDate(true);
     setMessage(null);
     try {
-      const existing = await getDailyAttendanceForDateAction(semester, dateStr);
+      const existing = await getDailyAttendanceForDateAction(semester, dateStr, section);
       if (existing && existing.records.length > 0) {
         setExistingSessionInfo({
           id: existing.id,
@@ -128,8 +155,12 @@ export function DailyAttendanceClient({
   };
 
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     loadDateAttendance(selectedIsoDate);
-  }, [selectedIsoDate, semester]);
+  }, [selectedIsoDate, semester, section]);
 
   const counts = useMemo(() => {
     let present = 0;
@@ -170,6 +201,15 @@ export function DailyAttendanceClient({
   };
 
   const handleSubmit = () => {
+    const maxAllowed = maxDate || initialIsoDate;
+    if (maxAllowed && selectedIsoDate > maxAllowed) {
+      setMessage({
+        type: "error",
+        text: `Cannot submit attendance for future dates (${selectedIsoDate}). Please select today or a past date.`,
+      });
+      return;
+    }
+
     startTransition(async () => {
       const records = Object.entries(attendance).map(([studentId, status]) => ({
         studentId,
@@ -178,7 +218,7 @@ export function DailyAttendanceClient({
       const [y, m, d] = selectedIsoDate.split("-").map(Number);
       const targetDate = new Date(Date.UTC(y, m - 1, d, 6, 0, 0));
 
-      const res = await submitDailyAttendanceAction(semester, targetDate, records);
+      const res = await submitDailyAttendanceAction(semester, targetDate, records, section);
       setMessage({ type: res.success ? "success" : "error", text: res.message });
       if (res.success) {
         setExistingSessionInfo({
@@ -195,10 +235,10 @@ export function DailyAttendanceClient({
       {/* Top Navigation & Context Header */}
       <div className="flex flex-col gap-4">
         <Link 
-          href="/cr" 
+          href={backHref} 
           className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-fit"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to CR Dashboard
+          <ArrowLeft className="w-4 h-4" /> {backLabel}
         </Link>
 
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-card border rounded-2xl p-6 shadow-xs">
@@ -208,6 +248,28 @@ export function DailyAttendanceClient({
                 <GraduationCap className="w-3.5 h-3.5" />
                 {semester}
               </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground border border-secondary-foreground/10">
+                Section {section}
+              </span>
+              {availableSections.length > 1 && userRole !== "CR" && (
+                <div className="inline-flex items-center gap-1 p-0.5 rounded-lg bg-muted border text-xs">
+                  <span className="px-1.5 text-muted-foreground font-medium text-[11px]">Section:</span>
+                  {availableSections.map((sec) => (
+                    <Link
+                      key={sec}
+                      href={`/cr/take-attendance?semester=${encodeURIComponent(semester)}&section=${encodeURIComponent(sec)}`}
+                      className={cn(
+                        "px-2 py-0.5 rounded-md font-semibold text-xs transition-colors",
+                        section === sec
+                          ? "bg-primary text-primary-foreground shadow-2xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {sec}
+                    </Link>
+                  ))}
+                </div>
+              )}
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                 <Clock className="w-3.5 h-3.5" />
                 Daily Attendance
@@ -243,7 +305,21 @@ export function DailyAttendanceClient({
               <input
                 type="date"
                 value={selectedIsoDate}
-                onChange={(e) => setSelectedIsoDate(e.target.value)}
+                max={maxDate || initialIsoDate}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const maxAllowed = maxDate || initialIsoDate;
+                  if (maxAllowed && val > maxAllowed) {
+                    setMessage({
+                      type: "error",
+                      text: `Future dates are not permitted. Attendance can only be recorded for today or past dates. Clamped to ${maxAllowed}.`,
+                    });
+                    setSelectedIsoDate(maxAllowed);
+                    return;
+                  }
+                  setMessage(null);
+                  setSelectedIsoDate(val);
+                }}
                 className="w-full h-9 rounded-lg border border-input bg-card px-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
               />
             </div>
@@ -421,7 +497,102 @@ export function DailyAttendanceClient({
           </div>
         )}
 
-        <div className="overflow-x-auto">
+        {/* Mobile Card List (sm:hidden) */}
+        <div className="block sm:hidden divide-y divide-border/60">
+          {filteredRoster.length > 0 ? (
+            filteredRoster.map((student, idx) => {
+              const currentStatus = attendance[student.id] || "present";
+              const isAbsent = currentStatus === "absent";
+              const isLate = currentStatus === "late";
+              const isExcused = currentStatus === "excused";
+
+              return (
+                <div
+                  key={student.id}
+                  className={cn(
+                    "p-3.5 space-y-3 transition-colors",
+                    isAbsent && "bg-rose-500/[0.04]",
+                    isLate && "bg-amber-500/[0.04]",
+                    isExcused && "bg-indigo-500/[0.04]"
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-xs text-muted-foreground font-mono w-6 shrink-0">
+                        #{String(idx + 1).padStart(2, "0")}
+                      </span>
+                      <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                        {student.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                      </div>
+                      <p className="font-semibold text-sm text-foreground truncate">{student.name}</p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-muted/60 border whitespace-nowrap font-mono text-xs text-muted-foreground shrink-0">
+                      {student.rollNumber}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-1 p-1 bg-muted/50 border rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => handleSetStatus(student.id, "present")}
+                      className={cn(
+                        "py-2 text-xs font-semibold rounded-lg transition-all text-center",
+                        currentStatus === "present"
+                          ? "bg-emerald-600 text-white shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Present
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetStatus(student.id, "absent")}
+                      className={cn(
+                        "py-2 text-xs font-semibold rounded-lg transition-all text-center",
+                        currentStatus === "absent"
+                          ? "bg-rose-600 text-white shadow-xs"
+                          : "text-muted-foreground hover:text-rose-600"
+                      )}
+                    >
+                      Absent
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetStatus(student.id, "late")}
+                      className={cn(
+                        "py-2 text-xs font-semibold rounded-lg transition-all text-center",
+                        currentStatus === "late"
+                          ? "bg-amber-500 text-white shadow-xs"
+                          : "text-muted-foreground hover:text-amber-600"
+                      )}
+                    >
+                      Late
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetStatus(student.id, "excused")}
+                      className={cn(
+                        "py-2 text-xs font-semibold rounded-lg transition-all text-center",
+                        currentStatus === "excused"
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "text-muted-foreground hover:text-indigo-600"
+                      )}
+                    >
+                      Excused
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-12 text-center text-muted-foreground text-sm">
+              No students match the search query or filter.
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table (hidden sm:block) */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse">
             <thead>
               <tr className="border-b bg-muted/30 text-muted-foreground font-medium text-xs">
@@ -468,7 +639,7 @@ export function DailyAttendanceClient({
                         </div>
                       </td>
                       <td className="py-3.5 px-4 sm:px-6 font-mono text-xs text-muted-foreground">
-                        <span className="px-2 py-0.5 rounded bg-muted/60 border">
+                        <span className="px-2 py-0.5 rounded bg-muted/60 border whitespace-nowrap font-mono shrink-0">
                           {student.rollNumber}
                         </span>
                       </td>
@@ -540,7 +711,7 @@ export function DailyAttendanceClient({
       </div>
 
       {/* Sticky Bottom Action Bar */}
-      <div className="sticky bottom-4 z-20 bg-card/95 backdrop-blur-md border rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="sticky bottom-20 md:bottom-4 z-30 bg-card/95 backdrop-blur-md border rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-sm flex-wrap">
           <span className="font-semibold text-foreground">{formattedDates.nepali}:</span>
           <span className="text-emerald-600 font-medium">{counts.present} Present</span>
@@ -562,7 +733,11 @@ export function DailyAttendanceClient({
 
         <Button
           onClick={handleSubmit}
-          disabled={isPending || roster.length === 0}
+          disabled={
+            isPending ||
+            roster.length === 0 ||
+            (Boolean(maxDate || initialIsoDate) && selectedIsoDate > (maxDate || initialIsoDate || ""))
+          }
           size="lg"
           className="w-full sm:w-auto font-semibold px-8"
         >

@@ -1,8 +1,8 @@
 import { db } from "@/db";
-import { classSessions, courseUnits, enrollments, studentProfiles, subjects } from "@/db/schema";
-import { desc, eq, inArray } from "drizzle-orm";
+import { classSessions, courseUnits, enrollments, subjects } from "@/db/schema";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
-import { toRoman, fromRoman, getSemesterVariants } from "@/lib/utils/roman";
+import { toSemesterNumber } from "@/lib/semester";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,23 +50,13 @@ export default async function LectureLogsPage({ searchParams }: Props) {
     }
 
     if (enrolledSubjectIds.length === 0) {
-      let semValue: string | number | null = null;
-      if (user?.studentProfileId) {
-        const profile = await db.query.studentProfiles.findFirst({
-          where: eq(studentProfiles.id, user.studentProfileId),
-        });
-        if (profile?.semester != null) semValue = profile.semester;
-      }
-      if (semValue == null && student.semester) {
-        semValue = student.semester;
-      }
+      const semValue: string | number | null = student.semester ?? null;
       if (semValue != null) {
-        const semInt = fromRoman(semValue);
-        const variants = getSemesterVariants(semValue);
+        const semInt = toSemesterNumber(semValue);
         const mappedSubjects = await db
           .select({ id: subjects.id })
           .from(subjects)
-          .where(variants.length > 0 ? inArray(subjects.semester, variants) : eq(subjects.semester, toRoman(semValue)));
+          .where(and(eq(subjects.semester, semInt), eq(subjects.isActive, true)));
         enrolledSubjectIds = mappedSubjects.map((s) => s.id);
         for (const sid of enrolledSubjectIds) {
           const sems = semestersBySubjectId.get(sid) ?? new Set<number>();
@@ -134,7 +124,7 @@ export default async function LectureLogsPage({ searchParams }: Props) {
 
   // Text search covers subject name and everything faculty logged.
   const needle = q.trim().toLowerCase();
-  const selectedSemester = semester ? fromRoman(semester) : null;
+  const selectedSemester = semester ? toSemesterNumber(semester) : null;
   const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
   const hasFilters = Boolean(needle || subject || semester || date || unit);
 

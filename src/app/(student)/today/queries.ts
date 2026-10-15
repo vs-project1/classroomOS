@@ -5,12 +5,11 @@ import {
   enrollments,
   homework,
   subjects,
-  studentProfiles,
   classSessions,
   weeklyRoutine,
 } from "@/db/schema";
 import { resolveCurrentStudent, requireAuth } from "@/lib/auth";
-import { toRoman, getSemesterVariants } from "@/lib/utils/roman";
+import { toSemesterNumber } from "@/lib/semester";
 
 export type TodayDeadline = {
   id: string;
@@ -65,15 +64,10 @@ export async function getTodayDeadlines(): Promise<TodayDeadline[]> {
   }
 
   // 2. Fallback to semester mapped subjects
-  if (!user.studentProfileId) return [];
-  
-  const profile = await db.query.studentProfiles.findFirst({
-    where: eq(studentProfiles.id, user.studentProfileId),
-  });
-  if (!profile || profile.semester == null) return [];
+  if (student.semester == null) return [];
 
-  const semVariants = getSemesterVariants(profile.semester);
-  
+  const semNum = toSemesterNumber(student.semester);
+
   return db
     .select({
       id: homework.id,
@@ -93,7 +87,8 @@ export async function getTodayDeadlines(): Promise<TodayDeadline[]> {
     )
     .where(
       and(
-        semVariants.length > 0 ? inArray(subjects.semester, semVariants) : eq(subjects.semester, toRoman(profile.semester)),
+        eq(subjects.semester, semNum),
+        eq(subjects.isActive, true),
         eq(homework.status, "active"),
         gt(homework.dueDate, now),
         lte(homework.dueDate, horizon),
@@ -121,6 +116,7 @@ export async function getAllDayRoutines(dayOfWeek: number) {
       subject: {
         with: { teacher: true },
       },
+      teacher: true,
     },
   });
 }

@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/db";
 import { telegramSettings, semesterTelegramConfigs, telegramBroadcastLogs } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
-import { toRoman } from "@/lib/utils/roman";
+import { toSemesterNumber } from "@/lib/semester";
 
 export async function getTelegramSettings() {
   const [settings] = await db.select().from(telegramSettings).limit(1);
@@ -13,12 +13,12 @@ export async function getSemesterTelegramConfigs() {
   return db.select().from(semesterTelegramConfigs);
 }
 
-export async function getSemesterTelegramConfig(semester: string) {
-  const targetRoman = toRoman(semester);
+export async function getSemesterTelegramConfig(semester: string | number) {
+  const semNum = toSemesterNumber(semester);
   const [config] = await db
     .select()
     .from(semesterTelegramConfigs)
-    .where(eq(semesterTelegramConfigs.semester, targetRoman))
+    .where(eq(semesterTelegramConfigs.semester, semNum))
     .limit(1);
   return config ?? null;
 }

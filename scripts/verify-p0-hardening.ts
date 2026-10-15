@@ -119,7 +119,7 @@ async function runVerification() {
       subjectId: null,
       slotType: "LAB",
       customTitle: "Physics Laboratory Practical",
-      semester: "I",
+      semester: 1,
       section: "A",
       dayOfWeek: 6, // Saturday (no seeded routine)
       startTime: "08:00",
@@ -256,7 +256,7 @@ async function runVerification() {
       await db.insert(dailySessions).values({
         id: testSessionId,
         date: testDate,
-        semester: "I",
+        semester: 1,
         section: "A",
       });
 
@@ -337,7 +337,7 @@ async function runVerification() {
       id: testRoutineIdForSync,
       subjectId: testSubjectId,
       slotType: "LECTURE",
-      semester: "I",
+      semester: 1,
       section: "A",
       dayOfWeek: 5,
       startTime: "10:00",

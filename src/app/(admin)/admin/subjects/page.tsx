@@ -3,10 +3,10 @@ import { subjects, teachers } from "@/db/schema";
 import Link from "next/link";
 import { SubjectForm } from "@/features/subjects/components/subject-form";
 import { EditSubjectDialog } from "@/features/subjects/components/edit-subject-dialog";
-import { asc, eq, inArray } from "drizzle-orm";
+import { asc, eq, and } from "drizzle-orm";
 import { BookOpen, Search, ArrowRight, LibraryBig, BookCopy, Fingerprint, ArrowLeft } from "lucide-react";
-import { getPermissions } from "@/lib/auth";
-import { getSemesterVariants } from "@/lib/utils/roman";
+import { getPermissions, requireAuth } from "@/lib/auth";
+import { toSemesterNumber } from "@/lib/semester";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +15,16 @@ type Props = {
 };
 
 export default async function SubjectsPage({ searchParams }: Props) {
+  await requireAuth(["ADMIN"]);
   const permissions = await getPermissions();
   const resolvedParams = await searchParams;
   const semester = typeof resolvedParams.semester === "string" ? resolvedParams.semester : null;
 
   const [allSubjects, allTeachers] = await Promise.all([
     db.query.subjects.findMany({
-      where: semester ? inArray(subjects.semester, getSemesterVariants(semester)) : undefined,
+      where: semester
+        ? and(eq(subjects.semester, toSemesterNumber(semester)), eq(subjects.isActive, true))
+        : eq(subjects.isActive, true),
       orderBy: [asc(subjects.name)],
       with: { teacher: true }
     }),

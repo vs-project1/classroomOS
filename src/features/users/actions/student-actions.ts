@@ -1,13 +1,15 @@
 "use server";
 
 import { db } from "@/db";
-import { students } from "@/db/schema";
+import { students, users } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/session";
+import { hashPassword, generateMemorablePassword } from "@/lib/auth/password";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import crypto from "crypto";
 import { PhoneNumberUtil } from "google-libphonenumber";
-import { fromRoman, toOrdinalSemester } from "@/lib/utils/roman";
+import { fromRoman } from "@/lib/utils/roman";
+import { eq } from "drizzle-orm";
 
 const phoneUtil = PhoneNumberUtil.getInstance();
 
@@ -72,14 +74,37 @@ export async function createStudent(prevState: StudentActionState, formData: For
   const { name, rollNumber, email, phone, faculty, semester } = validatedFields.data;
 
   try {
-    await db.insert(students).values({
-      id: crypto.randomUUID(),
-      name,
-      rollNumber,
-      email: email ?? null,
-      phone: phone ?? null,
-      faculty,
-      semester: toOrdinalSemester(semester),
+    const semInt = fromRoman(semester);
+    const userEmail = (email && email.trim().length > 0)
+      ? email.trim().toLowerCase()
+      : `${rollNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}@student.classroom.edu.np`;
+    const tempPassword = generateMemorablePassword();
+    const passwordHash = await hashPassword(tempPassword);
+    const userId = `usr_${crypto.randomUUID()}`;
+    const studentId = `std_${crypto.randomUUID()}`;
+
+    await db.transaction(async (tx) => {
+      await tx.insert(users).values({
+        id: userId,
+        email: userEmail,
+        passwordHash,
+        role: "STUDENT",
+        mustChangePassword: true,
+        isActive: true,
+      });
+
+      await tx.insert(students).values({
+        id: studentId,
+        userId,
+        name,
+        rollNumber,
+        email: userEmail,
+        phone: phone ?? null,
+        faculty,
+        semester: semInt,
+        section: "A",
+        batchYear: new Date().getFullYear(),
+      });
     });
 
     revalidatePath("/admin/students");
@@ -117,9 +142,6 @@ export async function updateStudent(prevState: StudentActionState, formData: For
   const { name, rollNumber, email, phone, faculty, semester } = validatedFields.data;
 
   try {
-    const { eq } = await import("drizzle-orm");
-    const { studentProfiles, users } = await import("@/db/schema");
-
     const existing = await db.query.students.findFirst({
       where: eq(students.id, id),
     });
@@ -129,7 +151,6 @@ export async function updateStudent(prevState: StudentActionState, formData: For
     }
 
     const semInt = fromRoman(semester);
-    const ordinalSem = toOrdinalSemester(semester);
 
     await db.transaction(async (tx) => {
       await tx.update(students).set({
@@ -138,36 +159,13 @@ export async function updateStudent(prevState: StudentActionState, formData: For
         email: email ?? null,
         phone: phone ?? null,
         faculty,
-        semester: ordinalSem,
+        semester: semInt,
+        updatedAt: new Date(),
       }).where(eq(students.id, id));
 
       const userId = existing.userId;
-      if (userId) {
-        if (email) {
-          await tx.update(users).set({ email, updatedAt: new Date() }).where(eq(users.id, userId));
-        }
-        await tx.update(studentProfiles).set({
-          rollNumber,
-          semester: semInt,
-          phone: phone ?? null,
-          updatedAt: new Date(),
-        }).where(eq(studentProfiles.userId, userId));
-      } else {
-        const profile = await tx.query.studentProfiles.findFirst({
-          where: eq(studentProfiles.rollNumber, existing.rollNumber),
-        });
-        if (profile) {
-          await tx.update(students).set({ userId: profile.userId }).where(eq(students.id, id));
-          await tx.update(studentProfiles).set({
-            rollNumber,
-            semester: semInt,
-            phone: phone ?? null,
-            updatedAt: new Date(),
-          }).where(eq(studentProfiles.id, profile.id));
-          if (email) {
-            await tx.update(users).set({ email, updatedAt: new Date() }).where(eq(users.id, profile.userId));
-          }
-        }
+      if (userId && email) {
+        await tx.update(users).set({ email, updatedAt: new Date() }).where(eq(users.id, userId));
       }
     });
 

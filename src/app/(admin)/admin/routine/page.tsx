@@ -3,12 +3,12 @@ import { weeklyRoutine } from "@/db/schema";
 import { asc } from "drizzle-orm";
 import Link from "next/link";
 import { Plus, CalendarRange, AlertTriangle } from "lucide-react";
-import { getPermissions } from "@/lib/auth";
+import { getPermissions, requireAuth } from "@/lib/auth";
 import { RoutineView } from "@/components/timetable/routine-view";
 import { buttonVariants } from "@/components/ui/button";
 import { BroadcastRoutineDialog } from "@/features/telegram/components/broadcast-routine-dialog";
 import { getTelegramSettings, getSemesterTelegramConfigs } from "@/features/telegram/queries/telegram-queries";
-import { areSemestersEqual } from "@/lib/utils/roman";
+import { toSemesterNumber, toSemesterRoman } from "@/lib/semester";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +20,11 @@ type Props = {
 
 function matchSemester(subSem: string | number | null | undefined, targetSem: string | null): boolean {
   if (!targetSem || targetSem === "All") return true;
-  return areSemestersEqual(subSem, targetSem);
+  return toSemesterNumber(subSem) === toSemesterNumber(targetSem);
 }
 
 export default async function AdminRoutinePage({ searchParams }: Props) {
+  await requireAuth(["ADMIN"]);
   const permissions = await getPermissions();
   const resolvedParams = await searchParams;
 
@@ -38,8 +39,8 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
 
   // Determine active semesters that have slots configured
   const semestersWithSlots = Array.from(
-    new Set(rawRoutine.map((r) => r.subject?.semester).filter(Boolean))
-  ) as string[];
+    new Set(rawRoutine.map((r) => r.subject?.semester).filter((s): s is number => s != null))
+  ).map((s) => toSemesterRoman(s));
 
   // If no semester is explicitly in URL, default to active cohort (Semester II if available, else first active, else I)
   const defaultSemester = semestersWithSlots.includes("II")
@@ -76,7 +77,9 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
     getSemesterTelegramConfigs(),
   ]);
   const hasBotToken = Boolean(telegramSettingsRow?.botToken);
-  const configuredSemesters = telegramConfigs.filter((c) => Boolean(c.chatId)).map((c) => c.semester);
+  const configuredSemesters = telegramConfigs
+    .filter((c) => Boolean(c.chatId))
+    .map((c) => toSemesterRoman(c.semester));
 
   // Semesters with unpublished modifications
   const unpublishedSemesters = telegramConfigs
@@ -85,12 +88,12 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
       if (!c.lastRoutinePublishedAt) return true;
       return new Date(c.lastRoutineModifiedAt).getTime() > new Date(c.lastRoutinePublishedAt).getTime();
     })
-    .map((c) => c.semester);
+    .map((c) => toSemesterRoman(c.semester));
 
   const hasUnpublishedChanges =
     selectedSemester === "All"
       ? unpublishedSemesters.length > 0
-      : unpublishedSemesters.some((s) => areSemestersEqual(s, selectedSemester));
+      : unpublishedSemesters.some((s) => toSemesterNumber(s) === toSemesterNumber(selectedSemester));
 
   return (
     <div className="flex-1 space-y-6 max-w-7xl mx-auto w-full">
@@ -152,9 +155,9 @@ export default async function AdminRoutinePage({ searchParams }: Props) {
       {/* Semester Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none border-b border-border/40">
         {SEMESTERS.map((sem) => {
-          const isActive = sem === "All" ? selectedSemester === "All" : areSemestersEqual(selectedSemester, sem);
+          const isActive = sem === "All" ? selectedSemester === "All" : toSemesterNumber(selectedSemester) === toSemesterNumber(sem);
           const isUnpub = sem === "All" ? unpublishedSemesters.length > 0 : unpublishedSemesters.includes(sem);
-          const hasData = sem === "All" ? rawRoutine.length > 0 : semestersWithSlots.some((s) => areSemestersEqual(s, sem));
+          const hasData = sem === "All" ? rawRoutine.length > 0 : semestersWithSlots.some((s) => toSemesterNumber(s) === toSemesterNumber(sem));
           const href = `/admin/routine?semester=${sem}`;
 
           return (

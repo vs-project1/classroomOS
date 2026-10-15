@@ -1,8 +1,8 @@
 import { db } from "@/db";
-import { homework, assignmentSubmissions, studentProfiles, students, enrollments, subjects } from "@/db/schema";
-import { toRoman } from "@/lib/utils/roman";
+import { homework, assignmentSubmissions, students, enrollments, subjects } from "@/db/schema";
+import { toSemesterNumber } from "@/lib/semester";
 import { getCurrentUser } from "@/lib/auth/session";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { HomeworkClientWorkspace } from "@/features/assignments/components/homework-client-workspace";
 
 export const dynamic = "force-dynamic";
@@ -18,30 +18,26 @@ export default async function HomeworkPage() {
     redirect("/admin/homework");
   }
 
-  let studentId: string | null = null;
+  let studentId: string | null = user?.studentId ?? null;
+  let resolvedStudent = null;
+
   if (user && (user.role === "STUDENT" || user.role === "CR")) {
-    if (user.studentProfileId) {
-      const profile = await db.query.studentProfiles.findFirst({
-        where: eq(studentProfiles.id, user.studentProfileId),
+    if (studentId) {
+      resolvedStudent = await db.query.students.findFirst({
+        where: eq(students.id, studentId),
       });
-      if (profile) {
-        const std = await db.query.students.findFirst({
-          where: eq(students.rollNumber, profile.rollNumber),
+    } else {
+      resolvedStudent = await db.query.students.findFirst({
+        where: eq(students.userId, user.id),
+      });
+      if (resolvedStudent) {
+        studentId = resolvedStudent.id;
+      } else if (user.email) {
+        resolvedStudent = await db.query.students.findFirst({
+          where: eq(students.email, user.email),
         });
-        if (std) studentId = std.id;
+        if (resolvedStudent) studentId = resolvedStudent.id;
       }
-    }
-    if (!studentId && user.email) {
-      const std = await db.query.students.findFirst({
-        where: eq(students.email, user.email),
-      });
-      if (std) studentId = std.id;
-    }
-    if (!studentId) {
-      const direct = await db.query.students.findFirst({
-        where: eq(students.id, user.id),
-      });
-      if (direct) studentId = direct.id;
     }
   }
 
@@ -55,15 +51,10 @@ export default async function HomeworkPage() {
     });
     enrolledSubjectIds = userEnrollments.map((e) => e.subjectId);
 
-    if (enrolledSubjectIds.length === 0 && user?.studentProfileId) {
-      const profile = await db.query.studentProfiles.findFirst({
-        where: eq(studentProfiles.id, user.studentProfileId),
-      });
-      if (profile && profile.semester != null) {
-        const semesterRoman = toRoman(profile.semester);
-        const mappedSubjects = await db.select({ id: subjects.id }).from(subjects).where(eq(subjects.semester, semesterRoman));
-        enrolledSubjectIds = mappedSubjects.map((s) => s.id);
-      }
+    if (enrolledSubjectIds.length === 0 && resolvedStudent?.semester != null) {
+      const semNum = toSemesterNumber(resolvedStudent.semester);
+      const mappedSubjects = await db.select({ id: subjects.id }).from(subjects).where(and(eq(subjects.semester, semNum), eq(subjects.isActive, true)));
+      enrolledSubjectIds = mappedSubjects.map((s) => s.id);
     }
   }
 

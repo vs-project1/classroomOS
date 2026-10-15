@@ -28,7 +28,9 @@ type EditStudentDialogProps = {
     email: string | null;
     phone: string | null;
     faculty: string | null;
-    semester: string | null;
+    semester: number | string | null;
+    section?: string | null;
+    batchYear?: number | null;
   };
 };
 

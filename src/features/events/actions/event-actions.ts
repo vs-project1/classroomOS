@@ -32,7 +32,7 @@ export async function createEvent(
   prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireAuth(["ADMIN", "TEACHER"]);
+  const user = await requireAuth(["ADMIN", "TEACHER"]);
 
   const rawStartTime = formData.get("startTime")?.toString() || "";
   const rawEndTime = formData.get("endTime")?.toString() || "";
@@ -63,6 +63,7 @@ export async function createEvent(
       id: crypto.randomUUID(),
       title: data.title,
       description: data.description,
+      createdById: user.id,
       eventDate: new Date(data.eventDate),
       startTime: data.startTime,
       endTime: data.endTime,

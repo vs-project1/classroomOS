@@ -77,3 +77,15 @@ export async function toggleChapterCoveredAction(
     return { ok: false, error: "Something went wrong. Please try again." };
   }
 }
+
+export async function deleteSubject(id: string) {
+  await requireAuth(["ADMIN"]);
+  // Soft delete — archives subject while preserving transcripts, lecture logs, and results
+  await db.update(subjects)
+    .set({ isActive: false })
+    .where(eq(subjects.id, id));
+  revalidatePath("/admin/subjects");
+  revalidatePath("/routine");
+  return { success: true, message: "Subject archived successfully." };
+}
+

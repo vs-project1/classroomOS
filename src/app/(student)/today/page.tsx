@@ -107,21 +107,27 @@ export default async function TodayPage({ searchParams }: Props) {
     getNavBadges(),
   ]);
 
-  let dayRoutines: {
+  type TodayRoutineItem = {
     id: string;
     dayOfWeek: number;
-    subjectId: string;
+    subjectId?: string | null;
     startTime: string;
     endTime: string;
     room?: string | null;
     notes?: string | null;
     teacherName?: string | null;
-    subject: {
+    customTitle?: string | null;
+    slotType?: string | null;
+    teacher?: { id?: string; name: string } | null;
+    subject?: {
+      id?: string;
       name: string;
       code: string;
       teacher?: { name: string } | null;
-    };
-  }[] = [];
+    } | null;
+  };
+
+  let dayRoutines: TodayRoutineItem[] = [];
 
   if (isClassMember) {
     const student = await resolveCurrentStudent();
@@ -129,6 +135,7 @@ export default async function TodayPage({ searchParams }: Props) {
     dayRoutines = await getStudentTodaySchedule({
       allowedSubjectIds: cohort.allowedSubjectIds,
       dayOfWeek,
+      section: cohort.section,
     });
   } else if (role === "TEACHER" && user.teacherId) {
     dayRoutines = await getTeacherTodaySchedule(user.teacherId, dayOfWeek);
@@ -227,10 +234,14 @@ export default async function TodayPage({ searchParams }: Props) {
                 {currentOrNext.status === "ongoing" && <Radio className="w-3 h-3 animate-spin" />}
                 {currentOrNext.status}
               </span>
-              <h2 className="font-bold text-lg text-foreground leading-snug">{currentOrNext.subject.name}</h2>
-              <span className="text-xs font-bold text-foreground px-2 py-0.5 bg-muted rounded-md tabular-nums border border-border/50">
-                {currentOrNext.subject.code}
-              </span>
+              <h2 className="font-bold text-lg text-foreground leading-snug">
+                {currentOrNext.subject?.name || currentOrNext.customTitle || "Scheduled Slot"}
+              </h2>
+              {currentOrNext.subject?.code && (
+                <span className="text-xs font-bold text-foreground px-2 py-0.5 bg-muted rounded-md tabular-nums border border-border/50">
+                  {currentOrNext.subject.code}
+                </span>
+              )}
             </div>
             <p className="text-xs text-muted-foreground flex items-center gap-2 font-medium">
               <Clock className="w-3.5 h-3.5 opacity-70" />
@@ -238,7 +249,7 @@ export default async function TodayPage({ searchParams }: Props) {
               {currentOrNext.room && <>· Room {currentOrNext.room}</>}
             </p>
           </div>
-          {!currentOrNext.hasSession && permissions.canCreateSessions && role !== "STUDENT" && (
+          {!currentOrNext.hasSession && permissions.canCreateSessions && role !== "STUDENT" && currentOrNext.subjectId && (
             <Link
               href={`/sessions/new?subjectId=${currentOrNext.subjectId}&startTime=${currentOrNext.startTime}&endTime=${currentOrNext.endTime}&routineId=${currentOrNext.id}&sessionDate=${todayNptStr}`}
               className={buttonVariants({ variant: currentOrNext.status === "ongoing" ? "default" : "secondary", size: "sm", className: "shrink-0" })}
@@ -256,12 +267,7 @@ export default async function TodayPage({ searchParams }: Props) {
             Today&apos;s Schedule
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            {formatNepaliDate(selectedDate)}
-            {selectedDateStr === todayNptStr && (
-              <span className="ml-2 text-primary font-semibold inline-flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> Today
-              </span>
-            )}
+            {`${DAYS_OF_WEEK[dayOfWeek]} timetable & lecture session tracker`}
           </p>
         </div>
 
@@ -319,12 +325,12 @@ export default async function TodayPage({ searchParams }: Props) {
             routinesWithStatus.map(
               (r): TimelineRiverSlot => ({
                 id: r.id,
-                subject: r.subject.name,
-                code: r.subject.code,
+                subject: r.subject?.name || r.customTitle || "Scheduled Slot",
+                code: r.subject?.code || "",
                 startTime: r.startTime,
                 endTime: r.endTime,
                 room: r.room,
-                teacherName: r.subject.teacher?.name || r.teacherName,
+                teacherName: r.teacher?.name || r.subject?.teacher?.name || r.teacherName,
                 notes: r.notes,
                 status: r.status,
               })
@@ -357,7 +363,7 @@ export default async function TodayPage({ searchParams }: Props) {
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="h-4 w-4" /> Logged
               </span>
-            ) : (
+            ) : r.subjectId ? (
               <Link
                 href={`/sessions/new?subjectId=${r.subjectId}&startTime=${r.startTime}&endTime=${r.endTime}&routineId=${r.id}&sessionDate=${selectedDateStr}`}
                 className={buttonVariants({
@@ -368,7 +374,7 @@ export default async function TodayPage({ searchParams }: Props) {
               >
                 <Play className="mr-1.5 h-3.5 w-3.5" /> Log Session
               </Link>
-            );
+            ) : null;
           }}
         />
       )}
@@ -376,7 +382,7 @@ export default async function TodayPage({ searchParams }: Props) {
       <div className="sr-only" aria-hidden data-testid="timeline-river-legacy">
         {routinesWithStatus.map((r) => (
           <span key={r.id} data-testid="timeline-session-card" data-status={r.status}>
-            {r.subject.name}
+            {r.subject?.name || r.customTitle || "Scheduled Slot"}
           </span>
         ))}
       </div>

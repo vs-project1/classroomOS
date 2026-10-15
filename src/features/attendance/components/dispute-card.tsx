@@ -13,7 +13,7 @@ export interface DisputeItem {
   createdAt?: Date | string;
   studentName: string;
   studentRoll: string;
-  semester: string;
+  semester: string | number;
   sessionDate: Date | string;
 }
 

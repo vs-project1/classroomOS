@@ -6,7 +6,7 @@ import { resolveCurrentStudent } from "@/lib/auth";
 import crypto from "node:crypto";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { toOrdinalSemester, getSemesterVariants } from "@/lib/utils/roman";
+import { toSemesterNumber } from "@/lib/semester";
 
 /**
  * Coerce a Date to start-of-day in NPT (Asia/Kathmandu). The `daily_sessions`
@@ -23,9 +23,9 @@ function nptStartOfDay(d: Date): Date {
   return new Date(`${ymd}T00:00:00Z`);
 }
 
-export async function getDailyAttendanceForDateAction(semester: string, date: Date | string, section?: string) {
+export async function getDailyAttendanceForDateAction(semester: string | number, date: Date | string, section?: string) {
   const user = await requireAuth(["CR", "ADMIN", "TEACHER"]);
-  let activeSemester = semester;
+  let activeSemester = toSemesterNumber(semester);
   let activeSection = section || "A";
 
   if (user.role === "CR") {
@@ -34,7 +34,7 @@ export async function getDailyAttendanceForDateAction(semester: string, date: Da
     });
     const crStudent = student || (await resolveCurrentStudent());
     if (crStudent) {
-      activeSemester = toOrdinalSemester(crStudent.semester);
+      activeSemester = toSemesterNumber(crStudent.semester);
       if (!section && crStudent.section) {
         activeSection = crStudent.section;
       }
@@ -42,10 +42,9 @@ export async function getDailyAttendanceForDateAction(semester: string, date: Da
   }
   const targetDate = nptStartOfDay(typeof date === "string" ? new Date(date) : date);
 
-  const semVariants = getSemesterVariants(activeSemester);
   const session = await db.query.dailySessions.findFirst({
     where: and(
-      inArray(dailySessions.semester, semVariants),
+      eq(dailySessions.semester, activeSemester),
       eq(dailySessions.section, activeSection),
       eq(dailySessions.date, targetDate)
     ),
@@ -89,13 +88,13 @@ export async function getDailyAttendanceForDateAction(semester: string, date: Da
 }
 
 export async function submitDailyAttendanceAction(
-  semester: string,
+  semester: string | number,
   date: Date,
   records: { studentId: string; status: "present" | "absent" | "late" | "excused" }[],
   section?: string
 ) {
   const user = await requireAuth(["CR", "ADMIN", "TEACHER"]);
-  let targetSemester = toOrdinalSemester(semester);
+  let targetSemester = toSemesterNumber(semester);
   let targetSection = section || "A";
 
   if (user.role === "CR") {
@@ -104,7 +103,7 @@ export async function submitDailyAttendanceAction(
     });
     const crStudent = student || (await resolveCurrentStudent());
     if (crStudent) {
-      targetSemester = toOrdinalSemester(crStudent.semester);
+      targetSemester = toSemesterNumber(crStudent.semester);
       if (!section && crStudent.section) {
         targetSection = crStudent.section;
       }
@@ -121,8 +120,6 @@ export async function submitDailyAttendanceAction(
     };
   }
 
-  const semVariants = getSemesterVariants(targetSemester);
-
   try {
     let isUpdate = false;
 
@@ -130,7 +127,7 @@ export async function submitDailyAttendanceAction(
       // Check if session already exists for this date + semester + section
       const existingSession = await tx.query.dailySessions.findFirst({
         where: and(
-          inArray(dailySessions.semester, semVariants),
+          eq(dailySessions.semester, targetSemester),
           eq(dailySessions.section, targetSection),
           eq(dailySessions.date, normalizedDate)
         ),

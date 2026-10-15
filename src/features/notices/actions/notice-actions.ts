@@ -23,7 +23,7 @@ export async function createNotice(
   prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
-  await requireAuth(["ADMIN"]);
+  const user = await requireAuth(["ADMIN"]);
 
   let attachments: string[] = [];
   const rawAttachments = formData.get("attachments")?.toString();
@@ -59,6 +59,7 @@ export async function createNotice(
       id: noticeId,
       title: data.title,
       content: data.content,
+      createdById: user.id,
       expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
       isPinned: data.isPinned,
       attachments: data.attachments && data.attachments.length > 0 ? data.attachments : null,

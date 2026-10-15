@@ -6,6 +6,8 @@ import {
   semesterTelegramConfigs,
   telegramBroadcastLogs,
   weeklyRoutine,
+  subjects,
+  teachers,
 } from "@/db/schema";
 import { sendTelegramMessage } from "./telegram-client";
 import {
@@ -13,14 +15,14 @@ import {
   formatWeekendGreetingMessage,
   type RoutineSlotInfo,
 } from "./formatters";
-import { areSemestersEqual } from "@/lib/utils/roman";
+import { toSemesterNumber, toSemesterRoman } from "@/lib/semester";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export type ExecuteTelegramBriefOptions = {
   briefType?: "morning" | "evening";
   force?: boolean;
-  semester?: string;
+  semester?: string | number;
   triggeredByUserId?: string | null;
   source?: "cron" | "manual" | "scheduler";
 };
@@ -34,7 +36,7 @@ export type TelegramBriefResult = {
   skippedCount: number;
   failedCount: number;
   results: Array<{
-    semester: string;
+    semester: number | string;
     status: "success" | "skipped" | "failed";
     reason?: string;
     error?: string;
@@ -100,7 +102,8 @@ export async function executeTelegramBrief(
 
   let configs = await db.select().from(semesterTelegramConfigs);
   if (options.semester) {
-    configs = configs.filter((c) => areSemestersEqual(c.semester, options.semester));
+    const targetSem = toSemesterNumber(options.semester);
+    configs = configs.filter((c) => c.semester === targetSem);
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
@@ -130,16 +133,6 @@ export async function executeTelegramBrief(
         })),
       };
     }
-
-    const todayRoutines = await db.query.weeklyRoutine.findMany({
-      where: eq(weeklyRoutine.dayOfWeek, todayDayIndex),
-      orderBy: [asc(weeklyRoutine.startTime)],
-      with: {
-        subject: {
-          with: { teacher: true },
-        },
-      },
-    });
 
     for (const config of configs) {
       if (!config.chatId) {
@@ -227,16 +220,37 @@ export async function executeTelegramBrief(
         }
       }
 
-      const slots: RoutineSlotInfo[] = todayRoutines
-        .filter((r) => areSemestersEqual(r.subject?.semester, config.semester))
-        .map((r) => ({
-          startTime: r.startTime,
-          endTime: r.endTime,
-          subjectName: r.subject?.name ?? "Subject",
-          teacherName: r.teacherName || r.subject?.teacher?.name || null,
-          room: r.room,
-          notes: r.notes,
-        }));
+      const targetSemesterNum = toSemesterNumber(config.semester);
+
+      const todayRoutines = await db
+        .select({
+          startTime: weeklyRoutine.startTime,
+          endTime: weeklyRoutine.endTime,
+          room: weeklyRoutine.room,
+          notes: weeklyRoutine.notes,
+          subjectName: subjects.name,
+          teacherName: teachers.name,
+        })
+        .from(weeklyRoutine)
+        .leftJoin(subjects, eq(weeklyRoutine.subjectId, subjects.id))
+        .leftJoin(teachers, or(eq(weeklyRoutine.teacherId, teachers.id), eq(subjects.teacherId, teachers.id)))
+        .where(
+          and(
+            eq(weeklyRoutine.dayOfWeek, todayDayIndex),
+            eq(weeklyRoutine.semester, targetSemesterNum),
+            eq(weeklyRoutine.section, config.section || "A")
+          )
+        )
+        .orderBy(asc(weeklyRoutine.startTime));
+
+      const slots: RoutineSlotInfo[] = todayRoutines.map((r) => ({
+        startTime: r.startTime,
+        endTime: r.endTime,
+        subjectName: r.subjectName ?? "Subject",
+        teacherName: r.teacherName || null,
+        room: r.room,
+        notes: r.notes,
+      }));
 
       const text = formatRoutineBriefMessage({
         titlePrefix: "🌅 Today's Routine",
@@ -463,16 +477,6 @@ export async function executeTelegramBrief(
       const targetDate = new Date(now);
       targetDate.setDate(targetDate.getDate() + 1);
 
-      const tomorrowRoutines = await db.query.weeklyRoutine.findMany({
-        where: eq(weeklyRoutine.dayOfWeek, tomorrowDayIndex),
-        orderBy: [asc(weeklyRoutine.startTime)],
-        with: {
-          subject: {
-            with: { teacher: true },
-          },
-        },
-      });
-
       for (const config of configs) {
         if (!config.chatId) {
           skippedCount++;
@@ -558,16 +562,37 @@ export async function executeTelegramBrief(
           }
         }
 
-        const slots: RoutineSlotInfo[] = tomorrowRoutines
-          .filter((r) => areSemestersEqual(r.subject?.semester, config.semester))
-          .map((r) => ({
-            startTime: r.startTime,
-            endTime: r.endTime,
-            subjectName: r.subject?.name ?? "Subject",
-            teacherName: r.teacherName || r.subject?.teacher?.name || null,
-            room: r.room,
-            notes: r.notes,
-          }));
+        const targetSemesterNum = toSemesterNumber(config.semester);
+
+        const tomorrowRoutines = await db
+          .select({
+            startTime: weeklyRoutine.startTime,
+            endTime: weeklyRoutine.endTime,
+            room: weeklyRoutine.room,
+            notes: weeklyRoutine.notes,
+            subjectName: subjects.name,
+            teacherName: teachers.name,
+          })
+          .from(weeklyRoutine)
+          .leftJoin(subjects, eq(weeklyRoutine.subjectId, subjects.id))
+          .leftJoin(teachers, or(eq(weeklyRoutine.teacherId, teachers.id), eq(subjects.teacherId, teachers.id)))
+          .where(
+            and(
+              eq(weeklyRoutine.dayOfWeek, tomorrowDayIndex),
+              eq(weeklyRoutine.semester, targetSemesterNum),
+              eq(weeklyRoutine.section, config.section || "A")
+            )
+          )
+          .orderBy(asc(weeklyRoutine.startTime));
+
+        const slots: RoutineSlotInfo[] = tomorrowRoutines.map((r) => ({
+          startTime: r.startTime,
+          endTime: r.endTime,
+          subjectName: r.subjectName ?? "Subject",
+          teacherName: r.teacherName || null,
+          room: r.room,
+          notes: r.notes,
+        }));
 
         const text = formatRoutineBriefMessage({
           titlePrefix: "🌙 Tomorrow's Routine",

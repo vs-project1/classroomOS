@@ -9,10 +9,11 @@ import {
   classSessions,
   homework,
   lectureLogs,
+  weeklyRoutine,
 } from "@/db/schema";
 import { eq, desc, and, inArray, count, gte, lte, or, lt, asc } from "drizzle-orm";
+import { toSemesterNumber, toSemesterRoman } from "@/lib/semester";
 import { calculateAttendanceMetrics } from "@/features/attendance/calculations/attendance-projection";
-import { getSemesterVariants, toRoman, areSemestersEqual } from "@/lib/utils/roman";
 
 export interface StudentAttendanceResult {
   records: Array<{
@@ -22,7 +23,7 @@ export interface StudentAttendanceResult {
     status: string;
     createdAt: Date;
     date: Date;
-    semester: string;
+    semester: number;
   }>;
   presentCount: number;
   lateCount: number;
@@ -95,17 +96,37 @@ export const getTeacherAttendanceSummary = cache(async function getTeacherAttend
   teacherId?: string | null,
   isAdmin: boolean = false
 ) {
-  let teacherSubjects: Array<{ id: string; name: string; code: string; semester: string }> = [];
+  let teacherSubjects: Array<{ id: string; name: string; code: string; semester: number }> = [];
   if (teacherId) {
-    teacherSubjects = await db.query.subjects.findMany({
-      where: eq(subjects.teacherId, teacherId),
+    const directSubjects = await db.query.subjects.findMany({
+      where: and(eq(subjects.teacherId, teacherId), eq(subjects.isActive, true)),
+    });
+    const routineSubjects = await db
+      .select({
+        id: subjects.id,
+        name: subjects.name,
+        code: subjects.code,
+        semester: subjects.semester,
+      })
+      .from(weeklyRoutine)
+      .innerJoin(subjects, eq(weeklyRoutine.subjectId, subjects.id))
+      .where(and(eq(weeklyRoutine.teacherId, teacherId), eq(subjects.isActive, true)));
+
+    const combined = [...directSubjects, ...routineSubjects];
+    const seen = new Set<string>();
+    teacherSubjects = combined.filter((s) => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
     });
   } else if (isAdmin) {
-    teacherSubjects = await db.query.subjects.findMany();
+    teacherSubjects = await db.query.subjects.findMany({
+      where: eq(subjects.isActive, true),
+    });
   }
 
-  const distinctSemesters = [...new Set(teacherSubjects.map((s) => toRoman(s.semester)).filter(Boolean))] as string[];
-  const allVariants = distinctSemesters.flatMap((sem) => getSemesterVariants(sem));
+  const distinctSemesterNums = [...new Set(teacherSubjects.map((s) => s.semester).filter((s): s is number => s != null))].sort((a, b) => a - b);
+  const distinctSemesters = distinctSemesterNums.map((s) => toSemesterRoman(s));
 
   // NPT start of today
   const now = new Date();
@@ -126,27 +147,28 @@ export const getTeacherAttendanceSummary = cache(async function getTeacherAttend
     subjectsCount: number;
   }> = [];
 
-  if (allVariants.length > 0) {
+  if (distinctSemesterNums.length > 0) {
     const [allStudents, todaySessions] = await Promise.all([
       db
         .select({ semester: students.semester })
         .from(students)
-        .where(inArray(students.semester, allVariants)),
+        .where(inArray(students.semester, distinctSemesterNums)),
       db.query.dailySessions.findMany({
         where: and(
-          inArray(dailySessions.semester, allVariants),
+          inArray(dailySessions.semester, distinctSemesterNums),
           eq(dailySessions.date, todayStartNpt)
         ),
       }),
     ]);
 
-    semesterSummaries = distinctSemesters.map((semester) => {
-      const enrolledCount = allStudents.filter((st) => st.semester && areSemestersEqual(st.semester, semester)).length;
-      const todaySession = todaySessions.find((sess) => areSemestersEqual(sess.semester, semester));
-      const semesterSubjects = teacherSubjects.filter((s) => areSemestersEqual(s.semester, semester));
+    semesterSummaries = distinctSemesterNums.map((semNum) => {
+      const romanSem = toSemesterRoman(semNum);
+      const enrolledCount = allStudents.filter((st) => st.semester === semNum).length;
+      const todaySession = todaySessions.find((sess) => sess.semester === semNum);
+      const semesterSubjects = teacherSubjects.filter((s) => s.semester === semNum);
 
       return {
-        semester,
+        semester: romanSem,
         enrolledCount,
         hasLoggedToday: Boolean(todaySession),
         todaySessionLogged: Boolean(todaySession),
@@ -156,7 +178,7 @@ export const getTeacherAttendanceSummary = cache(async function getTeacherAttend
     });
   }
 
-  const teacherSemesterVariants = allVariants;
+  const teacherSemesterNums = distinctSemesterNums;
 
   let pendingDisputes: Array<{
     id: string;
@@ -170,13 +192,13 @@ export const getTeacherAttendanceSummary = cache(async function getTeacherAttend
     studentName: string;
     studentRoll: string;
     studentRollNumber: string;
-    studentSemester: string | null;
+    studentSemester: number | string | null;
     sessionDate: Date;
-    dailySemester: string;
-    semester: string;
+    dailySemester: number | string;
+    semester: number | string;
   }> = [];
 
-  if (isAdmin || teacherSemesterVariants.length > 0) {
+  if (isAdmin || teacherSemesterNums.length > 0) {
     const disputeRows = await db
       .select({
         id: attendanceCorrectionRequests.id,
@@ -202,7 +224,7 @@ export const getTeacherAttendanceSummary = cache(async function getTeacherAttend
       .where(
         and(
           eq(attendanceCorrectionRequests.status, "pending"),
-          isAdmin ? undefined : inArray(dailySessions.semester, teacherSemesterVariants)
+          isAdmin ? undefined : inArray(dailySessions.semester, teacherSemesterNums)
         )
       )
       .orderBy(desc(attendanceCorrectionRequests.createdAt));
@@ -221,9 +243,9 @@ export const getTeacherAttendanceSummary = cache(async function getTeacherAttend
  * Encapsulated query for Semester attendance roster.
  */
 export const getSemesterRosterAttendance = cache(async function getSemesterRosterAttendance(
-  semester: string
+  semester: string | number
 ) {
-  const semVariants = getSemesterVariants(semester);
+  const semNum = toSemesterNumber(semester);
 
   const studentList = await db
     .select({
@@ -234,11 +256,11 @@ export const getSemesterRosterAttendance = cache(async function getSemesterRoste
       email: students.email,
     })
     .from(students)
-    .where(inArray(students.semester, semVariants))
+    .where(eq(students.semester, semNum))
     .orderBy(asc(students.rollNumber));
 
   const allSessions = await db.query.dailySessions.findMany({
-    where: inArray(dailySessions.semester, semVariants),
+    where: eq(dailySessions.semester, semNum),
     orderBy: [desc(dailySessions.date)],
   });
 
@@ -343,7 +365,7 @@ export const getStudentMissedDaysJournal = cache(async function getStudentMissed
       name: string;
       code: string;
       slug: string;
-      semester: string;
+      semester: number;
       teacherId: string | null;
     };
     lectureLog: {

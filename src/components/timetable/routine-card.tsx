@@ -17,7 +17,7 @@ export type RoutineSlotData = {
   status?: "upcoming" | "ongoing" | "completed";
   notes?: string | null;
   isLab?: boolean;
-  semester?: string | null;
+  semester?: string | number | null;
 };
 
 export type RoutineCardProps = {

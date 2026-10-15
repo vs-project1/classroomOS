@@ -1,7 +1,7 @@
 import { db } from "@/db";
-import { RoutineForm } from "@/features/routine/components/routine-form";
 import { asc, eq } from "drizzle-orm";
-import { subjects, weeklyRoutine } from "@/db/schema";
+import { RoutineForm } from "@/features/routine/components/routine-form";
+import { subjects, teachers, weeklyRoutine } from "@/db/schema";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
@@ -14,9 +14,13 @@ export default async function AdminEditRoutinePage({ params }: { params: Promise
   await requireAuth(["ADMIN"]);
   const { id } = await params;
 
-  const [allSubjects, routine] = await Promise.all([
+  const [allSubjects, allTeachers, routine] = await Promise.all([
     db.query.subjects.findMany({
+      where: eq(subjects.isActive, true),
       orderBy: [asc(subjects.name)],
+    }),
+    db.query.teachers.findMany({
+      orderBy: [asc(teachers.name)],
     }),
     db.query.weeklyRoutine.findFirst({
       where: eq(weeklyRoutine.id, id),
@@ -30,10 +34,14 @@ export default async function AdminEditRoutinePage({ params }: { params: Promise
   const defaultValues = {
     id: routine.id,
     subjectId: routine.subjectId,
+    teacherId: routine.teacherId,
+    semester: routine.semester,
+    section: routine.section,
+    slotType: routine.slotType,
+    customTitle: routine.customTitle,
     dayOfWeek: routine.dayOfWeek,
     startTime: routine.startTime,
     endTime: routine.endTime,
-    teacherName: routine.teacherName || undefined,
     room: routine.room || undefined,
     notes: routine.notes || undefined,
   };
@@ -50,7 +58,7 @@ export default async function AdminEditRoutinePage({ params }: { params: Promise
         </div>
       </div>
       
-      <RoutineForm subjects={allSubjects} defaultValues={defaultValues} />
+      <RoutineForm subjects={allSubjects} teachers={allTeachers} defaultValues={defaultValues} />
     </div>
   );
 }

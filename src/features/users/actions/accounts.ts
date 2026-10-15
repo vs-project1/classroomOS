@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { db } from "@/db";
-import { users, students, studentProfiles, teachers } from "@/db/schema";
+import { users, students, teachers } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { hashPassword, generateMemorablePassword } from "@/lib/auth/password";
 import { requireAuth, revokeUserSessions } from "@/lib/auth/session";
@@ -126,13 +126,12 @@ export async function createAccountAction(
       // 2. Insert role-specific profile records
       if (data.role === "STUDENT" || data.role === "CR") {
         const studentId = `std_${crypto.randomUUID()}`;
-        const profileId = `sp_${crypto.randomUUID()}`;
         const semNorm = normalizeSemester(data.semester);
         const faculty = data.faculty || "BCA";
         const section = data.section || "A";
         const batchYear = data.batchYear || new Date().getFullYear();
 
-        // Insert academic student record
+        // Insert unified student record
         await tx.insert(students).values({
           id: studentId,
           userId,
@@ -141,19 +140,9 @@ export async function createAccountAction(
           email: data.email,
           phone: data.phone || null,
           faculty,
-          semester: semNorm.strVal,
-        });
-
-        // Insert 1:1 student profile linking userId
-        await tx.insert(studentProfiles).values({
-          id: profileId,
-          userId,
-          rollNumber: data.rollNumber!,
-          faculty,
           semester: semNorm.intVal,
           section,
           batchYear,
-          phone: data.phone || null,
         });
       } else if (data.role === "TEACHER") {
         const teacherId = `tch_${crypto.randomUUID()}`;
@@ -329,11 +318,10 @@ export async function deleteUserAccountAction(userId: string): Promise<AccountAc
     // Revoke all live sessions immediately
     await revokeUserSessions(userId);
 
-    // Atomically delete user and linked profile, student, and teacher entities
+    // Atomically delete user and linked student, and teacher entities
     await db.transaction(async (tx) => {
       await tx.delete(students).where(eq(students.userId, userId));
       await tx.delete(teachers).where(eq(teachers.userId, userId));
-      await tx.delete(studentProfiles).where(eq(studentProfiles.userId, userId));
       await tx.delete(users).where(eq(users.id, userId));
     });
 
@@ -373,16 +361,6 @@ export async function editUserAccountAction(
       
       if (data.role === "STUDENT" || data.role === "CR") {
         const studentSem = data.semester ? fromRoman(data.semester) : 1;
-        const ordinalSem = data.semester ? toOrdinalSemester(data.semester) : "1st Semester";
-
-        await tx.update(studentProfiles)
-          .set({ rollNumber: data.rollNumber || "", semester: studentSem, updatedAt: new Date() })
-          .where(eq(studentProfiles.userId, userId));
-          
-        const profile = await tx.query.studentProfiles.findFirst({
-          where: eq(studentProfiles.userId, userId),
-        });
-        const currentRoll = data.rollNumber || profile?.rollNumber;
 
         const matchingStudent = await tx.query.students.findFirst({
           where: (s, { or, eq }) =>
@@ -390,7 +368,7 @@ export async function editUserAccountAction(
               eq(s.userId, userId),
               eq(s.email, oldEmail),
               eq(s.email, cleanEmail),
-              currentRoll ? eq(s.rollNumber, currentRoll) : sql`0 = 1`
+              data.rollNumber ? eq(s.rollNumber, data.rollNumber) : sql`0 = 1`
             ),
         });
 
@@ -401,7 +379,8 @@ export async function editUserAccountAction(
               name: data.name,
               email: cleanEmail,
               rollNumber: data.rollNumber || matchingStudent.rollNumber,
-              semester: ordinalSem
+              semester: studentSem,
+              updatedAt: new Date()
             })
             .where(eq(students.id, matchingStudent.id));
         }

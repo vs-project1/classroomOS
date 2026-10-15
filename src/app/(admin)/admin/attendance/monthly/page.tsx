@@ -1,4 +1,4 @@
-﻿import { requireAuth } from "@/lib/auth/session";
+import { requireAuth } from "@/lib/auth/session";
 import { db } from "@/db";
 import { students } from "@/db/schema";
 import { getMonthlyAttendanceMatrixAction } from "@/features/attendance/actions/monthly";
@@ -14,14 +14,14 @@ export default async function AdminMonthlyAttendancePage() {
     .from(students);
 
   const availableSemesters = distinctSemesters
-    .map((s) => s.semester)
+    .map((s) => (s.semester ? `Semester ${s.semester}` : null))
     .filter((s): s is string => Boolean(s));
 
   if (availableSemesters.length === 0) {
-    availableSemesters.push("4th Semester", "2nd Semester", "1st Semester");
+    availableSemesters.push("Semester 4", "Semester 2", "Semester 1");
   }
 
-  const defaultSemester = availableSemesters[0] || "4th Semester";
+  const defaultSemester = availableSemesters[0] || "Semester 4";
 
   const now = new Date();
   const currentNepaliDate = new NepaliDate(now);

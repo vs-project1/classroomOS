@@ -1,17 +1,13 @@
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/db";
-import { subjects } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { subjects, weeklyRoutine } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import Link from "next/link";
 import { ArrowLeft, Users, CalendarCheck, AlertCircle, Sparkles } from "lucide-react";
 import { notFound } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  toRoman,
-  toOrdinalSemester,
-  areSemestersEqual,
-} from "@/lib/utils/roman";
+import { toSemesterNumber, toSemesterRoman, toSemesterOrdinal } from "@/lib/semester";
 import { getSemesterRosterAttendance } from "@/features/attendance/queries";
 
 export const dynamic = "force-dynamic";
@@ -34,16 +30,30 @@ export default async function TeacherRosterPage({
   }
 
   // Get subjects taught by this teacher to find taught semesters
-  let teacherSubjects: Array<{ id: string; name: string; code: string; semester: string }> = [];
+  let teacherSubjects: Array<{ id: string; name: string; code: string; semester: number }> = [];
   if (user.teacherId) {
-    teacherSubjects = await db.query.subjects.findMany({
-      where: eq(subjects.teacherId, user.teacherId),
+    const directSubjects = await db.query.subjects.findMany({
+      where: and(eq(subjects.teacherId, user.teacherId), eq(subjects.isActive, true)),
     });
+    const routineSubjects = await db
+      .select({
+        id: subjects.id,
+        name: subjects.name,
+        code: subjects.code,
+        semester: subjects.semester,
+      })
+      .from(weeklyRoutine)
+      .innerJoin(subjects, eq(weeklyRoutine.subjectId, subjects.id))
+      .where(and(eq(weeklyRoutine.teacherId, user.teacherId), eq(subjects.isActive, true)));
+
+    teacherSubjects = [...directSubjects, ...routineSubjects];
   } else if (user.role === "ADMIN") {
-    teacherSubjects = await db.query.subjects.findMany();
+    teacherSubjects = await db.query.subjects.findMany({
+      where: eq(subjects.isActive, true),
+    });
   }
 
-  const taughtSemesters = [...new Set(teacherSubjects.map((s) => s.semester))];
+  const taughtSemesters = [...new Set(teacherSubjects.map((s) => s.semester))].sort((a, b) => a - b);
 
   if (taughtSemesters.length === 0) {
     return (
@@ -63,11 +73,11 @@ export default async function TeacherRosterPage({
   const rawSemesterParam = resolvedParams?.semester;
 
   // Fallback to teacher's first semester if none specified
-  const activeSemester = rawSemesterParam || taughtSemesters[0];
+  const activeSemester = rawSemesterParam ? toSemesterNumber(rawSemesterParam) : taughtSemesters[0];
 
   // Verify teacher teaches in that semester (or is ADMIN)
   if (user.role !== "ADMIN") {
-    const isAuthorized = taughtSemesters.some((s) => areSemestersEqual(s, activeSemester));
+    const isAuthorized = taughtSemesters.includes(activeSemester);
     if (!isAuthorized) {
       return notFound();
     }
@@ -100,18 +110,18 @@ export default async function TeacherRosterPage({
                 Attendance Roster
               </h1>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
-                Semester {toRoman(activeSemester)}
+                Semester {toSemesterRoman(activeSemester)}
               </span>
             </div>
             <p className="text-muted-foreground text-sm mt-0.5">
-              {toOrdinalSemester(activeSemester)} • Academic participation and eligibility ledger
+              {toSemesterOrdinal(activeSemester)} • Academic participation and eligibility ledger
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <Link
-            href={`/cr/take-attendance?semester=${encodeURIComponent(toOrdinalSemester(activeSemester))}`}
+            href={`/cr/take-attendance?semester=${activeSemester}`}
             className={cn(buttonVariants({ variant: "outline" }), "rounded-xl font-semibold")}
           >
             Take Attendance
@@ -126,11 +136,11 @@ export default async function TeacherRosterPage({
             Semesters:
           </span>
           {taughtSemesters.map((sem) => {
-            const isActive = areSemestersEqual(sem, activeSemester);
+            const isActive = sem === activeSemester;
             return (
               <Link
                 key={sem}
-                href={`/teacher/attendance/roster?semester=${encodeURIComponent(sem)}`}
+                href={`/teacher/attendance/roster?semester=${sem}`}
                 className={cn(
                   "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all",
                   isActive
@@ -138,7 +148,7 @@ export default async function TeacherRosterPage({
                     : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                {toOrdinalSemester(sem)}
+                {toSemesterOrdinal(sem)}
               </Link>
             );
           })}
@@ -153,7 +163,7 @@ export default async function TeacherRosterPage({
             Total Students
           </div>
           <div className="text-3xl font-bold font-fira-code text-foreground">{roster.length}</div>
-          <p className="text-xs text-muted-foreground">Enrolled in {toOrdinalSemester(activeSemester)}</p>
+          <p className="text-xs text-muted-foreground">Enrolled in {toSemesterOrdinal(activeSemester)}</p>
         </div>
 
         <div className="p-6 rounded-2xl border border-border/40 bg-card shadow-sm flex flex-col gap-2">
@@ -197,7 +207,7 @@ export default async function TeacherRosterPage({
               {roster.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground italic">
-                    No students enrolled in {toOrdinalSemester(activeSemester)}.
+                    No students enrolled in {toSemesterOrdinal(activeSemester)}.
                   </td>
                 </tr>
               ) : (

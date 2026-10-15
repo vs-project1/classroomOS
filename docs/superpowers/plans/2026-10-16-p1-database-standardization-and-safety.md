@@ -33,7 +33,7 @@
   - `toSemesterOrdinal(sem: number): string`
   - `zSemester`: Zod schema `z.coerce.number().int().min(1).max(8)`
 
-- [ ] **Step 1: Write the failing unit tests**
+- [x] **Step 1: Write the failing unit tests**
 
 ```typescript
 // tests/unit/semester.test.ts
@@ -91,12 +91,12 @@ describe("src/lib/semester.ts", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/unit/semester.test.ts`
 Expected: FAIL with "Cannot find module '@/lib/semester'"
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```typescript
 // src/lib/semester.ts
@@ -143,12 +143,12 @@ export function toSemesterOrdinal(sem: number): string {
 export const zSemester = z.coerce.number().int().min(1, "Semester must be between 1 and 8").max(8, "Semester must be between 1 and 8");
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/unit/semester.test.ts`
 Expected: PASS with 6 passing tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/semester.ts tests/unit/semester.test.ts
@@ -173,7 +173,7 @@ git commit -m "feat(lib): add canonical semester utility and unit tests"
   - `telegramBroadcastLogs.semester`: `integer` (`1..8`)
   - Foreign keys to `subjects.id` with `{ onDelete: "restrict" }`
 
-- [ ] **Step 1: Update `src/db/schema.ts`**
+- [x] **Step 1: Update `src/db/schema.ts`**
 
 Update `subjects`, `weeklyRoutine`, `dailySessions`, `semesterTelegramConfigs`, `telegramBroadcastLogs`, and dependent foreign keys:
 
@@ -253,12 +253,12 @@ semester: integer("semester").notNull().default(1),
 check("chk_telegram_broadcast_logs_semester", sql`${table.semester} BETWEEN 1 AND 8`),
 ```
 
-- [ ] **Step 2: Run typecheck to verify schema compatibility**
+- [x] **Step 2: Run typecheck to verify schema compatibility**
 
 Run: `npx tsc --noEmit`
 Fix any type errors caused by schema field updates across query callers.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/db/schema.ts
@@ -278,7 +278,7 @@ git commit -m "refactor(schema): standardize semester to integer and add subject
 - Consumes: `src/db/schema.ts`
 - Produces: Migration SQL that backfills Roman text values to integers `1..8` and applies check constraints without data loss.
 
-- [ ] **Step 1: Generate and author the migration SQL**
+- [x] **Step 1: Generate and author the migration SQL**
 
 Ensure `drizzle/0019_p1_semester_standardization.sql` updates existing rows converting:
 - `'I'` $\to$ `1`
@@ -291,12 +291,12 @@ Ensure `drizzle/0019_p1_semester_standardization.sql` updates existing rows conv
 - `'VIII'` $\to$ `8`
 Before applying integer check constraints.
 
-- [ ] **Step 2: Run `npx drizzle-kit check` to verify snapshot parity**
+- [x] **Step 2: Run `npx drizzle-kit check` to verify snapshot parity**
 
 Run: `npx drizzle-kit check`
 Expected: `Everything's fine 🐶🔥`
 
-- [ ] **Step 3: Commit migration**
+- [x] **Step 3: Commit migration**
 
 ```bash
 git add drizzle/0019_p1_semester_standardization.sql drizzle/meta/0019_snapshot.json drizzle/meta/_journal.json
@@ -315,7 +315,7 @@ git commit -m "feat(db): add migration 0019 for semester standardization and sub
 - Consumes: `subjects.isActive`
 - Produces: Soft-delete archive action and active subject filters.
 
-- [ ] **Step 1: Refactor subject delete action to soft-delete**
+- [x] **Step 1: Refactor subject delete action to soft-delete**
 
 In `deleteSubjectAction` (or equivalent admin subject delete action):
 ```typescript
@@ -331,14 +331,14 @@ export async function deleteSubject(id: string) {
 }
 ```
 
-- [ ] **Step 2: Add `isActive: true` filter to active dropdown queries**
+- [x] **Step 2: Add `isActive: true` filter to active dropdown queries**
 
 In `getSubjects()`, `getAllSubjects()`, and routine builder options:
 ```typescript
 where: eq(subjects.isActive, true)
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/features/subjects/
@@ -358,7 +358,7 @@ git commit -m "feat(subjects): implement non-destructive soft archiving and acti
 - Consumes: `toSemesterNumber()` from `src/lib/semester.ts`
 - Produces: Direct SQL joins and integer equality filtering.
 
-- [ ] **Step 1: Refactor `telegram-brief-service.ts`**
+- [x] **Step 1: Refactor `telegram-brief-service.ts`**
 
 Push filtering into SQL:
 ```typescript
@@ -383,7 +383,7 @@ const todayRoutines = await db
   .orderBy(asc(weeklyRoutine.startTime));
 ```
 
-- [ ] **Step 2: Remove obsolete `areSemestersEqual` shims**
+- [x] **Step 2: Remove obsolete `areSemestersEqual` shims**
 
 Replace calls to `areSemestersEqual(semA, semB)` with:
 ```typescript
@@ -391,7 +391,7 @@ toSemesterNumber(semA) === toSemesterNumber(semB)
 ```
 Or native SQL equality in database queries.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/features/telegram/services/telegram-brief-service.ts src/features/routine/
@@ -408,7 +408,7 @@ git commit -m "perf(routine): push semester query into SQL and eliminate runtime
 **Interfaces:**
 - Tests all P1 deliverables against the live SQLite database.
 
-- [ ] **Step 1: Write `scripts/verify-p1-standardization.ts`**
+- [x] **Step 1: Write `scripts/verify-p1-standardization.ts`**
 
 Tests:
 1. `toSemesterNumber` and `toSemesterRoman` conversion accuracy.
@@ -417,17 +417,17 @@ Tests:
 4. Soft delete sets `isActive = false` and keeps lecture logs intact.
 5. Telegram routine query returns only matching semester records.
 
-- [ ] **Step 2: Run verification script**
+- [x] **Step 2: Run verification script**
 
 Run: `npx tsx --env-file=.env.local scripts/verify-p1-standardization.ts`
 Expected: All tests pass.
 
-- [ ] **Step 3: Run zero-regression typecheck**
+- [x] **Step 3: Run zero-regression typecheck**
 
 Run: `npx tsc --noEmit`
 Expected: 0 errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add scripts/verify-p1-standardization.ts

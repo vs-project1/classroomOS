@@ -196,7 +196,7 @@ export async function createResourceAction(
       fileType: parsed.data.fileType,
       fileSize: parsed.data.fileSize ?? null,
       description: parsed.data.description || null,
-      uploadedBy: user.teacherId ?? null,
+      uploadedBy: user.id,
     });
 
     // Notify enrolled students (best-effort — notifyMany never throws).
@@ -267,7 +267,12 @@ export async function deleteResourceAction(resourceId: string) {
       return { success: false, message: "Resource not found" };
     }
 
-    if (user.role !== "ADMIN" && resource.uploadedBy !== user.teacherId && resource.subject.teacherId !== user.teacherId) {
+    if (
+      user.role !== "ADMIN" &&
+      resource.uploadedBy !== user.id &&
+      resource.uploadedBy !== user.teacherId &&
+      resource.subject.teacherId !== user.teacherId
+    ) {
       return { success: false, message: "You do not have permission to delete this resource" };
     }
 

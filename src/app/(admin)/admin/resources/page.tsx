@@ -1,7 +1,7 @@
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/db";
 import { subjects, resources } from "@/db/schema";
-import { desc, asc } from "drizzle-orm";
+import { desc, asc, eq } from "drizzle-orm";
 import { ResourcesWorkspace } from "@/features/resources/components/resources-workspace";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +10,7 @@ export default async function AdminResourcesPage() {
   await requireAuth(["ADMIN"]);
 
   const allSubjects = await db.query.subjects.findMany({
+    where: eq(subjects.isActive, true),
     orderBy: [asc(subjects.name)],
     with: {
       courseUnits: {

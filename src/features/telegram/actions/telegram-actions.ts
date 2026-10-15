@@ -10,6 +10,8 @@ import {
   telegramBroadcastLogs,
   weeklyRoutine,
   notices,
+  subjects,
+  teachers,
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/session";
 import { getBotInfo, sendTelegramMessage } from "../services/telegram-client";
@@ -19,7 +21,7 @@ import {
   type RoutineSlotInfo,
 } from "../services/formatters";
 import { executeTelegramBrief } from "../services/telegram-brief-service";
-import { areSemestersEqual, toRoman } from "@/lib/utils/roman";
+import { toSemesterNumber, toSemesterRoman } from "@/lib/semester";
 import {
   saveSemesterTelegramConfigSchema,
   saveTelegramSettingsSchema,
@@ -157,10 +159,18 @@ export async function saveSemesterTelegramConfigAction(
     };
   }
 
+  const semNum = toSemesterNumber(parsed.data.semester);
+  if (!semNum) {
+    return {
+      success: false,
+      error: "Invalid semester value",
+    };
+  }
+
   const [existing] = await db
     .select()
     .from(semesterTelegramConfigs)
-    .where(eq(semesterTelegramConfigs.semester, parsed.data.semester))
+    .where(eq(semesterTelegramConfigs.semester, semNum))
     .limit(1);
 
   if (existing) {
@@ -179,7 +189,7 @@ export async function saveSemesterTelegramConfigAction(
   } else {
     await db.insert(semesterTelegramConfigs).values({
       id: crypto.randomUUID(),
-      semester: parsed.data.semester,
+      semester: semNum,
       chatId: parsed.data.chatId,
       messageThreadId: parsed.data.messageThreadId ?? null,
       chatTitle: parsed.data.chatTitle ?? null,
@@ -190,14 +200,16 @@ export async function saveSemesterTelegramConfigAction(
   }
 
   revalidatePath("/admin/settings/telegram");
-  return { success: true, message: `Semester ${parsed.data.semester} Telegram binding saved!` };
+  return { success: true, message: `Semester ${toSemesterRoman(semNum)} Telegram binding saved!` };
 }
 
 /**
  * Dispatches a test greeting message to a semester's Telegram channel.
  */
-export async function sendTestTelegramMessageAction(semester: string): Promise<ActionResult> {
+export async function sendTestTelegramMessageAction(semester: string | number): Promise<ActionResult> {
   const user = await requireAuth(["ADMIN"]);
+  const semNum = toSemesterNumber(semester);
+  const semRoman = toSemesterRoman(semNum);
 
   const [settings] = await db.select().from(telegramSettings).limit(1);
   if (!settings || !settings.botToken) {
@@ -207,17 +219,17 @@ export async function sendTestTelegramMessageAction(semester: string): Promise<A
   const [config] = await db
     .select()
     .from(semesterTelegramConfigs)
-    .where(eq(semesterTelegramConfigs.semester, semester))
+    .where(eq(semesterTelegramConfigs.semester, semNum))
     .limit(1);
 
   if (!config || !config.chatId) {
-    return { success: false, error: `No Telegram Chat ID configured for Semester ${semester}.` };
+    return { success: false, error: `No Telegram Chat ID configured for Semester ${semRoman}.` };
   }
 
   const testText =
     `<b>Classroom OS — Test Broadcast</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `🎉 <b>Hello Semester ${semester}!</b>\n\n` +
+    `🎉 <b>Hello Semester ${semRoman}!</b>\n\n` +
     `This Telegram chat is now successfully connected to Classroom OS.\n` +
     `Routine changes, morning briefings, and campus announcements will be delivered here.\n\n` +
     `<i>Sent by ${user.name} via Admin Console</i>`;
@@ -232,7 +244,7 @@ export async function sendTestTelegramMessageAction(semester: string): Promise<A
   // Log dispatch
   await db.insert(telegramBroadcastLogs).values({
     id: crypto.randomUUID(),
-    semester,
+    semester: semNum,
     type: "test_message",
     messageText: testText,
     status: sendResult.ok ? "success" : "failed",
@@ -249,7 +261,7 @@ export async function sendTestTelegramMessageAction(semester: string): Promise<A
     };
   }
 
-  return { success: true, message: `Test message sent to Semester ${semester} successfully!` };
+  return { success: true, message: `Test message sent to Semester ${semRoman} successfully!` };
 }
 
 /**
@@ -299,7 +311,7 @@ export async function sendDirectTestMessageAction({
   // Log dispatch
   await db.insert(telegramBroadcastLogs).values({
     id: crypto.randomUUID(),
-    semester: "TEST",
+    semester: 1,
     type: "test_message",
     messageText: text,
     status: sendResult.ok ? "success" : "failed",
@@ -323,22 +335,6 @@ export async function sendDirectTestMessageAction({
   };
 }
 
-function normalizeSemesterToRoman(sem: string | number | null | undefined): string {
-  return toRoman(sem);
-  const s = String(sem).trim().toUpperCase();
-  const map: Record<string, string> = {
-    "1": "I", "1ST": "I", "I": "I",
-    "2": "II", "2ND": "II", "II": "II",
-    "3": "III", "3RD": "III", "III": "III",
-    "4": "IV", "4TH": "IV", "IV": "IV",
-    "5": "V", "5TH": "V", "V": "V",
-    "6": "VI", "6TH": "VI", "VI": "VI",
-    "7": "VII", "7TH": "VII", "VII": "VII",
-    "8": "VIII", "8TH": "VIII", "VIII": "VIII",
-  };
-  return map[s] || s;
-}
-
 /**
  * Manually broadcasts the routine for a semester to its linked Telegram channel.
  */
@@ -352,16 +348,18 @@ export async function broadcastRoutineToTelegramAction(
     return { success: false, error: "Telegram Bot is not configured or is currently disabled." };
   }
 
+  const targetSemesterNum = toSemesterNumber(input.semester);
+
   const [config] = await db
     .select()
     .from(semesterTelegramConfigs)
-    .where(eq(semesterTelegramConfigs.semester, toRoman(input.semester)))
+    .where(eq(semesterTelegramConfigs.semester, targetSemesterNum))
     .limit(1);
 
   if (!config || !config.chatId) {
     return {
       success: false,
-      error: `No Telegram chat configured for Semester ${input.semester}. Please configure it in Settings.`,
+      error: `No Telegram chat configured for Semester ${toSemesterRoman(targetSemesterNum)}. Please configure it in Settings.`,
     };
   }
 
@@ -391,27 +389,29 @@ export async function broadcastRoutineToTelegramAction(
     targetDate.setDate(targetDate.getDate() + (daysToAdd === 0 ? 7 : daysToAdd));
   }
 
-  // Fetch routine slots for that semester and day
+  // Fetch routine slots for that semester and day pushed down directly to SQL
   const rawRoutines = await db.query.weeklyRoutine.findMany({
-    where: eq(weeklyRoutine.dayOfWeek, targetDay),
+    where: and(
+      eq(weeklyRoutine.dayOfWeek, targetDay),
+      eq(weeklyRoutine.semester, targetSemesterNum)
+    ),
     orderBy: [asc(weeklyRoutine.startTime)],
     with: {
       subject: {
         with: { teacher: true },
       },
+      teacher: true,
     },
   });
 
-  const slots: RoutineSlotInfo[] = rawRoutines
-    .filter((r) => areSemestersEqual(r.subject?.semester, input.semester))
-    .map((r) => ({
-      startTime: r.startTime,
-      endTime: r.endTime,
-      subjectName: r.subject.name,
-      teacherName: r.teacherName || r.subject.teacher?.name || null,
-      room: r.room,
-      notes: r.notes,
-    }));
+  const slots: RoutineSlotInfo[] = rawRoutines.map((r) => ({
+    startTime: r.startTime,
+    endTime: r.endTime,
+    subjectName: r.subject?.name || r.customTitle || "Scheduled Slot",
+    teacherName: r.teacher?.name || r.subject?.teacher?.name || null,
+    room: r.room,
+    notes: r.notes,
+  }));
 
   const defaultTitle = targetDay === todayDayIndex ? "🌅 Today's Routine" : "🌙 Tomorrow's Routine";
   const titlePrefix = input.isUpdate ? "⚠️ Routine Changed Notice" : defaultTitle;
@@ -423,7 +423,7 @@ export async function broadcastRoutineToTelegramAction(
 
   const text = formatRoutineBriefMessage({
     titlePrefix,
-    semester: input.semester,
+    semester: targetSemesterNum,
     date: targetDate,
     dayName: DAYS[targetDay],
     slots,
@@ -441,7 +441,7 @@ export async function broadcastRoutineToTelegramAction(
 
   await db.insert(telegramBroadcastLogs).values({
     id: crypto.randomUUID(),
-    semester: input.semester,
+    semester: targetSemesterNum,
     type: "routine_broadcast",
     messageText: text,
     status: sendResult.ok ? "success" : "failed",
@@ -457,7 +457,7 @@ export async function broadcastRoutineToTelegramAction(
         lastRoutinePublishedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(semesterTelegramConfigs.semester, input.semester));
+      .where(eq(semesterTelegramConfigs.semester, targetSemesterNum));
   }
 
   revalidatePath("/admin/routine");
@@ -469,20 +469,20 @@ export async function broadcastRoutineToTelegramAction(
     return { success: false, error: sendResult.error || "Failed to broadcast routine to Telegram." };
   }
 
-  return { success: true, message: `Routine broadcasted to Semester ${input.semester} Telegram group!` };
+  return { success: true, message: `Routine broadcasted to Semester ${toSemesterRoman(targetSemesterNum)} Telegram group!` };
 }
 
 /**
  * Automatically records that a semester's timetable has been modified,
  * activating the "Publish Changes to Telegram" banner.
  */
-export async function markSemesterRoutineModified(semester: string) {
+export async function markSemesterRoutineModified(semester: string | number) {
   try {
-    const normSem = normalizeSemesterToRoman(semester);
+    const semNum = toSemesterNumber(semester);
     const [existing] = await db
       .select()
       .from(semesterTelegramConfigs)
-      .where(eq(semesterTelegramConfigs.semester, normSem))
+      .where(eq(semesterTelegramConfigs.semester, semNum))
       .limit(1);
 
     if (existing) {
@@ -496,7 +496,7 @@ export async function markSemesterRoutineModified(semester: string) {
     } else {
       await db.insert(semesterTelegramConfigs).values({
         id: crypto.randomUUID(),
-        semester: normSem,
+        semester: semNum,
         chatId: "",
         lastRoutineModifiedAt: new Date(),
       });
@@ -541,14 +541,15 @@ export async function broadcastNoticeToTelegramAction(
   const errors: string[] = [];
 
   for (const semester of input.semesters) {
+    const semNum = toSemesterNumber(semester);
     const [config] = await db
       .select()
       .from(semesterTelegramConfigs)
-      .where(eq(semesterTelegramConfigs.semester, toRoman(semester)))
+      .where(eq(semesterTelegramConfigs.semester, semNum))
       .limit(1);
 
     if (!config || !config.chatId) {
-      errors.push(`Semester ${semester}: No Telegram chat configured`);
+      errors.push(`Semester ${toSemesterRoman(semNum)}: No Telegram chat configured`);
       continue;
     }
 
@@ -562,7 +563,7 @@ export async function broadcastNoticeToTelegramAction(
 
     await db.insert(telegramBroadcastLogs).values({
       id: crypto.randomUUID(),
-      semester,
+      semester: semNum,
       type: "notice_broadcast",
       messageText: text,
       status: res.ok ? "success" : "failed",
@@ -573,7 +574,7 @@ export async function broadcastNoticeToTelegramAction(
     if (res.ok) {
       successCount++;
     } else {
-      errors.push(`Semester ${semester}: ${res.error || "Failed to send"}`);
+      errors.push(`Semester ${toSemesterRoman(semNum)}: ${res.error || "Failed to send"}`);
     }
   }
 
