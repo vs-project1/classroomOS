@@ -68,3 +68,11 @@ export function nptStartOfDay(d: Date = new Date()): Date {
   }).format(d);
   return new Date(`${ymd}T00:00:00Z`);
 }
+
+export function getNptDayOfWeek(d: Date = new Date()): number {
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIMEZONE,
+    weekday: "short",
+  }).format(d);
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(weekday);
+}

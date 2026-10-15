@@ -1,10 +1,11 @@
-﻿"use server";
+"use server";
 
 import { db } from "@/db";
 import { dailySessions, dailyAttendance, students } from "@/db/schema";
 import { eq, and, asc, gte, lte, inArray } from "drizzle-orm";
 import NepaliDate from "nepali-datetime";
 import { requireAuth } from "@/lib/auth/session";
+import { toSemesterNumber } from "@/lib/semester";
 
 export interface MonthlyAttendanceDay {
   dayNumber: number;
@@ -47,11 +48,13 @@ const NEPALI_MONTH_NAMES = [
 ];
 
 export async function getMonthlyAttendanceMatrixAction(
-  semester: string,
+  semester: string | number,
   year: number = 2083,
   monthIndex: number = 1
 ): Promise<MonthlyAttendanceMatrixResult> {
   await requireAuth(["CR", "ADMIN", "TEACHER"]);
+
+  const semNum = toSemesterNumber(semester);
 
   // 1. Fetch all students for the semester
   const studentList = await db.select({
@@ -59,7 +62,7 @@ export async function getMonthlyAttendanceMatrixAction(
     name: students.name,
     rollNumber: students.rollNumber,
   }).from(students)
-    .where(eq(students.semester, semester))
+    .where(eq(students.semester, semNum))
     .orderBy(asc(students.rollNumber));
 
   // 2. Generate all days in the Nepali month
@@ -101,7 +104,7 @@ export async function getMonthlyAttendanceMatrixAction(
       year,
       monthIndex,
       monthName: NEPALI_MONTH_NAMES[monthIndex] || "Unknown",
-      semester,
+      semester: String(semester),
       days: [],
       students: [],
       stats: { totalStudents: 0, totalSessions: 0, overallAttendancePct: 0 },
@@ -115,7 +118,7 @@ export async function getMonthlyAttendanceMatrixAction(
   const sessions = await db.select().from(dailySessions)
     .where(
       and(
-        eq(dailySessions.semester, semester),
+        eq(dailySessions.semester, semNum),
         gte(dailySessions.date, new Date(startEpoch * 1000)),
         lte(dailySessions.date, new Date(endEpoch * 1000))
       )
@@ -197,7 +200,7 @@ export async function getMonthlyAttendanceMatrixAction(
     year,
     monthIndex,
     monthName: NEPALI_MONTH_NAMES[monthIndex] || "Unknown",
-    semester,
+    semester: String(semester),
     days,
     students: studentsSummary,
     stats: {

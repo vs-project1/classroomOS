@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { toSemesterNumber, toSemesterRoman } from "@/lib/semester";
 
 const DAYS = [
   { value: 0, label: "Sunday" },
@@ -19,19 +20,24 @@ const DAYS = [
 
 type RoutineFormProps = {
   subjects: { id: string; name: string }[];
+  teachers?: { id: string; name: string }[];
   defaultValues?: {
     id?: string;
-    subjectId?: string;
+    subjectId?: string | null;
+    teacherId?: string | null;
+    semester?: string | number;
+    section?: string;
+    slotType?: string;
+    customTitle?: string | null;
     dayOfWeek?: number;
     startTime?: string;
     endTime?: string;
-    teacherName?: string;
     room?: string;
     notes?: string;
   };
 };
 
-export function RoutineForm({ subjects, defaultValues }: RoutineFormProps) {
+export function RoutineForm({ subjects, teachers = [], defaultValues }: RoutineFormProps) {
   const [state, formAction, isPending] = useActionState(saveRoutine, null);
 
   return (
@@ -44,16 +50,63 @@ export function RoutineForm({ subjects, defaultValues }: RoutineFormProps) {
         </div>
       )}
 
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="semester">Semester *</Label>
+          <select
+            id="semester"
+            name="semester"
+            defaultValue={defaultValues?.semester != null ? (toSemesterRoman(toSemesterNumber(defaultValues.semester) ?? 1)) : "I"}
+            required
+            className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {["I", "II", "III", "IV", "V", "VI", "VII", "VIII"].map((sem) => (
+              <option key={sem} value={sem}>Semester {sem}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="section">Section *</Label>
+          <select
+            id="section"
+            name="section"
+            defaultValue={defaultValues?.section || "A"}
+            required
+            className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="A">Section A</option>
+            <option value="B">Section B</option>
+            <option value="C">Section C</option>
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="slotType">Slot Type</Label>
+          <select
+            id="slotType"
+            name="slotType"
+            defaultValue={defaultValues?.slotType || "LECTURE"}
+            className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <option value="LECTURE">Lecture</option>
+            <option value="LAB">Practical / Lab</option>
+            <option value="BREAK">Break / Recess</option>
+            <option value="ECA">ECA / Sports</option>
+            <option value="LIBRARY">Library / Self-Study</option>
+          </select>
+        </div>
+      </div>
+
       <div className="space-y-2">
-        <Label htmlFor="subjectId">Subject *</Label>
+        <Label htmlFor="subjectId">Subject</Label>
         <select
           id="subjectId"
           name="subjectId"
           defaultValue={defaultValues?.subjectId || ""}
-          required
           className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <option value="" disabled>Select Subject</option>
+          <option value="">None / Non-Subject Activity</option>
           {subjects.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
@@ -61,6 +114,31 @@ export function RoutineForm({ subjects, defaultValues }: RoutineFormProps) {
         {state?.fieldErrors?.subjectId && (
           <p className="text-sm text-red-500">{state.fieldErrors.subjectId[0]}</p>
         )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="customTitle">Custom Title (Optional for breaks/ECA)</Label>
+        <Input
+          id="customTitle"
+          name="customTitle"
+          defaultValue={defaultValues?.customTitle || ""}
+          placeholder="e.g. Lunch Break, Project Lab"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="teacherId">Assigned Teacher</Label>
+        <select
+          id="teacherId"
+          name="teacherId"
+          defaultValue={defaultValues?.teacherId || ""}
+          className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="">Default (From Subject or Unassigned)</option>
+          {teachers.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
       </div>
 
       <div className="space-y-2">
@@ -109,16 +187,6 @@ export function RoutineForm({ subjects, defaultValues }: RoutineFormProps) {
             <p className="text-sm text-red-500">{state.fieldErrors.endTime[0]}</p>
           )}
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="teacherName">Teacher Name</Label>
-        <Input
-          id="teacherName"
-          name="teacherName"
-          defaultValue={defaultValues?.teacherName}
-          placeholder="e.g. Ramesh Sir"
-        />
       </div>
 
       <div className="space-y-2">

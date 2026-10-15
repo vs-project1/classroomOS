@@ -1,4 +1,3 @@
-import "server-only";
 import type { TelegramBotInfo } from "../types";
 
 const TELEGRAM_API_BASE = "https://api.telegram.org";
@@ -43,17 +42,21 @@ export type SendMessageOptions = {
   pinMessage?: boolean;
 };
 
+export type SendTelegramMessageResult = {
+  ok: boolean;
+  messageId?: number;
+  error?: string;
+  statusCode?: number;
+  retryAfter?: number;
+};
+
 export async function sendTelegramMessage({
   token,
   chatId,
   text,
   messageThreadId,
   pinMessage = false,
-}: SendMessageOptions): Promise<{
-  ok: boolean;
-  messageId?: number;
-  error?: string;
-}> {
+}: SendMessageOptions): Promise<SendTelegramMessageResult> {
   try {
     const body: Record<string, any> = {
       chat_id: chatId,
@@ -73,11 +76,16 @@ export async function sendTelegramMessage({
       cache: "no-store",
     });
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) {
+      const retryAfter =
+        data?.parameters?.retry_after ??
+        (typeof data?.retry_after === "number" ? data.retry_after : undefined);
       return {
         ok: false,
-        error: data.description || `HTTP ${res.status}: Failed to send message`,
+        statusCode: res.status,
+        retryAfter: typeof retryAfter === "number" ? retryAfter : undefined,
+        error: data?.description || `HTTP ${res.status}: Failed to send message`,
       };
     }
 
@@ -90,15 +98,18 @@ export async function sendTelegramMessage({
 
     return {
       ok: true,
+      statusCode: res.status,
       messageId,
     };
   } catch (error) {
     return {
       ok: false,
+      statusCode: 0,
       error: error instanceof Error ? error.message : "Network error delivering Telegram message",
     };
   }
 }
+
 
 export async function pinTelegramMessage(
   token: string,

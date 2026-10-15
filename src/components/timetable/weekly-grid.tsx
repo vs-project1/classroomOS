@@ -18,7 +18,7 @@ export type WeeklyGridProps = {
 
 export function WeeklyGrid({ dayGroups, canManageRoutine, renderActions, viewRole }: WeeklyGridProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:flex xl:overflow-x-auto xl:pb-4 gap-4">
       {dayGroups.map((group) => {
         const sortedSlots = [...group.slots].sort((a, b) => a.startTime.localeCompare(b.startTime));
 
@@ -26,7 +26,7 @@ export function WeeklyGrid({ dayGroups, canManageRoutine, renderActions, viewRol
           <div
             key={group.dayName}
             className={cn(
-              "flex flex-col rounded-xl border bg-card shadow-2xs overflow-hidden transition-colors",
+              "flex flex-col rounded-xl border bg-card shadow-2xs overflow-hidden transition-colors xl:w-[260px] xl:shrink-0",
               group.isToday ? "border-primary/40 ring-1 ring-primary/20" : "border-border/60"
             )}
           >

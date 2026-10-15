@@ -9,6 +9,7 @@ import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { parseAndNormalizeTime } from "@/lib/timezone";
 import { requireAuth } from "@/lib/auth/session";
+import type { ActionResult } from "@/lib/types/action-result";
 
 const eventSchema = z.object({
   title: z.string().trim().min(1, "Title is required"),
@@ -27,8 +28,11 @@ const eventSchema = z.object({
   path: ["endTime"],
 });
 
-export async function createEvent(prevState: any, formData: FormData) {
-  await requireAuth(["ADMIN", "TEACHER"]);
+export async function createEvent(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const user = await requireAuth(["ADMIN", "TEACHER"]);
 
   const rawStartTime = formData.get("startTime")?.toString() || "";
   const rawEndTime = formData.get("endTime")?.toString() || "";
@@ -59,6 +63,7 @@ export async function createEvent(prevState: any, formData: FormData) {
       id: crypto.randomUUID(),
       title: data.title,
       description: data.description,
+      createdById: user.id,
       eventDate: new Date(data.eventDate),
       startTime: data.startTime,
       endTime: data.endTime,

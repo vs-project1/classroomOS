@@ -110,10 +110,20 @@ async function runAudit() {
   const isMigrationStaged = stagedFiles.some((f) => f.startsWith("drizzle/") && f.endsWith(".sql"));
 
   if (isSchemaStaged && !isMigrationStaged) {
-    error("`src/db/schema.ts` is staged without a corresponding Drizzle migration file!");
-    error("Production (Turso) requires explicit migration SQL files to stay in sync.");
-    error("Run `npm run db:generate` and stage the resulting `drizzle/00XX_*.sql` file before committing.");
-    process.exit(1);
+    try {
+      const generateOutput = execSync("npx drizzle-kit generate", { encoding: "utf-8" });
+      if (generateOutput.includes("No schema changes, nothing to migrate")) {
+        log("Notice: Schema modification only affects ORM relations (no SQL migration required).");
+      } else {
+        error("`src/db/schema.ts` is staged without a corresponding Drizzle migration file!");
+        error("Production (Turso) requires explicit migration SQL files to stay in sync.");
+        error("Run `npm run db:generate` and stage the resulting `drizzle/00XX_*.sql` file before committing.");
+        process.exit(1);
+      }
+    } catch {
+      error("Failed to verify drizzle schema parity.");
+      process.exit(1);
+    }
   }
   success("Database schema and migration synchronization verified.");
 

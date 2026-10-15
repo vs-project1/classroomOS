@@ -7,6 +7,8 @@ export function escapeHtml(str: string): string {
     .replace(/>/g, "&gt;");
 }
 
+import { toSemesterNumber, toSemesterRoman } from "@/lib/semester";
+
 export type RoutineSlotInfo = {
   startTime: string;
   endTime: string;
@@ -26,7 +28,7 @@ export function formatRoutineBriefMessage({
   appUrl,
 }: {
   titlePrefix: string;
-  semester: string;
+  semester: string | number;
   date: Date;
   dayName: string;
   slots: RoutineSlotInfo[];
@@ -41,7 +43,8 @@ export function formatRoutineBriefMessage({
     timeZone: "Asia/Kathmandu",
   }).format(date);
 
-  let msg = `<b>${titlePrefix} — Semester ${escapeHtml(semester)}</b>\n`;
+  const displaySemester = toSemesterRoman(toSemesterNumber(semester));
+  let msg = `<b>${titlePrefix} — Semester ${escapeHtml(displaySemester)}</b>\n`;
   msg += `🗓️ <b>${escapeHtml(dayName)}</b>, ${escapeHtml(nepaliDateStr)} (${escapeHtml(gregDateStr)})\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
@@ -116,17 +119,18 @@ export function formatWeekendGreetingMessage({
   semester,
 }: {
   type: "friday_wrap" | "sunday_kickoff_preview";
-  semester: string;
+  semester: string | number;
 }): string {
+  const displaySemester = toSemesterRoman(toSemesterNumber(semester));
   if (type === "friday_wrap") {
-    return `🎉 <b>Happy Weekend — Semester ${escapeHtml(semester)}!</b>\n` +
+    return `🎉 <b>Happy Weekend — Semester ${escapeHtml(displaySemester)}!</b>\n` +
       `━━━━━━━━━━━━━━━━━━━━━\n\n` +
       `Classes are done for the week! Saturday and Sunday are off. 🏖️\n\n` +
       `Rest well, catch up on pending homework, and we'll see you on Monday morning!\n\n` +
       `<i>Classroom OS Bot</i>`;
   }
 
-  return `🌅 <b>Sunday Evening Check-in — Semester ${escapeHtml(semester)}!</b>\n` +
+  return `🌅 <b>Sunday Evening Check-in — Semester ${escapeHtml(displaySemester)}!</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `Hope you had a restful weekend! Classes resume tomorrow (Monday) morning.\n` +
     `Check your bags, alarms, and assignments tonight. 🚀\n\n` +

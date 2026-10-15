@@ -4,6 +4,7 @@ import { subjects, homework, courseUnits, resources } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import Link from "next/link";
 import { BookOpen, Layers, ClipboardList, FolderOpen, ArrowRight, ArrowLeft } from "lucide-react";
+import { toSemesterNumber, toSemesterRoman } from "@/lib/semester";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,8 @@ type Props = {
 export default async function TeacherSubjectsPage({ searchParams }: Props) {
   const user = await requireAuth(["TEACHER"]);
   const resolvedParams = await searchParams;
-  const semester = typeof resolvedParams.semester === "string" ? resolvedParams.semester : null;
+  const semesterParam = typeof resolvedParams.semester === "string" ? resolvedParams.semester : null;
+  const semesterNum = semesterParam ? toSemesterNumber(semesterParam) : null;
 
   if (!user.teacherId) {
     return (
@@ -27,9 +29,9 @@ export default async function TeacherSubjectsPage({ searchParams }: Props) {
     );
   }
 
-  const conditions = [eq(subjects.teacherId, user.teacherId)];
-  if (semester) {
-    conditions.push(eq(subjects.semester, semester));
+  const conditions = [eq(subjects.teacherId, user.teacherId), eq(subjects.isActive, true)];
+  if (semesterNum !== null) {
+    conditions.push(eq(subjects.semester, semesterNum));
   }
 
   // Strictly filter by this teacher's ID
@@ -42,25 +44,26 @@ export default async function TeacherSubjectsPage({ searchParams }: Props) {
     },
   });
 
-  const SEMESTERS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
+  const SEMESTERS = [1, 2, 3, 4, 5, 6, 7, 8];
+  const semesterDisplay = semesterNum !== null ? toSemesterRoman(semesterNum) : semesterParam;
 
   return (
     <div className="flex-1 space-y-8 max-w-5xl">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-border/40">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-3">
-            {semester && (
+            {semesterParam && (
               <Link href="/teacher/subjects" className="text-muted-foreground hover:text-foreground transition-colors">
                 <ArrowLeft className="w-5 h-5" />
               </Link>
             )}
             <h1 className="text-3xl md:text-4xl font-bold font-fira-sans tracking-tight text-foreground">
-              {semester ? `Semester ${semester} Subjects` : "My Subjects"}
+              {semesterDisplay ? `Semester ${semesterDisplay} Subjects` : "My Subjects"}
             </h1>
           </div>
           <p className="text-muted-foreground text-base max-w-2xl">
-            {semester 
-              ? `Manage your assigned classes, track active assignments, and organize study materials for Semester ${semester}.`
+            {semesterDisplay 
+              ? `Manage your assigned classes, track active assignments, and organize study materials for Semester ${semesterDisplay}.`
               : "Select a semester to view and manage your assigned classes."}
           </p>
         </div>
@@ -74,7 +77,7 @@ export default async function TeacherSubjectsPage({ searchParams }: Props) {
         </div>
       </div>
 
-      {!semester ? (
+      {!semesterParam ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {SEMESTERS.map((sem) => (
             <Link
@@ -83,7 +86,7 @@ export default async function TeacherSubjectsPage({ searchParams }: Props) {
               className="group flex flex-col justify-between rounded-xl border bg-card hover:bg-muted/10 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden relative p-6 h-32"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold font-fira-sans text-foreground">Semester {sem}</h3>
+                <h3 className="text-xl font-bold font-fira-sans text-foreground">Semester {toSemesterRoman(sem)}</h3>
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <BookOpen className="w-5 h-5 text-primary" />
                 </div>
@@ -101,7 +104,7 @@ export default async function TeacherSubjectsPage({ searchParams }: Props) {
           </div>
           <h2 className="text-xl font-bold text-foreground">No subjects assigned</h2>
           <p className="text-muted-foreground mt-2 max-w-md mx-auto text-sm leading-relaxed">
-            You haven't been assigned any subjects for Semester {semester} yet. An administrator needs to link you to a subject in the system.
+            You haven't been assigned any subjects for Semester {semesterDisplay} yet. An administrator needs to link you to a subject in the system.
           </p>
         </div>
       ) : (

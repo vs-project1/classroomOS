@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { subjects } from "@/db/schema";
 import { HomeworkForm } from "@/features/assignments/components/homework-form";
 import { requireAuth } from "@/lib/auth";
@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function NewHomeworkPage() {
   await requireAuth(["ADMIN"]);
   const allSubjects = await db.query.subjects.findMany({
+    where: eq(subjects.isActive, true),
     orderBy: [asc(subjects.name)],
   });
 

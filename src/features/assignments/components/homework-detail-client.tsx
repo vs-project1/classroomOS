@@ -2,9 +2,25 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { toggleHomeworkCompletionAction } from "@/features/assignments/actions/assignments";
-import { CheckCircle2, AlertCircle, Calendar, Book, Clock, PenTool } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  toggleHomeworkCompletionAction,
+  submitAssignmentAction,
+} from "@/features/assignments/actions/assignments";
+import {
+  CheckCircle2,
+  AlertCircle,
+  Calendar,
+  Clock,
+  PenTool,
+  Link as LinkIcon,
+  ExternalLink,
+  Edit2,
+  Send,
+} from "lucide-react";
 import { formatNepaliDate } from "@/lib/nepali-date";
+import { DriveSubmissionPreview } from "./drive-submission-preview";
+import { validateGoogleDriveUrl } from "@/features/assignments/utils/drive";
 
 type Props = {
   homework: {
@@ -20,6 +36,8 @@ type Props = {
     id: string;
     content: string | null;
     status: string;
+    fileUrl?: string | null;
+    fileName?: string | null;
   } | null;
 };
 
@@ -29,6 +47,49 @@ export function HomeworkDetailClient({ homework, existingSubmission }: Props) {
   );
   const [msg, setMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Digital Google Drive Submission state
+  const [currentFileUrl, setCurrentFileUrl] = useState<string | null>(
+    existingSubmission?.fileUrl ?? null
+  );
+  const [driveInput, setDriveInput] = useState<string>(existingSubmission?.fileUrl ?? "");
+  const [isEditingLink, setIsEditingLink] = useState<boolean>(!existingSubmission?.fileUrl);
+  const [driveMsg, setDriveMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [isDrivePending, startDriveTransition] = useTransition();
+
+  const handleDriveSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!driveInput.trim()) {
+      setDriveMsg({ text: "Please provide a valid Google Drive link.", type: "error" });
+      return;
+    }
+
+    const validation = validateGoogleDriveUrl(driveInput.trim());
+    if (!validation.isValid) {
+      setDriveMsg({ text: validation.error || "Invalid Google Drive URL.", type: "error" });
+      return;
+    }
+
+    startDriveTransition(async () => {
+      const formData = new FormData();
+      formData.append("homeworkId", homework.id);
+      formData.append("fileUrl", driveInput.trim());
+      formData.append("fileName", `${homework.title} - Solution`);
+
+      const res = await submitAssignmentAction(null, formData);
+      if (res.success) {
+        setCurrentFileUrl(driveInput.trim());
+        setIsEditingLink(false);
+        setIsCompleted(true);
+        setDriveMsg({ text: res.message || "Google Drive submission saved!", type: "success" });
+      } else {
+        setDriveMsg({
+          text: res.message || res.fieldErrors?.fileUrl?.[0] || "Failed to submit Google Drive link.",
+          type: "error",
+        });
+      }
+    });
+  };
 
   const handleToggle = () => {
     startTransition(async () => {
@@ -121,6 +182,96 @@ export function HomeworkDetailClient({ homework, existingSubmission }: Props) {
           <span>{msg.text}</span>
         </div>
       )}
+
+      {/* Digital Google Drive Deliverable & SpeedGrader Preview */}
+      <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <LinkIcon className="w-5 h-5 text-primary" />
+            <h2 className="font-semibold text-base text-foreground">Digital Deliverable (Google Drive)</h2>
+          </div>
+          {currentFileUrl && !isEditingLink && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditingLink(true)}
+              className="gap-1.5 text-xs font-medium"
+            >
+              <Edit2 className="w-3.5 h-3.5" /> Change Link
+            </Button>
+          )}
+        </div>
+
+        {driveMsg && (
+          <div
+            role="status"
+            className={`flex items-center gap-2 p-3 rounded-xl border text-xs ${
+              driveMsg.type === "success"
+                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                : "bg-destructive/10 border-destructive/20 text-destructive"
+            }`}
+          >
+            {driveMsg.type === "success" ? (
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+            ) : (
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            )}
+            <span>{driveMsg.text}</span>
+          </div>
+        )}
+
+        {currentFileUrl && !isEditingLink ? (
+          <div className="space-y-3">
+            <DriveSubmissionPreview
+              fileUrl={currentFileUrl}
+              fileName={`${homework.title} - Solution`}
+              title={homework.title}
+            />
+          </div>
+        ) : (
+          <form onSubmit={handleDriveSubmit} className="space-y-3">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Attach a Google Doc, Sheet, Slides, or Drive file for digital review and inline previewing (SpeedGrader style).
+              Ensure your document sharing is set to <em>&quot;Anyone with the link can view&quot;</em>.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                type="url"
+                value={driveInput}
+                onChange={(e) => setDriveInput(e.target.value)}
+                placeholder="https://docs.google.com/document/d/... or drive.google.com/file/d/..."
+                required
+                className="flex-1 text-xs"
+              />
+              <div className="flex gap-2">
+                <Button
+                  type="submit"
+                  disabled={isDrivePending || !driveInput.trim()}
+                  size="sm"
+                  className="gap-1.5 font-semibold text-xs shrink-0"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  {isDrivePending ? "Saving..." : currentFileUrl ? "Update Link" : "Submit Link"}
+                </Button>
+                {currentFileUrl && isEditingLink && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setDriveInput(currentFileUrl);
+                      setIsEditingLink(false);
+                    }}
+                    className="text-xs"
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </div>
+          </form>
+        )}
+      </div>
 
       {/* Handwritten Notebook Tracking Card */}
       <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-4">

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { studentProfiles, students, teachers } from "@/db/schema";
+import { students, teachers } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -44,30 +44,27 @@ export default async function ProfilePage() {
   let academicRows: [string, string | null | undefined][] = [];
   let phone: string | null = null;
 
-  if ((user.role === "STUDENT" || user.role === "CR") && user.studentProfileId) {
-    const profile = await db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.id, user.studentProfileId),
+  if (user.role === "STUDENT" || user.role === "CR") {
+    const student = await db.query.students.findFirst({
+      where: eq(students.userId, user.id),
     });
-    if (profile) {
-      const legacy = await db.query.students.findFirst({
-        where: eq(students.rollNumber, profile.rollNumber),
-      });
-      phone = profile.phone ?? legacy?.phone ?? null;
+    if (student) {
+      phone = student.phone ?? null;
       academicRows = [
-        ["Roll number", profile.rollNumber],
-        ["Faculty", profile.faculty],
+        ["Roll number", student.rollNumber],
+        ["Faculty", student.faculty],
         [
           "Semester",
-          profile.semester != null
-            ? `${profile.semester}th Semester (${toRoman(profile.semester)})`
+          student.semester != null
+            ? `${student.semester}th Semester (${toRoman(student.semester)})`
                 .replace("1th", "1st")
                 .replace("2th", "2nd")
                 .replace("3th", "3rd")
             : null,
         ],
-        ["Section", profile.section],
-        ["Batch year", profile.batchYear != null ? String(profile.batchYear) : null],
-        ["Registry name", legacy?.name ?? null],
+        ["Section", student.section],
+        ["Batch year", student.batchYear != null ? String(student.batchYear) : null],
+        ["Registry name", student.name ?? null],
       ];
     }
   } else if (user.role === "TEACHER") {

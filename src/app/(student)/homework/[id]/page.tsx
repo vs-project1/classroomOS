@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { homework, assignmentSubmissions, students, studentProfiles } from "@/db/schema";
+import { homework, assignmentSubmissions, students } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { eq, and } from "drizzle-orm";
 import { notFound } from "next/navigation";
@@ -21,18 +21,14 @@ export default async function HomeworkDetailPage({ params }: Props) {
   if (!hw) notFound();
 
   // Resolve studentId for existing submission lookup (fail closed — no leakage)
-  let studentId: string | null = null;
-  if (user && (user.role === "STUDENT" || user.role === "CR")) {
-    if (user.studentProfileId) {
-      const profile = await db.query.studentProfiles.findFirst({ where: eq(studentProfiles.id, user.studentProfileId) });
-      if (profile) {
-        const s = await db.query.students.findFirst({ where: eq(students.rollNumber, profile.rollNumber) });
-        if (s) studentId = s.id;
-      }
-    }
-    if (!studentId && user.email) {
-      const s = await db.query.students.findFirst({ where: eq(students.email, user.email) });
-      if (s) studentId = s.id;
+  let studentId: string | null = user?.studentId ?? null;
+  if (!studentId && user && (user.role === "STUDENT" || user.role === "CR")) {
+    const s = await db.query.students.findFirst({ where: eq(students.userId, user.id) });
+    if (s) {
+      studentId = s.id;
+    } else if (user.email) {
+      const byEmail = await db.query.students.findFirst({ where: eq(students.email, user.email) });
+      if (byEmail) studentId = byEmail.id;
     }
   }
 
@@ -63,6 +59,8 @@ export default async function HomeworkDetailPage({ params }: Props) {
                 id: existingSubmission.id,
                 content: existingSubmission.content,
                 status: existingSubmission.status,
+                fileUrl: existingSubmission.fileUrl,
+                fileName: existingSubmission.fileName,
               }
             : null
         }

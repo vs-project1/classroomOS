@@ -1,7 +1,7 @@
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/db";
 import { resources, subjects } from "@/db/schema";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, or, desc, asc, and } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { ResourcesWorkspace } from "@/features/resources/components/resources-workspace";
 
@@ -22,21 +22,21 @@ export default async function TeacherResourcesPage() {
   }
 
   const assignedSubjects = await db.query.subjects.findMany({
-    where: eq(subjects.teacherId, user.teacherId),
+    where: and(eq(subjects.teacherId, user.teacherId), eq(subjects.isActive, true)),
     orderBy: [asc(subjects.name)],
     with: {
       courseUnits: {
         orderBy: (units, { asc }) => [asc(units.order)],
         with: {
           resources: {
-            where: eq(resources.uploadedBy, user.teacherId),
+            where: or(eq(resources.uploadedBy, user.id), eq(resources.uploadedBy, user.teacherId)),
             orderBy: (resources, { desc }) => [desc(resources.createdAt)],
           },
           courseChapters: {
             orderBy: (chapters, { asc }) => [asc(chapters.order)],
             with: {
               resources: {
-                where: eq(resources.uploadedBy, user.teacherId),
+                where: or(eq(resources.uploadedBy, user.id), eq(resources.uploadedBy, user.teacherId)),
                 orderBy: (resources, { desc }) => [desc(resources.createdAt)],
               },
             },
@@ -47,7 +47,7 @@ export default async function TeacherResourcesPage() {
   });
 
   const myResources = await db.query.resources.findMany({
-    where: eq(resources.uploadedBy, user.teacherId),
+    where: or(eq(resources.uploadedBy, user.id), eq(resources.uploadedBy, user.teacherId)),
     with: {
       subject: true,
       unit: true,

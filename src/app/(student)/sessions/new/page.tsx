@@ -1,111 +1,37 @@
-import { db } from "@/db";
-import { subjects, enrollments, weeklyRoutine } from "@/db/schema";
-import { SessionForm } from "@/features/sessions/components/session-form";
-import { asc, eq, inArray } from "drizzle-orm";
-import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import { requireAuth, resolveCurrentStudent } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-export default async function NewSessionPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  // Page-level guard (defense in depth beyond the shared layout): only
-  // roles that can create sessions may even view the logging form.
+export const dynamic = "force-dynamic";
+
+export default async function SessionsNewRedirectPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const user = await requireAuth(["CR", "TEACHER", "ADMIN"]);
   const params = await searchParams;
 
-  // Scope the subject picker to the caller's authority:
-  // TEACHER -> their assigned subjects; CR -> enrolled subjects; ADMIN -> all or assigned subjects.
-  let allSubjects: Array<typeof subjects.$inferSelect> = [];
-  if (user.role === "ADMIN") {
-    allSubjects = user.teacherId
-      ? await db.select().from(subjects).where(eq(subjects.teacherId, user.teacherId)).orderBy(asc(subjects.name))
-      : await db.select().from(subjects).orderBy(asc(subjects.name));
-  } else if (user.role === "TEACHER" && user.teacherId) {
-    allSubjects = await db
-      .select()
-      .from(subjects)
-      .where(eq(subjects.teacherId, user.teacherId))
-      .orderBy(asc(subjects.name));
-  } else if (user.role === "CR") {
-    const student = await resolveCurrentStudent();
-    if (student) {
-      const crEnrollments = await db.query.enrollments.findMany({
-        where: eq(enrollments.studentId, student.id),
-      });
-      const subjectIds = crEnrollments.map((e) => e.subjectId);
-      allSubjects =
-        subjectIds.length > 0
-          ? await db
-              .select()
-              .from(subjects)
-              .where(inArray(subjects.id, subjectIds))
-              .orderBy(asc(subjects.name))
-          : [];
+  const search = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (typeof v === "string") {
+      search.set(k, v);
+    } else if (Array.isArray(v)) {
+      v.forEach((val) => search.append(k, val));
     }
   }
+  const queryString = search.toString() ? `?${search.toString()}` : "";
 
-  // Query weekly routine slots for available subjects
-  const subjectIds = allSubjects.map((s) => s.id);
-  let routineSlots: any[] = [];
-  if (subjectIds.length > 0) {
-    routineSlots = await db.query.weeklyRoutine.findMany({
-      where: inArray(weeklyRoutine.subjectId, subjectIds),
-      orderBy: [asc(weeklyRoutine.dayOfWeek), asc(weeklyRoutine.startTime)],
-      with: {
-        subject: {
-          columns: {
-            id: true,
-            name: true,
-            code: true,
-            semester: true,
-          },
-        },
-      },
-    });
+  if (user.role === "CR") {
+    redirect(`/cr/log-session${queryString}`);
   }
 
-  if (allSubjects.length === 0) {
-    return (
-      <div className="flex-1 space-y-6 max-w-2xl">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Log Session</h2>
-        </div>
-        <div className="rounded-xl border bg-card p-6">
-          <h3 className="font-semibold text-lg mb-2">Missing Prerequisites</h3>
-          <p className="text-sm text-muted-foreground mb-6">
-            To log a session, you must first have at least one subject registered in the system.
-          </p>
-          <Link href="/subjects" className={buttonVariants({ variant: "outline" })}>
-            Create Subject
-          </Link>
-        </div>
-      </div>
-    );
+  if (user.role === "TEACHER") {
+    redirect(`/teacher/sessions/new${queryString}`);
   }
 
-  return (
-    <div className="flex-1 space-y-6 max-w-6xl">
-      <div className="flex items-center gap-3">
-        <Link href="/lecture-logs" className={buttonVariants({ variant: "ghost", size: "icon" })}>
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <div>
-          <h2 className="text-2xl font-bold font-fira-sans tracking-tight text-foreground">Log Class Session</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Record lecture coverage and assignments for your scheduled classes.</p>
-        </div>
-      </div>
-      <SessionForm
-        subjects={allSubjects}
-        routineSlots={routineSlots}
-        userRole={user.role as "ADMIN" | "TEACHER" | "CR"}
-        defaultValues={{
-          subjectId: typeof params.subjectId === 'string' ? params.subjectId : undefined,
-          startTime: typeof params.startTime === 'string' ? params.startTime : undefined,
-          endTime: typeof params.endTime === 'string' ? params.endTime : undefined,
-          routineId: typeof params.routineId === 'string' ? params.routineId : undefined,
-          sessionDate: typeof params.sessionDate === 'string' ? params.sessionDate : undefined,
-        }}
-      />
-    </div>
-  );
+  if (user.role === "ADMIN") {
+    redirect(`/admin/sessions/new${queryString}`);
+  }
+
+  redirect(`/today`);
 }

@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq, or } from "drizzle-orm";
 import { db } from "@/db";
-import { users, studentProfiles, students, teachers, sessions } from "@/db/schema";
+import { users, students, teachers, sessions } from "@/db/schema";
 import { createSessionToken, verifySessionToken, getSessionTokenId } from "./token";
 
 export interface SessionUser {
@@ -13,6 +13,8 @@ export interface SessionUser {
   role: "ADMIN" | "TEACHER" | "CR" | "STUDENT";
   mustChangePassword: boolean;
   isActive: boolean;
+  studentId?: string;
+  /** @deprecated Kept for backwards-compatibility, equals studentId */
   studentProfileId?: string;
   teacherId?: string;
 }
@@ -95,40 +97,41 @@ async function resolveTestFixturePersona(cookieStore: Awaited<ReturnType<typeof 
         where: eq(users.email, "newstudent@classroom.edu.np"),
       });
       if (user) {
+        const student = await db.query.students.findFirst({
+          where: eq(students.userId, user.id),
+        });
         return {
           id: user.id,
           email: user.email,
-          name: "Roshani Shrestha",
+          name: student?.name ?? "Roshani Shrestha",
           role: "STUDENT",
           mustChangePassword: true,
           isActive: Boolean(user.isActive),
-          studentProfileId: "sp_newstudent_001",
+          studentId: student?.id ?? "s_newstudent_001",
+          studentProfileId: student?.id ?? "s_newstudent_001",
         };
       }
     }
 
-    const profile = await db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.id, demoStudentId),
+    const student = await db.query.students.findFirst({
+      where: or(eq(students.id, demoStudentId), eq(students.userId, demoStudentId)),
     });
 
-    if (profile) {
+    if (student) {
       const user = await db.query.users.findFirst({
-        where: eq(users.id, profile.userId),
+        where: eq(users.id, student.userId),
       });
 
       if (user && user.isActive) {
-        const student = await db.query.students.findFirst({
-          where: eq(students.rollNumber, profile.rollNumber),
-        });
-
         return {
           id: user.id,
           email: user.email,
-          name: student?.name || user.email.split("@")[0],
+          name: student.name || user.email.split("@")[0],
           role: user.role as "ADMIN" | "TEACHER" | "CR" | "STUDENT",
           mustChangePassword: Boolean(user.mustChangePassword),
           isActive: Boolean(user.isActive),
-          studentProfileId: profile.id,
+          studentId: student.id,
+          studentProfileId: student.id,
         };
       }
     }
@@ -177,12 +180,9 @@ async function resolveTestFixturePersona(cookieStore: Awaited<ReturnType<typeof 
         where: eq(users.role, "CR"),
       });
       if (crUser) {
-        const profile = await db.query.studentProfiles.findFirst({
-          where: eq(studentProfiles.userId, crUser.id),
+        const student = await db.query.students.findFirst({
+          where: eq(students.userId, crUser.id),
         });
-        const student = profile ? await db.query.students.findFirst({
-          where: eq(students.rollNumber, profile.rollNumber),
-        }) : null;
         return {
           id: crUser.id,
           email: crUser.email,
@@ -190,30 +190,39 @@ async function resolveTestFixturePersona(cookieStore: Awaited<ReturnType<typeof 
           role: "CR",
           mustChangePassword: Boolean(crUser.mustChangePassword),
           isActive: Boolean(crUser.isActive),
-          studentProfileId: profile?.id,
+          studentId: student?.id,
+          studentProfileId: student?.id,
         };
       }
     }
 
     if (appRole === "STUDENT") {
-      const studentUser = await db.query.users.findFirst({
-        where: eq(users.role, "STUDENT"),
+      let student = await db.query.students.findFirst({
+        where: (s, { isNotNull }) => isNotNull(s.userId),
       });
-      if (studentUser) {
-        const profile = await db.query.studentProfiles.findFirst({
-          where: eq(studentProfiles.userId, studentUser.id),
+      let studentUser = student?.userId
+        ? await db.query.users.findFirst({ where: eq(users.id, student.userId) })
+        : await db.query.users.findFirst({ where: eq(users.role, "STUDENT") });
+
+      if (!student && studentUser) {
+        student = await db.query.students.findFirst({
+          where: or(
+            eq(students.userId, studentUser.id),
+            eq(students.email, studentUser.email)
+          ),
         });
-        const student = profile ? await db.query.students.findFirst({
-          where: eq(students.rollNumber, profile.rollNumber),
-        }) : null;
+      }
+
+      if (studentUser || student) {
         return {
-          id: studentUser.id,
-          email: studentUser.email,
-          name: student?.name || studentUser.email.split("@")[0],
+          id: studentUser?.id ?? student?.userId ?? "usr_std_001",
+          email: studentUser?.email ?? student?.email ?? "student@classroom.edu.np",
+          name: student?.name || studentUser?.email.split("@")[0] || "Student",
           role: "STUDENT",
-          mustChangePassword: Boolean(studentUser.mustChangePassword),
-          isActive: Boolean(studentUser.isActive),
-          studentProfileId: profile?.id,
+          mustChangePassword: Boolean(studentUser?.mustChangePassword ?? false),
+          isActive: Boolean(studentUser ? studentUser.isActive : true),
+          studentId: student?.id,
+          studentProfileId: student?.id,
         };
       }
     }
@@ -258,25 +267,21 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Ses
   }
 
   let name = user.email.split("@")[0];
-  let studentProfileId: string | undefined;
+  let studentId: string | undefined;
   let teacherId: string | undefined;
 
   if (user.role === "STUDENT" || user.role === "CR") {
-    const profile = await db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.userId, user.id),
-    });
-    if (profile) {
-      studentProfileId = profile.id;
-    }
     const student = await db.query.students.findFirst({
       where: or(
         eq(students.userId, user.id),
-        profile ? eq(students.rollNumber, profile.rollNumber) : undefined,
         eq(students.email, user.email)
       ),
     });
-    if (student?.name) {
-      name = student.name;
+    if (student) {
+      studentId = student.id;
+      if (student.name) {
+        name = student.name;
+      }
     }
   } else if (user.role === "TEACHER") {
     const teacher = await db.query.teachers.findFirst({
@@ -300,7 +305,8 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Ses
     role: user.role as "ADMIN" | "TEACHER" | "CR" | "STUDENT",
     mustChangePassword: Boolean(user.mustChangePassword),
     isActive: Boolean(user.isActive),
-    studentProfileId,
+    studentId,
+    studentProfileId: studentId,
     teacherId,
   };
 });

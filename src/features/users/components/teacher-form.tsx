@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus } from "lucide-react";
+import { toSemesterNumber } from "@/lib/semester";
 import {
   Sheet,
   SheetContent,
@@ -125,7 +126,7 @@ export function TeacherForm({ defaultValues }: Props) {
             <div className="grid grid-cols-4 gap-3 p-3 bg-muted/30 rounded-lg border border-border/50">
               {SEMESTERS.map(s => (
                 <label key={s} className="flex items-center gap-2 text-sm font-medium cursor-pointer">
-                  <input type="checkbox" name="semesters" value={s} defaultChecked={defaultValues?.semesters?.includes(s)} className="rounded border-input text-primary focus:ring-primary h-4 w-4" /> 
+                  <input type="checkbox" name="semesters" value={s} defaultChecked={defaultValues?.semesters?.some(sem => toSemesterNumber(sem) === toSemesterNumber(s))} className="rounded border-input text-primary focus:ring-primary h-4 w-4" /> 
                   {s}
                 </label>
               ))}

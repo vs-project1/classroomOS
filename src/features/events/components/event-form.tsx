@@ -6,13 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
 
 export function EventForm() {
   const [state, formAction, isPending] = useActionState(createEvent, null);
 
   const getNepalDateString = () => {
-    return formatNepaliDate(new Date());
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kathmandu",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
   };
 
   return (

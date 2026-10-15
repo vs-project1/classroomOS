@@ -24,7 +24,7 @@ export type TimetableCell = {
   colSpan: number;
   isDoublePeriod?: boolean;
   originalSlots: RoutineSlotData[];
-  semester?: string | null;
+  semester?: string | number | null;
 };
 
 export type DayRowMatrix = {

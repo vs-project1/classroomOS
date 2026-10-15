@@ -1,6 +1,5 @@
 import { db } from "@/db";
-import { courseChapters, courseUnits, enrollments, subjects, studentProfiles } from "@/db/schema";
-import { toRoman } from "@/lib/utils/roman";
+import { courseChapters, courseUnits, enrollments, subjects } from "@/db/schema";
 import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { getCurrentUser, resolveCurrentStudent } from "@/lib/auth";
 
@@ -16,6 +15,7 @@ async function listAllSidebarSubjects(): Promise<SidebarSubject[]> {
   return db
     .select(sidebarColumns)
     .from(subjects)
+    .where(eq(subjects.isActive, true))
     .orderBy(asc(subjects.name));
 }
 
@@ -32,7 +32,7 @@ export async function getSubjectsForSidebar(): Promise<SidebarSubject[]> {
     return db
       .select(sidebarColumns)
       .from(subjects)
-      .where(eq(subjects.teacherId, user.teacherId))
+      .where(and(eq(subjects.teacherId, user.teacherId), eq(subjects.isActive, true)))
       .orderBy(asc(subjects.name));
   }
 
@@ -48,7 +48,7 @@ export async function getSubjectsForSidebar(): Promise<SidebarSubject[]> {
     const enrolled = await db
       .select({ id: subjects.id, name: subjects.name, slug: subjects.slug })
       .from(enrollments)
-      .innerJoin(subjects, eq(enrollments.subjectId, subjects.id))
+      .innerJoin(subjects, and(eq(enrollments.subjectId, subjects.id), eq(subjects.isActive, true)))
       .where(eq(enrollments.studentId, student.id))
       .orderBy(asc(subjects.name));
 
@@ -56,18 +56,17 @@ export async function getSubjectsForSidebar(): Promise<SidebarSubject[]> {
       return enrolled;
     }
 
-    if (user.studentProfileId) {
-      const profile = await db.query.studentProfiles.findFirst({
-        where: eq(studentProfiles.id, user.studentProfileId),
-      });
-      if (profile && profile.semester != null) {
-        const semesterRoman = toRoman(profile.semester);
-        return db
-          .select({ id: subjects.id, name: subjects.name, slug: subjects.slug })
-          .from(subjects)
-          .where(eq(subjects.semester, semesterRoman))
-          .orderBy(asc(subjects.name));
-      }
+    if (student.semester != null) {
+      return db
+        .select({ id: subjects.id, name: subjects.name, slug: subjects.slug })
+        .from(subjects)
+        .where(
+          and(
+            eq(subjects.semester, student.semester),
+            eq(subjects.isActive, true)
+          )
+        )
+        .orderBy(asc(subjects.name));
     }
 
     return [];

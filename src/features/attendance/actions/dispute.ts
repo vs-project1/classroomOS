@@ -6,15 +6,13 @@ import {
   dailySessions,
   attendanceCorrectionRequests,
   students,
-  studentProfiles,
   subjects,
   teachers,
   users,
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/session";
 import { notify } from "@/lib/notifications";
-import { toRoman } from "@/lib/utils/roman";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import crypto from "node:crypto";
@@ -40,17 +38,13 @@ export async function submitAttendanceCorrectionAction(
   const user = await requireAuth(["STUDENT", "CR"]);
 
   // Resolve student record
-  let studentId: string | null = null;
-  if (user.studentProfileId) {
-    const profile = await db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.id, user.studentProfileId),
+  let studentId: string | null = user.studentId ?? null;
+
+  if (!studentId) {
+    const std = await db.query.students.findFirst({
+      where: eq(students.userId, user.id),
     });
-    if (profile) {
-      const std = await db.query.students.findFirst({
-        where: eq(students.rollNumber, profile.rollNumber),
-      });
-      if (std) studentId = std.id;
-    }
+    if (std) studentId = std.id;
   }
 
   if (!studentId && user.email) {
@@ -120,26 +114,15 @@ export async function submitAttendanceCorrectionAction(
       });
 
       if (session) {
-        let semRoman = "I";
-        const numMatch = session.semester.match(/\d+/);
-        if (numMatch) {
-          semRoman = toRoman(parseInt(numMatch[0], 10));
-        } else {
-          const upper = session.semester.trim().toUpperCase();
-          if (/^(VIII|VII|VI|IV|V|III|II|I)$/.test(upper)) {
-            semRoman = upper;
-          }
-        }
-
         const teacherUsers = await db
           .selectDistinct({ userId: users.id })
           .from(subjects)
           .innerJoin(teachers, eq(teachers.id, subjects.teacherId))
           .innerJoin(users, or(eq(users.id, teachers.userId), eq(users.email, teachers.email)))
           .where(
-            or(
-              eq(subjects.semester, semRoman),
-              eq(subjects.semester, session.semester)
+            and(
+              eq(subjects.semester, session.semester),
+              eq(subjects.isActive, true)
             )
           );
 

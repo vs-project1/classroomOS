@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { dailySessions, dailyAttendance, classSessions, type Student, type AttendanceStatus } from "@/db/schema";
+import { dailySessions, dailyAttendance, classSessions, type Student } from "@/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,6 @@ import { ArrowLeft, BookOpen, Clock, Users } from "lucide-react";
 import { formatTime12h } from "@/lib/timezone";
 import { getCurrentUser, resolveCurrentStudent } from "@/lib/auth";
 import { formatNepaliDate, formatNepaliDateTime } from "@/lib/nepali-date";
-import { getSemesterVariants } from "@/lib/utils/roman";
 
 export const dynamic = "force-dynamic";
 
@@ -41,17 +40,17 @@ export default async function SessionDetailsPage({ params }: { params: Promise<{
   }).format(sessionDateObj);
   const targetDate = new Date(`${ymd}T00:00:00Z`);
 
-  const semVariants = getSemesterVariants(session.subject?.semester);
-
-  const dailySession = await db.query.dailySessions.findFirst({
-    where: and(
-      inArray(dailySessions.semester, semVariants),
-      eq(dailySessions.date, targetDate)
-    ),
-  });
+  const dailySession = session.subject?.semester != null
+    ? await db.query.dailySessions.findFirst({
+        where: and(
+          eq(dailySessions.semester, session.subject.semester),
+          eq(dailySessions.date, targetDate)
+        ),
+      })
+    : null;
 
   // Students only ever see their own attendance record — never the roster.
-  let ownAttendance: { status: AttendanceStatus } | null = null;
+  let ownAttendance: { status: string } | null = null;
   type RosterRecord = {
     id: string;
     status: string;
@@ -70,7 +69,7 @@ export default async function SessionDetailsPage({ params }: { params: Promise<{
             eq(dailyAttendance.studentId, student.id)
           ),
         });
-        ownAttendance = record ? { status: record.status as AttendanceStatus } : null;
+        ownAttendance = record ? { status: record.status } : null;
       }
     } else {
       const rows = await db.query.dailyAttendance.findMany({

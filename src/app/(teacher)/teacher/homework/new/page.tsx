@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, and } from "drizzle-orm";
 import { subjects } from "@/db/schema";
 import { HomeworkForm } from "@/features/assignments/components/homework-form";
 import Link from "next/link";
@@ -32,7 +32,7 @@ export default async function TeacherNewHomeworkPage() {
   }
 
   const teacherSubjects = await db.query.subjects.findMany({
-    where: eq(subjects.teacherId, user.teacherId),
+    where: and(eq(subjects.teacherId, user.teacherId), eq(subjects.isActive, true)),
     orderBy: [asc(subjects.name)],
   });
 

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { classSessions, subjects, lectureLogs } from "@/db/schema";
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray, and } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
 import { formatTime12h } from "@/lib/timezone";
@@ -38,7 +38,7 @@ export default async function TeacherLectureLogsPage({ searchParams }: Props) {
 
   // Find all subjects taught by this teacher
   const assignedSubjects = await db.query.subjects.findMany({
-    where: eq(subjects.teacherId, user.teacherId),
+    where: and(eq(subjects.teacherId, user.teacherId), eq(subjects.isActive, true)),
     orderBy: subjects.name,
   });
 
@@ -77,7 +77,7 @@ export default async function TeacherLectureLogsPage({ searchParams }: Props) {
           <p className="text-muted-foreground mt-1 text-sm">Review topics covered in your classes or record lecture notes.</p>
         </div>
         <Link
-          href="/cr/log-session"
+          href="/teacher/sessions/new"
           className={buttonVariants({ variant: "default", size: "sm", className: "gap-1.5 font-semibold" })}
         >
           <Plus className="w-4 h-4" /> Log Class Session

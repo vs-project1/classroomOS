@@ -13,7 +13,6 @@ export interface SyllabusUnitChapter {
   order: number;
   title: string;
   coveredAt: Date | string | null;
-  courseMaterials?: Array<{ id: string }>;
   resources?: Array<{ id: string }>;
 }
 
@@ -80,10 +79,7 @@ export function SyllabusTab({
                     {(() => {
                       const unitResCount = unit.resources?.length ?? 0;
                       const chapResCount = unit.courseChapters.reduce(
-                        (acc, c) =>
-                          acc +
-                          (c.courseMaterials?.length ?? 0) +
-                          (c.resources?.length ?? 0),
+                        (acc, c) => acc + (c.resources?.length ?? 0),
                         0
                       );
                       const totalUnitMaterials = unitResCount + chapResCount;
@@ -159,8 +155,7 @@ export function SyllabusTab({
                           <span className="flex items-center gap-2 mt-1 sm:mt-0 shrink-0">
                             {(() => {
                               const totalChapterMaterials =
-                                (chap.courseMaterials?.length ?? 0) +
-                                (chap.resources?.length ?? 0);
+                                chap.resources?.length ?? 0;
                               if (totalChapterMaterials === 0) return null;
                               return (
                                 <Link

@@ -27,12 +27,6 @@ export interface ResourceMaterialItem {
 export interface ResourceUnitChapter {
   id: string;
   title: string;
-  courseMaterials?: Array<{
-    id: string;
-    title: string;
-    fileUrl: string;
-    fileType: string;
-  }>;
   resources?: Array<{
     id: string;
     title: string;
@@ -101,8 +95,7 @@ export function ResourcesTab({
               Learning Materials & Lecture Slides
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Browse by Units → Chapters. Uses relations courseUnits →
-              courseChapters → resources / courseMaterials. Read-only.
+              Access lecture notes, reference PDFs, and course attachments organized by syllabus units.
             </p>
           </div>
           <span className="text-xs text-muted-foreground font-medium">
@@ -309,29 +302,14 @@ export function ResourcesTab({
                           const chapterResources = subjectResources.filter(
                             (r) => r.chapterId === chapter.id
                           );
-                          const chapterMaterials =
-                            chapter.courseMaterials ?? [];
-                          const combined = [
-                            ...chapterResources.map((r) => ({
-                              id: r.id,
-                              title: r.title,
-                              fileUrl: r.fileUrl,
-                              fileType: r.fileType,
-                              description: r.description,
-                              fileSize: r.fileSize,
-                            })),
-                            ...chapterMaterials.map((m) => ({
-                              id: m.id,
-                              title: m.title,
-                              fileUrl: m.fileUrl,
-                              fileType: m.fileType,
-                              description:
-                                `Chapter resource: ${chapter.title}` as
-                                  | string
-                                  | null,
-                              fileSize: null as number | null,
-                            })),
-                          ];
+                          const combined = chapterResources.map((r) => ({
+                            id: r.id,
+                            title: r.title,
+                            fileUrl: r.fileUrl,
+                            fileType: r.fileType,
+                            description: r.description,
+                            fileSize: r.fileSize,
+                          }));
                           return (
                             <div
                               key={chapter.id}

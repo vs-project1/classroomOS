@@ -1,13 +1,13 @@
 "use server";
 
 import { db } from "@/db";
-import { classSessions, lectureLogs, subjects, students, homework, enrollments, studentProfiles, weeklyRoutine } from "@/db/schema";
-import { toRoman } from "@/lib/utils/roman";
+import { classSessions, lectureLogs, subjects, students, homework, enrollments, weeklyRoutine } from "@/db/schema";
+import { toSemesterNumber } from "@/lib/semester";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import crypto from "crypto";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { parseAndNormalizeTime } from "@/lib/timezone";
 import { requireAuth } from "@/lib/auth/session";
 import { resolveCurrentStudent } from "@/lib/auth";
@@ -99,15 +99,32 @@ function buildHomeworkTitle(topicsCovered: string): string {
 async function getSubjectAccessError(
   user: SessionUser,
   subjectId: string,
-  subjectTeacherId: string | null
+  subjectTeacherId: string | null,
+  subjectSemester?: string | number | null
 ): Promise<string | null> {
   if (user.role === "ADMIN") {
     return null;
   }
 
   if (user.role === "TEACHER") {
-    if (user.teacherId && subjectTeacherId === user.teacherId) {
-      return null;
+    if (user.teacherId) {
+      if (subjectTeacherId === user.teacherId) {
+        return null;
+      }
+      const routineSlot = await db
+        .select({ id: weeklyRoutine.id })
+        .from(weeklyRoutine)
+        .where(
+          and(
+            eq(weeklyRoutine.teacherId, user.teacherId),
+            eq(weeklyRoutine.subjectId, subjectId)
+          )
+        )
+        .limit(1);
+
+      if (routineSlot.length > 0) {
+        return null;
+      }
     }
     return "You can only log sessions for subjects you teach.";
   }
@@ -122,10 +139,13 @@ async function getSubjectAccessError(
       .from(enrollments)
       .where(and(eq(enrollments.studentId, student.id), eq(enrollments.subjectId, subjectId)))
       .limit(1);
-    if (enrolled.length === 0) {
-      return "You are not enrolled in this subject.";
+    if (enrolled.length > 0) {
+      return null;
     }
-    return null;
+    if (student.semester != null && subjectSemester != null && toSemesterNumber(student.semester) === toSemesterNumber(subjectSemester)) {
+      return null;
+    }
+    return "You are not enrolled in this subject.";
   }
 
   return "You do not have permission to access this subject.";
@@ -172,7 +192,7 @@ export async function createSession(prevState: SessionActionState, formData: For
     }
 
     // 1b. Enforce subject ownership before any INSERT (audit: role != ownership)
-    const accessError = await getSubjectAccessError(user, subjectId, subjectRows[0].teacherId);
+    const accessError = await getSubjectAccessError(user, subjectId, subjectRows[0].teacherId, subjectRows[0].semester);
     if (accessError) {
       return { success: false, message: accessError };
     }
@@ -182,8 +202,14 @@ export async function createSession(prevState: SessionActionState, formData: For
       const sessionDay = new Date(sessionDate).getDay();
       const matchingRoutine = await db.query.weeklyRoutine.findFirst({
         where: and(
+          eq(weeklyRoutine.dayOfWeek, sessionDay),
           eq(weeklyRoutine.subjectId, subjectId),
-          eq(weeklyRoutine.dayOfWeek, sessionDay)
+          or(
+            user.teacherId ? eq(weeklyRoutine.teacherId, user.teacherId) : undefined,
+            user.teacherId && subjectRows[0].teacherId === user.teacherId
+              ? isNull(weeklyRoutine.teacherId)
+              : undefined
+          )
         ),
       });
       if (!matchingRoutine) {

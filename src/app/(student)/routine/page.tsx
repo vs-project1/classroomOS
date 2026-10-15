@@ -6,7 +6,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { CalendarDays, Plus, AlertTriangle } from "lucide-react";
 import { getCurrentUser, getPermissions, resolveCurrentStudent } from "@/lib/auth";
 import { toRoman } from "@/lib/utils/roman";
-import { RoutineView } from "@/components/timetable/routine-view";
+import { toSemesterRoman } from "@/lib/semester";
+import { RoutineView, type RoutineViewProps } from "@/components/timetable/routine-view";
 import { BroadcastRoutineDialog } from "@/features/telegram/components/broadcast-routine-dialog";
 import { getTelegramSettings, getSemesterTelegramConfigs } from "@/features/telegram/queries/telegram-queries";
 import {
@@ -25,20 +26,7 @@ export default async function RoutinePage() {
     getSemesterTelegramConfigs(),
   ]);
 
-  let filteredRoutine: {
-    id: string;
-    dayOfWeek: number;
-    startTime: string;
-    endTime: string;
-    room?: string | null;
-    notes?: string | null;
-    teacherName?: string | null;
-    subject: {
-      name: string;
-      code: string;
-      teacher?: { name: string } | null;
-    };
-  }[] = [];
+  let filteredRoutine: RoutineViewProps["allRoutines"] = [];
 
   let studentRomanSem: string | null = null;
   const isStudentOrCr = user?.role === "STUDENT" || user?.role === "CR";
@@ -47,7 +35,7 @@ export default async function RoutinePage() {
     const student = await resolveCurrentStudent();
     const cohort = await getStudentCohort(student?.id, user?.id);
     studentRomanSem = cohort.semester ? toRoman(cohort.semester) : null;
-    filteredRoutine = await getStudentWeeklyRoutine(cohort.allowedSubjectIds);
+    filteredRoutine = await getStudentWeeklyRoutine(cohort.allowedSubjectIds, cohort.section);
   } else if (user?.role === "TEACHER" && user.teacherId) {
     filteredRoutine = await getTeacherWeeklyRoutine(user.teacherId);
   } else {
@@ -58,6 +46,7 @@ export default async function RoutinePage() {
         subject: {
           with: { teacher: true },
         },
+        teacher: true,
       },
     });
   }
@@ -66,7 +55,7 @@ export default async function RoutinePage() {
 
   // Telegram routine change detection
   const hasBotToken = Boolean(telegramSettingsRow?.botToken);
-  const configuredSemesters = telegramConfigs.filter((c) => Boolean(c.chatId)).map((c) => c.semester);
+  const configuredSemesters = telegramConfigs.filter((c) => Boolean(c.chatId)).map((c) => toSemesterRoman(c.semester));
 
   const unpublishedSemesters = telegramConfigs
     .filter((c) => {
@@ -74,7 +63,7 @@ export default async function RoutinePage() {
       if (!c.lastRoutinePublishedAt) return true;
       return new Date(c.lastRoutineModifiedAt).getTime() > new Date(c.lastRoutinePublishedAt).getTime();
     })
-    .map((c) => c.semester);
+    .map((c) => toSemesterRoman(c.semester));
 
   const hasUnpublishedChanges = studentRomanSem
     ? unpublishedSemesters.includes(studentRomanSem)
@@ -167,7 +156,7 @@ export default async function RoutinePage() {
           todayIndex={todayIndex < 0 ? 0 : todayIndex}
           nptTime={nptTime}
           canManageRoutine={permissions.canManageRoutine}
-          viewRole={user?.role as any}
+          viewRole={user?.role}
         />
       )}
     </div>

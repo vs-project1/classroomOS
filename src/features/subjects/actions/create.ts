@@ -7,6 +7,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { requireAuth } from "@/lib/auth";
 import { slugify, uniqueSlugify } from "@/utils/slug";
+import { toSemesterNumber } from "@/lib/semester";
 
 export type SubjectActionState = {
   success: boolean;
@@ -21,7 +22,7 @@ export type SubjectActionState = {
 const SubjectSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
   code: z.string().trim().min(1, "Code is required"),
-  semester: z.string().trim().min(1, "Semester is required"),
+  semester: z.preprocess((val) => toSemesterNumber(val as string | number), z.number().int().min(1).max(8)),
   teacherId: z.string().optional().or(z.literal("")),
 });
 

@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { users, students, teachers, studentProfiles } from "@/db/schema";
+import { users, students, teachers } from "@/db/schema";
 import { desc } from "drizzle-orm";
 import { requireAuth } from "@/lib/auth";
 import { AccountsClientConsole, EnrichedAccount } from "./accounts-client-console";
@@ -21,7 +21,7 @@ export default async function AdminAccountsPage() {
     db.query.users.findMany({
       orderBy: [desc(users.createdAt)],
       with: {
-        studentProfile: true,
+        student: true,
       },
     }),
     db.select().from(students),
@@ -57,27 +57,22 @@ export default async function AdminAccountsPage() {
       }
     } else {
       // STUDENT or CR
-      const matchStudent = allStudents.find(
-        (s) =>
-          s.email?.toLowerCase() === u.email.toLowerCase() ||
-          (u.studentProfile && s.rollNumber === u.studentProfile.rollNumber)
-      );
+      const matchStudent =
+        u.student ||
+        allStudents.find(
+          (s) =>
+            s.userId === u.id ||
+            s.email?.toLowerCase() === u.email.toLowerCase()
+        );
       if (matchStudent) {
         name = matchStudent.name;
         phone = matchStudent.phone;
         studentId = matchStudent.id;
-      }
-      if (u.studentProfile) {
-        rollNumber = u.studentProfile.rollNumber;
-        faculty = u.studentProfile.faculty;
-        semester = u.studentProfile.semester;
-        section = u.studentProfile.section;
-        batchYear = u.studentProfile.batchYear;
-        if (!phone) phone = u.studentProfile.phone;
-      } else if (matchStudent) {
         rollNumber = matchStudent.rollNumber;
         faculty = matchStudent.faculty;
         semester = matchStudent.semester;
+        section = matchStudent.section;
+        batchYear = matchStudent.batchYear;
       }
     }
 

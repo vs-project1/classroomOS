@@ -1,8 +1,15 @@
-import { and, asc, eq, gt, inArray, isNull, lte } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNull, lt, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { assignmentSubmissions, enrollments, homework, subjects, studentProfiles } from "@/db/schema";
+import {
+  assignmentSubmissions,
+  enrollments,
+  homework,
+  subjects,
+  classSessions,
+  weeklyRoutine,
+} from "@/db/schema";
 import { resolveCurrentStudent, requireAuth } from "@/lib/auth";
-import { toRoman } from "@/lib/utils/roman";
+import { toSemesterNumber } from "@/lib/semester";
 
 export type TodayDeadline = {
   id: string;
@@ -57,15 +64,10 @@ export async function getTodayDeadlines(): Promise<TodayDeadline[]> {
   }
 
   // 2. Fallback to semester mapped subjects
-  if (!user.studentProfileId) return [];
-  
-  const profile = await db.query.studentProfiles.findFirst({
-    where: eq(studentProfiles.id, user.studentProfileId),
-  });
-  if (!profile || profile.semester == null) return [];
+  if (student.semester == null) return [];
 
-  const semesterRoman = toRoman(profile.semester);
-  
+  const semNum = toSemesterNumber(student.semester);
+
   return db
     .select({
       id: homework.id,
@@ -85,7 +87,8 @@ export async function getTodayDeadlines(): Promise<TodayDeadline[]> {
     )
     .where(
       and(
-        eq(subjects.semester, semesterRoman),
+        eq(subjects.semester, semNum),
+        eq(subjects.isActive, true),
         eq(homework.status, "active"),
         gt(homework.dueDate, now),
         lte(homework.dueDate, horizon),
@@ -94,4 +97,26 @@ export async function getTodayDeadlines(): Promise<TodayDeadline[]> {
     )
     .orderBy(asc(homework.dueDate))
     .limit(4);
+}
+
+export async function getTodayClassSessions(dayStart: Date, dayEnd: Date) {
+  return db.query.classSessions.findMany({
+    where: and(
+      gte(classSessions.sessionDate, dayStart),
+      lt(classSessions.sessionDate, dayEnd)
+    ),
+  });
+}
+
+export async function getAllDayRoutines(dayOfWeek: number) {
+  return db.query.weeklyRoutine.findMany({
+    where: eq(weeklyRoutine.dayOfWeek, dayOfWeek),
+    orderBy: [asc(weeklyRoutine.startTime)],
+    with: {
+      subject: {
+        with: { teacher: true },
+      },
+      teacher: true,
+    },
+  });
 }

@@ -35,7 +35,7 @@ export const ourFileRouter = {
       if (!user) {
         throw new UploadThingError("Unauthorized: Only authenticated students can upload assignment submissions.");
       }
-      return { userId: user.id, studentProfileId: user.studentProfileId };
+      return { userId: user.id, studentId: user.studentId, studentProfileId: user.studentId };
     })
     .onUploadComplete(async ({ metadata, file }) => {
       return {

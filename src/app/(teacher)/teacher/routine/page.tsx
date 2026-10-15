@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireAuth, getPermissions } from "@/lib/auth";
 import { RoutineView } from "@/components/timetable/routine-view";
 import { getTeacherWeeklyRoutine } from "@/features/routine/queries";
-import { areSemestersEqual } from "@/lib/utils/roman";
+import { toSemesterNumber, toSemesterRoman } from "@/lib/semester";
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +34,8 @@ export default async function TeacherRoutinePage({ searchParams }: Props) {
 
   // Extract distinct semesters taught by this teacher
   const taughtSemesters = Array.from(
-    new Set(rawRoutine.map((r) => r.subject?.semester).filter(Boolean))
-  ) as string[];
-  taughtSemesters.sort((a, b) => ROMAN_ORDER.indexOf(a) - ROMAN_ORDER.indexOf(b));
+    new Set(rawRoutine.map((r) => r.subject?.semester).filter((s): s is number => s != null))
+  ).sort((a, b) => a - b).map((s) => toSemesterRoman(s));
 
   const selectedSemester =
     typeof resolvedParams.semester === "string"
@@ -45,7 +44,7 @@ export default async function TeacherRoutinePage({ searchParams }: Props) {
 
   const allRoutine = rawRoutine.filter((r) => {
     if (selectedSemester === "All") return true;
-    return areSemestersEqual(r.subject?.semester, selectedSemester);
+    return toSemesterNumber(r.subject?.semester) === toSemesterNumber(selectedSemester);
   });
 
   const hasRoutine = allRoutine.length > 0;
@@ -107,8 +106,8 @@ export default async function TeacherRoutinePage({ searchParams }: Props) {
           </Link>
 
           {taughtSemesters.map((sem) => {
-            const isActive = selectedSemester === sem;
-            const count = rawRoutine.filter((r) => areSemestersEqual(r.subject?.semester, sem)).length;
+            const isActive = toSemesterNumber(selectedSemester) === toSemesterNumber(sem);
+            const count = rawRoutine.filter((r) => toSemesterNumber(r.subject?.semester) === toSemesterNumber(sem)).length;
 
             return (
               <Link

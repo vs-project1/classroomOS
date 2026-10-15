@@ -16,6 +16,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+import { toSemesterNumber } from "@/lib/semester";
+
 const initialState: SubjectActionState = {
   success: false,
 };
@@ -25,7 +27,7 @@ type EditSubjectDialogProps = {
     id: string;
     name: string;
     code: string;
-    semester: string;
+    semester: number | string;
     teacherId: string | null;
   };
   teachers: { id: string; name: string }[];
@@ -88,17 +90,17 @@ export function EditSubjectDialog({ subject, teachers }: EditSubjectDialogProps)
             <select
               id={`edit-semester-${subject.id}`}
               name="semester"
-              defaultValue={subject.semester}
+              defaultValue={String(toSemesterNumber(subject.semester))}
               className="flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
             >
-              <option value="I">Semester I</option>
-              <option value="II">Semester II</option>
-              <option value="III">Semester III</option>
-              <option value="IV">Semester IV</option>
-              <option value="V">Semester V</option>
-              <option value="VI">Semester VI</option>
-              <option value="VII">Semester VII</option>
-              <option value="VIII">Semester VIII</option>
+              <option value="1">Semester I</option>
+              <option value="2">Semester II</option>
+              <option value="3">Semester III</option>
+              <option value="4">Semester IV</option>
+              <option value="5">Semester V</option>
+              <option value="6">Semester VI</option>
+              <option value="7">Semester VII</option>
+              <option value="8">Semester VIII</option>
             </select>
             {state.fieldErrors?.semester && (
               <p className="text-sm font-medium text-destructive">{state.fieldErrors.semester[0]}</p>

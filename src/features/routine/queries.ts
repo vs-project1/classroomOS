@@ -1,12 +1,13 @@
 import { cache } from "react";
 import { db } from "@/db";
-import { weeklyRoutine, subjects, enrollments, studentProfiles, students, homework } from "@/db/schema";
-import { and, asc, eq, inArray } from "drizzle-orm";
-import { getSemesterVariants, toRoman } from "@/lib/utils/roman";
+import { weeklyRoutine, subjects, enrollments, students, homework } from "@/db/schema";
+import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
+import { toSemesterNumber, toSemesterRoman } from "@/lib/semester";
 
 export interface StudentCohort {
   studentId: string | null;
   semester: string | null;
+  section: string | null;
   semesterVariants: string[];
   allowedSubjectIds: string[];
 }
@@ -19,7 +20,7 @@ export const getStudentCohort = cache(async function getStudentCohort(
   studentId?: string | null,
   userId?: string | null
 ): Promise<StudentCohort> {
-  let resolvedStudent: { id: string; semester: string | null; userId?: string | null } | null = null;
+  let resolvedStudent: { id: string; semester: number | string | null; section?: string | null; userId?: string | null } | null = null;
 
   if (studentId) {
     const s = await db.query.students.findFirst({
@@ -35,22 +36,9 @@ export const getStudentCohort = cache(async function getStudentCohort(
     if (s) resolvedStudent = s;
   }
 
-  let semesterStr: string | null = resolvedStudent?.semester ?? null;
-
-  // Fallback to studentProfiles if semester is not on students row
-  if (!semesterStr) {
-    let profile = null;
-    if (userId) {
-      profile = await db.query.studentProfiles.findFirst({
-        where: eq(studentProfiles.userId, userId),
-      });
-    }
-    if (profile?.semester != null) {
-      semesterStr = toRoman(profile.semester);
-    }
-  }
-
-  const semesterVariants = semesterStr ? getSemesterVariants(semesterStr) : [];
+  const semNum = resolvedStudent?.semester != null ? toSemesterNumber(resolvedStudent.semester) : null;
+  const semesterStr: string | null = semNum != null ? toSemesterRoman(semNum) : null;
+  const semesterVariants = semNum != null ? [String(semNum), toSemesterRoman(semNum)] : [];
 
   // Enrolled subjects from enrollments table
   let enrolledSubjectIds: string[] = [];
@@ -63,11 +51,11 @@ export const getStudentCohort = cache(async function getStudentCohort(
 
   // Semester subjects matching student's semester
   let semesterSubjectIds: string[] = [];
-  if (semesterVariants.length > 0) {
+  if (semNum != null) {
     const matchingSubjects = await db
       .select({ id: subjects.id })
       .from(subjects)
-      .where(inArray(subjects.semester, semesterVariants));
+      .where(and(eq(subjects.semester, semNum), eq(subjects.isActive, true)));
     semesterSubjectIds = matchingSubjects.map((s) => s.id);
   }
 
@@ -77,6 +65,7 @@ export const getStudentCohort = cache(async function getStudentCohort(
   return {
     studentId: resolvedStudent?.id ?? studentId ?? null,
     semester: semesterStr,
+    section: resolvedStudent?.section ?? null,
     semesterVariants,
     allowedSubjectIds,
   };
@@ -89,8 +78,10 @@ export const getStudentCohort = cache(async function getStudentCohort(
 export const getStudentTodaySchedule = cache(async function getStudentTodaySchedule(params: {
   allowedSubjectIds: string[];
   dayOfWeek: number;
+  section?: string | null;
 }) {
-  const { allowedSubjectIds, dayOfWeek } = params;
+  const { allowedSubjectIds, dayOfWeek, section } = params;
+  const studentSection = section ?? "A";
 
   if (allowedSubjectIds.length === 0) {
     return [];
@@ -99,35 +90,47 @@ export const getStudentTodaySchedule = cache(async function getStudentTodaySched
   return db.query.weeklyRoutine.findMany({
     where: and(
       eq(weeklyRoutine.dayOfWeek, dayOfWeek),
-      inArray(weeklyRoutine.subjectId, allowedSubjectIds)
+      or(
+        inArray(weeklyRoutine.subjectId, allowedSubjectIds),
+        and(isNull(weeklyRoutine.subjectId), eq(weeklyRoutine.section, studentSection))
+      )
     ),
     orderBy: [asc(weeklyRoutine.startTime)],
     with: {
       subject: {
         with: { teacher: true },
       },
+      teacher: true,
     },
   });
 });
 
 /**
  * Fetches the complete weekly timetable routine strictly isolated to the student's cohort.
+ * Supports both lecture and non-lecture slots (with section match).
  * Fail-closed: returns empty array if allowedSubjectIds is empty.
  */
 export const getStudentWeeklyRoutine = cache(async function getStudentWeeklyRoutine(
-  allowedSubjectIds: string[]
+  allowedSubjectIds: string[],
+  section?: string | null
 ) {
+  const studentSection = section ?? "A";
+
   if (allowedSubjectIds.length === 0) {
     return [];
   }
 
   return db.query.weeklyRoutine.findMany({
-    where: inArray(weeklyRoutine.subjectId, allowedSubjectIds),
+    where: or(
+      inArray(weeklyRoutine.subjectId, allowedSubjectIds),
+      and(isNull(weeklyRoutine.subjectId), eq(weeklyRoutine.section, studentSection))
+    ),
     orderBy: [asc(weeklyRoutine.dayOfWeek), asc(weeklyRoutine.startTime)],
     with: {
       subject: {
         with: { teacher: true },
       },
+      teacher: true,
     },
   });
 });
@@ -160,51 +163,61 @@ export const getStudentActiveHomework = cache(async function getStudentActiveHom
 });
 
 /**
- * Fetches today's routine for a teacher based on their assigned subjects.
+ * Fetches today's routine for a teacher based on their assigned subjects or explicit slots.
  */
 export const getTeacherTodaySchedule = cache(async function getTeacherTodaySchedule(
   teacherId: string,
   dayOfWeek: number
 ) {
   const teacherSubjects = await db.query.subjects.findMany({
-    where: eq(subjects.teacherId, teacherId),
+    where: and(eq(subjects.teacherId, teacherId), eq(subjects.isActive, true)),
   });
   const subjectIds = teacherSubjects.map((s) => s.id);
-  if (subjectIds.length === 0) return [];
 
   return db.query.weeklyRoutine.findMany({
     where: and(
       eq(weeklyRoutine.dayOfWeek, dayOfWeek),
-      inArray(weeklyRoutine.subjectId, subjectIds)
+      or(
+        eq(weeklyRoutine.teacherId, teacherId),
+        subjectIds.length > 0
+          ? and(isNull(weeklyRoutine.teacherId), inArray(weeklyRoutine.subjectId, subjectIds))
+          : undefined
+      )
     ),
     orderBy: [asc(weeklyRoutine.startTime)],
     with: {
       subject: {
         with: { teacher: true },
       },
+      teacher: true,
     },
   });
 });
 
 /**
- * Fetches the full weekly routine for a teacher based on their assigned subjects.
+ * Fetches the full weekly routine for a teacher based on their assigned subjects or explicit slots.
  */
 export const getTeacherWeeklyRoutine = cache(async function getTeacherWeeklyRoutine(
   teacherId: string
 ) {
   const teacherSubjects = await db.query.subjects.findMany({
-    where: eq(subjects.teacherId, teacherId),
+    where: and(eq(subjects.teacherId, teacherId), eq(subjects.isActive, true)),
   });
   const subjectIds = teacherSubjects.map((s) => s.id);
-  if (subjectIds.length === 0) return [];
 
   return db.query.weeklyRoutine.findMany({
-    where: inArray(weeklyRoutine.subjectId, subjectIds),
+    where: or(
+      eq(weeklyRoutine.teacherId, teacherId),
+      subjectIds.length > 0
+        ? and(isNull(weeklyRoutine.teacherId), inArray(weeklyRoutine.subjectId, subjectIds))
+        : undefined
+    ),
     orderBy: [asc(weeklyRoutine.dayOfWeek), asc(weeklyRoutine.startTime)],
     with: {
       subject: {
         with: { teacher: true },
       },
+      teacher: true,
     },
   });
 });

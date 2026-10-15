@@ -15,6 +15,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { broadcastRoutineToTelegramAction, type ActionResult } from "../actions/telegram-actions";
+import { toRoman } from "@/lib/utils/roman";
 
 const SEMESTERS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"] as const;
 
@@ -50,9 +51,10 @@ export function BroadcastRoutineDialog({
   // 1. If currently viewing a specific semester, use that
   // 2. Else if there's an unpublished semester, pick the first one
   // 3. Otherwise first configured semester or "I"
+  const romanCurrent = currentSemester && currentSemester !== "All" ? toRoman(currentSemester) : null;
   const defaultSem =
-    currentSemester !== "All" && SEMESTERS.includes(currentSemester as any)
-      ? currentSemester
+    romanCurrent && (SEMESTERS as readonly string[]).includes(romanCurrent)
+      ? romanCurrent
       : unpublishedSemesters[0] || configuredSemesters[0] || "I";
 
   const [semester, setSemester] = useState<string>(defaultSem);

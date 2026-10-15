@@ -43,13 +43,8 @@ function hourLabel(h: number): string {
 export function TimelineRiver({
   slots,
   className,
-  startHour = DEFAULT_START,
-  endHour = DEFAULT_END,
   renderActions,
 }: TimelineRiverProps) {
-  const hours: number[] = [];
-  for (let h = startHour; h <= endHour; h++) hours.push(h);
-
   const sorted = [...slots].sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   if (sorted.length === 0) {
@@ -66,176 +61,171 @@ export function TimelineRiver({
     );
   }
 
+  const lastSlot = sorted[sorted.length - 1];
+
   return (
     <div
       data-testid="timeline-river"
-      className={cn("relative flex gap-4", className)}
-      aria-label="Daily timetable from 7 AM to 4 PM"
+      className={cn("relative space-y-4", className)}
+      aria-label="Daily timetable sequence"
     >
-      {/* Time gutter + vertical line */}
-      <div className="relative hidden w-16 shrink-0 sm:block">
-        <div className="absolute right-0 top-0 bottom-0 w-0 border-l-2 border-slate-100 dark:border-slate-800" aria-hidden />
-        <div className="relative">
-          {hours.map((h) => (
-            <div
-              key={h}
-              className="relative flex h-[52px] items-start justify-end pr-3"
-              style={{ height: h === endHour ? 24 : 52 }}
-            >
-              <span className="text-[11px] font-semibold tracking-wide text-muted-foreground tabular-nums -mt-1.5">
-                {hourLabel(h)}
-              </span>
-              <span className="absolute right-0 top-[6px] h-1.5 w-1.5 -translate-x-[-1px] rounded-full bg-slate-200 dark:bg-slate-700" />
-            </div>
-          ))}
-        </div>
-      </div>
+      <div className="relative pl-6 sm:pl-8 space-y-4">
+        {/* Continuous vertical timeline connector line */}
+        <div 
+          className="absolute left-2 sm:left-2.5 top-3 bottom-3 w-0.5 bg-slate-200 dark:bg-slate-800" 
+          aria-hidden 
+        />
 
-      {/* Vertical line for mobile (left edge) */}
-      <div className="absolute left-0 top-0 bottom-0 border-l-2 border-slate-100 dark:border-slate-800 sm:hidden" aria-hidden />
-
-      {/* Pills column — also carries the spec-required border-l-2 */}
-      <div className="flex-1 space-y-3 border-l-2 border-slate-100 pl-4 dark:border-slate-800 sm:border-l-0 sm:pl-0">
-        {sorted.map((slot) => {
+        {sorted.map((slot, index) => {
           const isOngoing = slot.status === "ongoing";
           const isCompleted = slot.status === "completed";
           const startH = parseHour(slot.startTime);
           const endH = parseHour(slot.endTime);
+          const mins = Math.max(0, Math.round((endH - startH) * 60));
           const durationLabel = `${formatTime12h(slot.startTime)} – ${formatTime12h(slot.endTime)}`;
-          // Visual offset hint (not absolute positioning, keeps pills accessible and prevents overlap)
-          const isEarly = startH < 9;
-          const isLate = startH >= 12;
+
+          // Check if there was a gap between previous slot and current slot
+          let breakDuration: number | null = null;
+          if (index > 0) {
+            const prevSlot = sorted[index - 1];
+            const prevEnd = parseHour(prevSlot.endTime);
+            const gap = Math.round((startH - prevEnd) * 60);
+            if (gap >= 15) {
+              breakDuration = gap;
+            }
+          }
 
           return (
-            <div
-              key={slot.id}
-              data-testid="timeline-pill"
-              data-status={slot.status ?? "upcoming"}
-              className={cn(
-                "group relative flex flex-col gap-2 rounded-xl border p-3 pr-3 transition-all hover:-translate-y-[1px] sm:p-4",
-                isOngoing
-                  ? "border-primary/40 bg-primary/5 shadow-md ring-1 ring-primary/20"
-                  : isCompleted
-                    ? "border-border/30 bg-muted/15 opacity-75 grayscale-[0.15] hover:opacity-100 hover:grayscale-0"
-                    : "border-border/40 bg-card hover:border-border hover:shadow-sm",
-                isEarly && !isOngoing && !isCompleted && "sm:ml-1",
-                isLate && !isOngoing && !isCompleted && "sm:ml-2"
+            <div key={slot.id} className="relative space-y-3">
+              {breakDuration && (
+                <div className="flex items-center gap-2 py-1 text-xs text-muted-foreground font-medium pl-2">
+                  <span className="h-px w-6 bg-slate-200 dark:bg-slate-800" aria-hidden />
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-muted/60 border text-[11px]">
+                    Break • {breakDuration} mins
+                  </span>
+                  <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" aria-hidden />
+                </div>
               )}
-            >
-              {/* Dot on the river line */}
+
+              {/* Node indicator on the spine */}
               <span
                 aria-hidden
                 className={cn(
-                  "absolute -left-[21px] top-5 hidden h-3 w-3 rounded-full border-2 bg-card sm:block",
+                  "absolute -left-[20px] sm:-left-[28px] top-4.5 h-3.5 w-3.5 rounded-full border-2 bg-card transition-all z-10",
                   isOngoing
-                    ? "border-primary bg-primary shadow-[0_0_0_4px_rgba(79,70,229,0.15)]"
+                    ? "border-primary bg-primary ring-4 ring-primary/20 scale-110"
                     : isCompleted
-                      ? "border-slate-300 bg-slate-300 dark:border-slate-600 dark:bg-slate-600"
-                      : "border-slate-200 bg-white dark:border-slate-700"
+                      ? "border-emerald-500 bg-emerald-500"
+                      : "border-slate-300 dark:border-slate-600 bg-background"
                 )}
               />
               {isOngoing && (
                 <span
                   aria-hidden
-                  className="absolute -left-[21px] top-5 hidden h-3 w-3 rounded-full bg-primary/30 animate-ping sm:block"
+                  className="absolute -left-[20px] sm:-left-[28px] top-4.5 h-3.5 w-3.5 rounded-full bg-primary/40 animate-ping z-0"
                 />
               )}
 
-              {/* Mobile dot */}
-              <span
-                aria-hidden
+              {/* The Class Card Pill */}
+              <div
+                data-testid="timeline-pill"
+                data-status={slot.status ?? "upcoming"}
                 className={cn(
-                  "absolute -left-[9px] top-5 h-2.5 w-2.5 rounded-full border-2 sm:hidden",
+                  "group relative flex flex-col gap-2.5 rounded-2xl border p-4 transition-all hover:border-border hover:shadow-xs",
                   isOngoing
-                    ? "border-primary bg-primary animate-pulse"
+                    ? "border-primary/40 bg-primary/[0.04] shadow-xs ring-1 ring-primary/20"
                     : isCompleted
-                      ? "border-slate-300 bg-slate-200"
-                      : "border-slate-200 bg-white"
+                      ? "border-border/40 bg-muted/15 opacity-85"
+                      : "border-border/60 bg-card"
                 )}
-              />
-
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="truncate text-sm font-bold text-foreground">{slot.subject}</h4>
+              >
+                {/* Header row: time badge & status */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold tabular-nums bg-muted border border-border/60 text-foreground">
+                      <Clock className="w-3.5 h-3.5 text-primary" />
+                      {durationLabel}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      ({mins}m)
+                    </span>
                     {slot.code && (
-                      <span className="shrink-0 rounded-md border border-border/50 bg-muted px-2 py-0.5 text-xs font-bold tabular-nums text-foreground">
+                      <span className="rounded-md border border-border/50 bg-secondary/80 px-2 py-0.5 text-xs font-bold tabular-nums text-secondary-foreground">
                         {slot.code}
                       </span>
                     )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
                     {isOngoing && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-primary-foreground animate-pulse">
-                        <Radio className="h-3 w-3 animate-spin" aria-hidden /> Now
+                        <Radio className="h-3 w-3 animate-spin" aria-hidden /> Ongoing
                       </span>
                     )}
                     {isCompleted && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-muted px-2.5 py-0.5 text-xs font-bold uppercase text-muted-foreground">
-                        <CheckCircle2 className="h-3 w-3 text-emerald-500" aria-hidden /> Done
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-500" aria-hidden /> Completed
                       </span>
                     )}
+                    {renderActions && (
+                      <div className="hidden sm:flex items-center gap-1">{renderActions(slot)}</div>
+                    )}
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-                    <span className="inline-flex items-center gap-1 tabular-nums">
-                      <Clock className="h-3.5 w-3.5 opacity-70" aria-hidden />
-                      {durationLabel}
-                    </span>
-                    {slot.room && (
-                      <>
-                        <span className="opacity-40" aria-hidden>
-                          •
-                        </span>
+                </div>
+
+                {/* Subject & Details */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1 min-w-0">
+                    <h4 className="text-base font-bold text-foreground leading-snug">
+                      {slot.subject}
+                    </h4>
+
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
+                      {slot.room && (
                         <span className="inline-flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5 opacity-70" aria-hidden />
                           {slot.room.startsWith("Room") || slot.room.startsWith("Lab") ? slot.room : `Room ${slot.room}`}
                         </span>
-                      </>
-                    )}
+                      )}
+                      {slot.teacherName && (
+                        <>
+                          <span className="opacity-40">•</span>
+                          <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/50 bg-secondary text-[10px] font-bold text-secondary-foreground">
+                              {slot.teacherName.charAt(0)}
+                            </span>
+                            {slot.teacherName}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
+
+                  {renderActions && (
+                    <div className="flex sm:hidden items-center gap-1">{renderActions(slot)}</div>
+                  )}
                 </div>
 
-                {/* Duration hint */}
-                <span className="hidden shrink-0 text-xs font-semibold tabular-nums text-muted-foreground sm:inline">
-                  {(() => {
-                    const mins = Math.round((endH - startH) * 60);
-                    return `${mins}m`;
-                  })()}
-                </span>
-                {renderActions && (
-                  <span className="hidden shrink-0 items-center gap-1 sm:flex">{renderActions(slot)}</span>
+                {slot.notes && (
+                  <p className="text-xs text-muted-foreground italic border-t pt-2">
+                    Note: {slot.notes}
+                  </p>
                 )}
+
+                {/* Left accent bar for ongoing */}
+                {isOngoing && <div className="absolute bottom-0 left-0 top-0 w-1 rounded-l-2xl bg-primary" aria-hidden />}
               </div>
-              {renderActions && (
-                <div className="flex items-center gap-1 sm:hidden">{renderActions(slot)}</div>
-              )}
-
-              {(slot.teacherName || slot.notes) && (
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  {slot.teacherName && (
-                    <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border/50 bg-secondary text-xs font-bold text-secondary-foreground">
-                        {slot.teacherName.charAt(0)}
-                      </span>
-                      <User className="h-3 w-3 opacity-60 sm:hidden" aria-hidden />
-                      {slot.teacherName}
-                    </span>
-                  )}
-                  {slot.notes && (
-                    <span className="italic opacity-80 line-clamp-1">— {slot.notes}</span>
-                  )}
-                </div>
-              )}
-
-              {/* Current pulse bar (left accent) */}
-              {isOngoing && <div className="absolute bottom-0 left-0 top-0 w-1 rounded-l-xl bg-primary" aria-hidden />}
             </div>
           );
         })}
 
         {/* End cap */}
-        <div className="flex items-center gap-2 pt-1 text-xs font-medium text-muted-foreground">
-          <span className="h-px flex-1 bg-slate-100 dark:bg-slate-800" aria-hidden />
-          <span className="shrink-0 rounded-full border bg-card px-2 py-0.5">4 PM — End of day</span>
-          <span className="h-px flex-1 bg-slate-100 dark:bg-slate-800" aria-hidden />
+        <div className="flex items-center gap-2 pt-2 text-xs font-medium text-muted-foreground">
+          <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" aria-hidden />
+          <span className="shrink-0 rounded-full border bg-card px-3 py-1 font-semibold text-xs shadow-2xs">
+            Classes conclude at {formatTime12h(lastSlot.endTime)} • {sorted.length} slot{sorted.length === 1 ? "" : "s"}
+          </span>
+          <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" aria-hidden />
         </div>
       </div>
     </div>

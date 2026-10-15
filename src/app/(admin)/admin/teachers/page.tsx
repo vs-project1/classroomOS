@@ -7,7 +7,7 @@ import { EditTeacherDialog } from "./edit-teacher-dialog";
 import { Users, GraduationCap, Mail, Phone, Calendar } from "lucide-react";
 import { getPermissions, requireAuth } from "@/lib/auth";
 import { SearchFilterBar } from "@/components/admin/search-filter-bar";
-import { areSemestersEqual } from "@/lib/utils/roman";
+import { toSemesterNumber } from "@/lib/semester";
 import { EmptyState } from "@/components/ui/empty-state";
 
 export const dynamic = "force-dynamic";
@@ -48,7 +48,7 @@ export default async function TeachersPage({ searchParams }: Props) {
         ...(teacher.semesters || []),
         ...(teacher.subjects?.map((s) => s.semester) || []),
       ];
-      return teacherSemesters.some((s) => areSemestersEqual(s, semester));
+      return teacherSemesters.some((s) => toSemesterNumber(s) === toSemesterNumber(semester));
     });
   }
   
@@ -164,9 +164,10 @@ export default async function TeachersPage({ searchParams }: Props) {
                   
                   return derivedSemesters.length > 0 ? (
                     derivedSemesters.map(s => {
-                      const displayStr = s.toUpperCase().includes('SEM') ? s : `Sem ${s}`;
+                      const str = String(s);
+                      const displayStr = str.toUpperCase().includes('SEM') ? str : `Sem ${str}`;
                       return (
-                      <span key={s} className="text-xs uppercase tracking-wider font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-md border border-border">
+                      <span key={String(s)} className="text-xs uppercase tracking-wider font-bold text-muted-foreground bg-muted px-2.5 py-1 rounded-md border border-border">
                         {displayStr}
                       </span>
                     )})

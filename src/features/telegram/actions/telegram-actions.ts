@@ -2,7 +2,7 @@
 
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   telegramSettings,
@@ -19,17 +19,23 @@ import {
   type RoutineSlotInfo,
 } from "../services/formatters";
 import { executeTelegramBrief } from "../services/telegram-brief-service";
-import { areSemestersEqual } from "@/lib/utils/roman";
+import {
+  enqueueTelegramMessage,
+  enqueueTelegramBatch,
+  getTelegramOutboxStats,
+  type EnqueueTelegramJobInput,
+  type TelegramOutboxStats,
+} from "../services/telegram-outbox-service";
+import { toSemesterNumber, toSemesterRoman } from "@/lib/semester";
 import {
   saveSemesterTelegramConfigSchema,
   saveTelegramSettingsSchema,
   type BroadcastNoticeInput,
   type BroadcastRoutineInput,
 } from "../types";
+import type { ActionResult } from "@/lib/types/action-result";
 
-export type ActionResult<T = void> =
-  | { success: true; data?: T; message?: string }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+export type { ActionResult };
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -37,7 +43,7 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
  * Saves global Telegram bot credentials and default preferences.
  */
 export async function saveTelegramSettingsAction(
-  prevState: any,
+  prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
   const user = await requireAuth(["ADMIN"]);
@@ -132,7 +138,7 @@ export async function testBotConnectionAction(botToken: string): Promise<ActionR
  * Saves or updates a semester's Telegram chat / topic binding.
  */
 export async function saveSemesterTelegramConfigAction(
-  prevState: any,
+  prevState: ActionResult | null,
   formData: FormData
 ): Promise<ActionResult> {
   await requireAuth(["ADMIN"]);
@@ -158,10 +164,18 @@ export async function saveSemesterTelegramConfigAction(
     };
   }
 
+  const semNum = toSemesterNumber(parsed.data.semester);
+  if (!semNum) {
+    return {
+      success: false,
+      error: "Invalid semester value",
+    };
+  }
+
   const [existing] = await db
     .select()
     .from(semesterTelegramConfigs)
-    .where(eq(semesterTelegramConfigs.semester, parsed.data.semester))
+    .where(eq(semesterTelegramConfigs.semester, semNum))
     .limit(1);
 
   if (existing) {
@@ -180,7 +194,7 @@ export async function saveSemesterTelegramConfigAction(
   } else {
     await db.insert(semesterTelegramConfigs).values({
       id: crypto.randomUUID(),
-      semester: parsed.data.semester,
+      semester: semNum,
       chatId: parsed.data.chatId,
       messageThreadId: parsed.data.messageThreadId ?? null,
       chatTitle: parsed.data.chatTitle ?? null,
@@ -191,14 +205,16 @@ export async function saveSemesterTelegramConfigAction(
   }
 
   revalidatePath("/admin/settings/telegram");
-  return { success: true, message: `Semester ${parsed.data.semester} Telegram binding saved!` };
+  return { success: true, message: `Semester ${toSemesterRoman(semNum)} Telegram binding saved!` };
 }
 
 /**
  * Dispatches a test greeting message to a semester's Telegram channel.
  */
-export async function sendTestTelegramMessageAction(semester: string): Promise<ActionResult> {
+export async function sendTestTelegramMessageAction(semester: string | number): Promise<ActionResult> {
   const user = await requireAuth(["ADMIN"]);
+  const semNum = toSemesterNumber(semester);
+  const semRoman = toSemesterRoman(semNum);
 
   const [settings] = await db.select().from(telegramSettings).limit(1);
   if (!settings || !settings.botToken) {
@@ -208,17 +224,17 @@ export async function sendTestTelegramMessageAction(semester: string): Promise<A
   const [config] = await db
     .select()
     .from(semesterTelegramConfigs)
-    .where(eq(semesterTelegramConfigs.semester, semester))
+    .where(eq(semesterTelegramConfigs.semester, semNum))
     .limit(1);
 
   if (!config || !config.chatId) {
-    return { success: false, error: `No Telegram Chat ID configured for Semester ${semester}.` };
+    return { success: false, error: `No Telegram Chat ID configured for Semester ${semRoman}.` };
   }
 
   const testText =
     `<b>Classroom OS — Test Broadcast</b>\n` +
     `━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `🎉 <b>Hello Semester ${semester}!</b>\n\n` +
+    `🎉 <b>Hello Semester ${semRoman}!</b>\n\n` +
     `This Telegram chat is now successfully connected to Classroom OS.\n` +
     `Routine changes, morning briefings, and campus announcements will be delivered here.\n\n` +
     `<i>Sent by ${user.name} via Admin Console</i>`;
@@ -233,7 +249,7 @@ export async function sendTestTelegramMessageAction(semester: string): Promise<A
   // Log dispatch
   await db.insert(telegramBroadcastLogs).values({
     id: crypto.randomUUID(),
-    semester,
+    semester: semNum,
     type: "test_message",
     messageText: testText,
     status: sendResult.ok ? "success" : "failed",
@@ -250,7 +266,7 @@ export async function sendTestTelegramMessageAction(semester: string): Promise<A
     };
   }
 
-  return { success: true, message: `Test message sent to Semester ${semester} successfully!` };
+  return { success: true, message: `Test message sent to Semester ${semRoman} successfully!` };
 }
 
 /**
@@ -300,7 +316,7 @@ export async function sendDirectTestMessageAction({
   // Log dispatch
   await db.insert(telegramBroadcastLogs).values({
     id: crypto.randomUUID(),
-    semester: "TEST",
+    semester: 1,
     type: "test_message",
     messageText: text,
     status: sendResult.ok ? "success" : "failed",
@@ -324,22 +340,6 @@ export async function sendDirectTestMessageAction({
   };
 }
 
-function normalizeSemesterToRoman(sem: string | number | null | undefined): string {
-  if (!sem) return "I";
-  const s = String(sem).trim().toUpperCase();
-  const map: Record<string, string> = {
-    "1": "I", "1ST": "I", "I": "I",
-    "2": "II", "2ND": "II", "II": "II",
-    "3": "III", "3RD": "III", "III": "III",
-    "4": "IV", "4TH": "IV", "IV": "IV",
-    "5": "V", "5TH": "V", "V": "V",
-    "6": "VI", "6TH": "VI", "VI": "VI",
-    "7": "VII", "7TH": "VII", "VII": "VII",
-    "8": "VIII", "8TH": "VIII", "VIII": "VIII",
-  };
-  return map[s] || s;
-}
-
 /**
  * Manually broadcasts the routine for a semester to its linked Telegram channel.
  */
@@ -353,16 +353,18 @@ export async function broadcastRoutineToTelegramAction(
     return { success: false, error: "Telegram Bot is not configured or is currently disabled." };
   }
 
+  const targetSemesterNum = toSemesterNumber(input.semester);
+
   const [config] = await db
     .select()
     .from(semesterTelegramConfigs)
-    .where(eq(semesterTelegramConfigs.semester, input.semester))
+    .where(eq(semesterTelegramConfigs.semester, targetSemesterNum))
     .limit(1);
 
   if (!config || !config.chatId) {
     return {
       success: false,
-      error: `No Telegram chat configured for Semester ${input.semester}. Please configure it in Settings.`,
+      error: `No Telegram chat configured for Semester ${toSemesterRoman(targetSemesterNum)}. Please configure it in Settings.`,
     };
   }
 
@@ -392,27 +394,29 @@ export async function broadcastRoutineToTelegramAction(
     targetDate.setDate(targetDate.getDate() + (daysToAdd === 0 ? 7 : daysToAdd));
   }
 
-  // Fetch routine slots for that semester and day
+  // Fetch routine slots for that semester and day pushed down directly to SQL
   const rawRoutines = await db.query.weeklyRoutine.findMany({
-    where: eq(weeklyRoutine.dayOfWeek, targetDay),
+    where: and(
+      eq(weeklyRoutine.dayOfWeek, targetDay),
+      eq(weeklyRoutine.semester, targetSemesterNum)
+    ),
     orderBy: [asc(weeklyRoutine.startTime)],
     with: {
       subject: {
         with: { teacher: true },
       },
+      teacher: true,
     },
   });
 
-  const slots: RoutineSlotInfo[] = rawRoutines
-    .filter((r) => areSemestersEqual(r.subject?.semester, input.semester))
-    .map((r) => ({
-      startTime: r.startTime,
-      endTime: r.endTime,
-      subjectName: r.subject.name,
-      teacherName: r.teacherName || r.subject.teacher?.name || null,
-      room: r.room,
-      notes: r.notes,
-    }));
+  const slots: RoutineSlotInfo[] = rawRoutines.map((r) => ({
+    startTime: r.startTime,
+    endTime: r.endTime,
+    subjectName: r.subject?.name || r.customTitle || "Scheduled Slot",
+    teacherName: r.teacher?.name || r.subject?.teacher?.name || null,
+    room: r.room,
+    notes: r.notes,
+  }));
 
   const defaultTitle = targetDay === todayDayIndex ? "🌅 Today's Routine" : "🌙 Tomorrow's Routine";
   const titlePrefix = input.isUpdate ? "⚠️ Routine Changed Notice" : defaultTitle;
@@ -424,7 +428,7 @@ export async function broadcastRoutineToTelegramAction(
 
   const text = formatRoutineBriefMessage({
     titlePrefix,
-    semester: input.semester,
+    semester: targetSemesterNum,
     date: targetDate,
     dayName: DAYS[targetDay],
     slots,
@@ -432,58 +436,40 @@ export async function broadcastRoutineToTelegramAction(
     appUrl,
   });
 
-  const sendResult = await sendTelegramMessage({
-    token: settings.botToken,
+  const { id: jobId } = await enqueueTelegramMessage({
     chatId: config.chatId,
-    text,
     messageThreadId: config.messageThreadId,
+    text,
     pinMessage: input.pinMessage,
+    metadata: {
+      semester: targetSemesterNum,
+      type: "routine_broadcast",
+      sentByUserId: user.id,
+    },
   });
-
-  await db.insert(telegramBroadcastLogs).values({
-    id: crypto.randomUUID(),
-    semester: input.semester,
-    type: "routine_broadcast",
-    messageText: text,
-    status: sendResult.ok ? "success" : "failed",
-    errorMessage: sendResult.error ?? null,
-    sentByUserId: user.id,
-  });
-
-  if (sendResult.ok) {
-    // Clear the unpublished changes banner by updating lastRoutinePublishedAt
-    await db
-      .update(semesterTelegramConfigs)
-      .set({
-        lastRoutinePublishedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(semesterTelegramConfigs.semester, input.semester));
-  }
 
   revalidatePath("/admin/routine");
   revalidatePath("/routine");
   revalidatePath("/teacher/routine");
   revalidatePath("/admin/settings/telegram");
 
-  if (!sendResult.ok) {
-    return { success: false, error: sendResult.error || "Failed to broadcast routine to Telegram." };
-  }
-
-  return { success: true, message: `Routine broadcasted to Semester ${input.semester} Telegram group!` };
+  return {
+    success: true,
+    message: `Routine broadcast queued for Semester ${toSemesterRoman(targetSemesterNum)} (Job: ${jobId.slice(0, 8)})`,
+  };
 }
 
 /**
  * Automatically records that a semester's timetable has been modified,
  * activating the "Publish Changes to Telegram" banner.
  */
-export async function markSemesterRoutineModified(semester: string) {
+export async function markSemesterRoutineModified(semester: string | number) {
   try {
-    const normSem = normalizeSemesterToRoman(semester);
+    const semNum = toSemesterNumber(semester);
     const [existing] = await db
       .select()
       .from(semesterTelegramConfigs)
-      .where(eq(semesterTelegramConfigs.semester, normSem))
+      .where(eq(semesterTelegramConfigs.semester, semNum))
       .limit(1);
 
     if (existing) {
@@ -497,7 +483,7 @@ export async function markSemesterRoutineModified(semester: string) {
     } else {
       await db.insert(semesterTelegramConfigs).values({
         id: crypto.randomUUID(),
-        semester: normSem,
+        semester: semNum,
         chatId: "",
         lastRoutineModifiedAt: new Date(),
       });
@@ -538,63 +524,80 @@ export async function broadcastNoticeToTelegramAction(
     appUrl,
   });
 
-  let successCount = 0;
+  const semesterNums = Array.from(
+    new Set(input.semesters.map(toSemesterNumber))
+  );
+  const configs = await db
+    .select()
+    .from(semesterTelegramConfigs)
+    .where(inArray(semesterTelegramConfigs.semester, semesterNums));
+
+  const configMap = new Map(configs.map((c) => [c.semester, c]));
+  const jobs: EnqueueTelegramJobInput[] = [];
   const errors: string[] = [];
 
-  for (const semester of input.semesters) {
-    const [config] = await db
-      .select()
-      .from(semesterTelegramConfigs)
-      .where(eq(semesterTelegramConfigs.semester, semester))
-      .limit(1);
-
+  for (const semNum of semesterNums) {
+    const config = configMap.get(semNum);
     if (!config || !config.chatId) {
-      errors.push(`Semester ${semester}: No Telegram chat configured`);
+      errors.push(`Semester ${toSemesterRoman(semNum)}: No Telegram chat configured`);
       continue;
     }
 
-    const res = await sendTelegramMessage({
-      token: settings.botToken,
+    jobs.push({
       chatId: config.chatId,
-      text,
       messageThreadId: config.messageThreadId,
+      text,
       pinMessage: input.pinMessage,
+      metadata: {
+        semester: semNum,
+        type: "notice_broadcast",
+        noticeId: input.noticeId,
+        sentByUserId: user.id,
+      },
     });
-
-    await db.insert(telegramBroadcastLogs).values({
-      id: crypto.randomUUID(),
-      semester,
-      type: "notice_broadcast",
-      messageText: text,
-      status: res.ok ? "success" : "failed",
-      errorMessage: res.error ?? null,
-      sentByUserId: user.id,
-    });
-
-    if (res.ok) {
-      successCount++;
-    } else {
-      errors.push(`Semester ${semester}: ${res.error || "Failed to send"}`);
-    }
   }
 
-  revalidatePath("/admin/notices");
-  revalidatePath("/admin/settings/telegram");
-
-  if (successCount === 0) {
+  if (jobs.length === 0) {
     return {
       success: false,
       error: `Failed to broadcast notice. ${errors.join(". ")}`,
     };
   }
 
+  const { ids } = await enqueueTelegramBatch(jobs);
+
+  revalidatePath("/admin/notices");
+  revalidatePath("/admin/settings/telegram");
+
   return {
     success: true,
-    message: `Notice broadcasted to ${successCount} semester(s)!${
+    message: `Notice broadcast queued for ${ids.length} semester(s)!${
       errors.length > 0 ? ` (${errors.join("; ")})` : ""
     }`,
   };
 }
+
+/**
+ * Fetches real-time status counts from the Telegram transactional outbox.
+ */
+export async function getTelegramOutboxStatsAction(): Promise<
+  ActionResult<TelegramOutboxStats>
+> {
+  await requireAuth(["ADMIN"]);
+  try {
+    const stats = await getTelegramOutboxStats();
+    return {
+      success: true,
+      data: stats,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to fetch outbox stats",
+    };
+  }
+}
+
 
 /**
  * On-demand manual trigger for automated morning or evening routine briefings.

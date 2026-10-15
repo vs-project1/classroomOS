@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Pencil } from "lucide-react";
+import { toSemesterNumber } from "@/lib/semester";
 
 const initialState: TeacherActionState = {
   success: false,
@@ -101,7 +102,7 @@ export function EditTeacherDialog({ teacher }: EditTeacherDialogProps) {
             <div className="flex flex-wrap gap-4">
               {SEMESTERS.map(s => (
                 <label key={s} className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="semesters" value={s} defaultChecked={teacher.semesters?.includes(s)} /> {s}
+                  <input type="checkbox" name="semesters" value={s} defaultChecked={teacher.semesters?.some(sem => toSemesterNumber(sem) === toSemesterNumber(s))} /> {s}
                 </label>
               ))}
             </div>

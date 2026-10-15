@@ -1,10 +1,9 @@
 import { db } from "@/db";
 import { enrollments, subjects, homework, resources, courseUnits } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { resolveCurrentStudent, requireAuth } from "@/lib/auth";
+import { and, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
-import { toRoman } from "@/lib/utils/roman";
-import { studentProfiles } from "@/db/schema";
+import { resolveCurrentStudent, requireAuth } from "@/lib/auth";
+import { toSemesterNumber } from "@/lib/semester";
 import { BookOpen, User, ArrowRight, Layers } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -24,11 +23,7 @@ export default async function SubjectsPage() {
     resourceCount: number;
   }> = [];
 
-  if (student && user.studentProfileId) {
-    const profile = await db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.id, user.studentProfileId),
-    });
-
+  if (student) {
     // 1. Try querying explicit student enrollments
     const userEnrollments = await db.query.enrollments.findMany({
       where: eq(enrollments.studentId, student.id),
@@ -46,7 +41,7 @@ export default async function SubjectsPage() {
 
     if (userEnrollments.length > 0) {
       enrolledSubjects = userEnrollments
-        .filter((e) => e.subject != null)
+        .filter((e) => e.subject != null && e.subject.isActive)
         .map((e) => ({
           id: e.subject.id,
           name: e.subject.name,
@@ -57,18 +52,20 @@ export default async function SubjectsPage() {
           activeHwCount: e.subject.homework?.length || 0,
           resourceCount: e.subject.resources?.length || 0,
         }));
-    } else if (profile && profile.semester != null) {
-      // 2. Dynamic Fallback: fetch subjects matching the student's semester
-      const semesterRoman = toRoman(profile.semester);
-      const semesterSubjects = await db.query.subjects.findMany({
-        where: eq(subjects.semester, semesterRoman),
-        with: {
-          teacher: true,
-          courseUnits: true,
-          homework: { where: eq(homework.status, "active") },
-          resources: true,
-        },
-      });
+    } else {
+      // 2. Dynamic Fallback: fetch active subjects matching the student's semester
+      const semValue = student.semester ?? null;
+      if (semValue != null) {
+        const semNum = toSemesterNumber(semValue);
+        const semesterSubjects = await db.query.subjects.findMany({
+          where: and(eq(subjects.semester, semNum), eq(subjects.isActive, true)),
+          with: {
+            teacher: true,
+            courseUnits: true,
+            homework: { where: eq(homework.status, "active") },
+            resources: true,
+          },
+        });
 
       enrolledSubjects = semesterSubjects.map((s) => ({
         id: s.id,
@@ -82,6 +79,7 @@ export default async function SubjectsPage() {
       }));
     }
   }
+  }
 
   // Security: STUDENT/CR are strictly enrollment-scoped. An unresolvable
   // student profile or zero enrollments yields an empty grid — never the full
@@ -93,6 +91,7 @@ export default async function SubjectsPage() {
     (user.role === "TEACHER" || user.role === "ADMIN")
   ) {
     const allSubjects = await db.query.subjects.findMany({
+      where: eq(subjects.isActive, true),
       with: {
         teacher: true,
         courseUnits: true,

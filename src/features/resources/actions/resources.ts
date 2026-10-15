@@ -16,6 +16,7 @@ import { z } from "zod";
 import { and, asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { UTApi } from "uploadthing/server";
+import type { ActionResult } from "@/lib/types/action-result";
 
 const createResourceSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -88,7 +89,10 @@ export async function getChapterTreeAction(
   }
 }
 
-export async function createResourceAction(prevState: any, formData: FormData) {
+export async function createResourceAction(
+  prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
   const user = await requireAuth(["TEACHER", "ADMIN"]);
   let uploadedFileKey: string | undefined;
 
@@ -192,7 +196,7 @@ export async function createResourceAction(prevState: any, formData: FormData) {
       fileType: parsed.data.fileType,
       fileSize: parsed.data.fileSize ?? null,
       description: parsed.data.description || null,
-      uploadedBy: user.teacherId ?? null,
+      uploadedBy: user.id,
     });
 
     // Notify enrolled students (best-effort — notifyMany never throws).
@@ -263,7 +267,12 @@ export async function deleteResourceAction(resourceId: string) {
       return { success: false, message: "Resource not found" };
     }
 
-    if (user.role !== "ADMIN" && resource.uploadedBy !== user.teacherId && resource.subject.teacherId !== user.teacherId) {
+    if (
+      user.role !== "ADMIN" &&
+      resource.uploadedBy !== user.id &&
+      resource.uploadedBy !== user.teacherId &&
+      resource.subject.teacherId !== user.teacherId
+    ) {
       return { success: false, message: "You do not have permission to delete this resource" };
     }
 

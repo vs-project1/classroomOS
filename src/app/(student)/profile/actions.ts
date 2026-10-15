@@ -2,7 +2,7 @@
 
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/db";
-import { studentProfiles, teachers } from "@/db/schema";
+import { students, teachers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -22,7 +22,7 @@ const phoneSchema = z
 
 /**
  * Updates the signed-in user's own contact phone number.
- * STUDENT/CR -> student_profiles.phone; TEACHER -> teachers.phone.
+ * STUDENT/CR -> students.phone; TEACHER -> teachers.phone.
  * Email, roll number, and academic fields are identity-linked and stay
  * admin-managed (read-only here) on purpose.
  */
@@ -47,13 +47,14 @@ export async function updatePhoneAction(
         .set({ phone: parsed.data, updatedAt: new Date() })
         .where(eq(teachers.id, user.teacherId));
     } else {
-      if (!user.studentProfileId) {
+      const studentId = user.studentId;
+      if (!studentId) {
         return { success: false, message: "Your account is not linked to a student profile." };
       }
       await db
-        .update(studentProfiles)
+        .update(students)
         .set({ phone: parsed.data, updatedAt: new Date() })
-        .where(eq(studentProfiles.id, user.studentProfileId));
+        .where(eq(students.id, studentId));
     }
   } catch (error) {
     console.error("updatePhoneAction failed:", error);

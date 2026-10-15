@@ -2,11 +2,12 @@ import { db } from "@/db";
 import { students } from "@/db/schema";
 import { StudentForm } from "@/features/users/components/student-form";
 import { EditStudentDialog } from "./edit-student-dialog";
-import { asc, like, or, eq, and } from "drizzle-orm";
+import { asc, like, or, eq, and, inArray } from "drizzle-orm";
 import { Users, GraduationCap, Search, FileDown } from "lucide-react";
-import { getPermissions } from "@/lib/auth";
+import { getPermissions, requireAuth } from "@/lib/auth";
 import { SearchFilterBar } from "@/components/admin/search-filter-bar";
 import { formatNepaliDate } from "@/lib/nepali-date";
+import { toSemesterNumber } from "@/lib/semester";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ type Props = {
 };
 
 export default async function StudentsPage({ searchParams }: Props) {
+  await requireAuth(["ADMIN"]);
   const permissions = await getPermissions();
   const resolvedParams = await searchParams;
   
@@ -32,17 +34,8 @@ export default async function StudentsPage({ searchParams }: Props) {
     );
   }
   if (semester) {
-    const romanToOrdinal: Record<string, string> = {
-      "I": "1st Semester",
-      "II": "2nd Semester",
-      "III": "3rd Semester",
-      "IV": "4th Semester",
-      "V": "5th Semester",
-      "VI": "6th Semester",
-      "VII": "7th Semester",
-      "VIII": "8th Semester"
-    };
-    conditions.push(eq(students.semester, romanToOrdinal[semester] || semester));
+    const semNum = toSemesterNumber(semester);
+    conditions.push(eq(students.semester, semNum));
   }
 
   const allStudents = await db
@@ -145,15 +138,9 @@ export default async function StudentsPage({ searchParams }: Props) {
                         <span className="text-xs uppercase tracking-wider font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-md border border-primary/20">
                           {student.faculty || "BCA"}
                         </span>
-                        {(() => {
-                          const s = student.semester || "1";
-                          const displayStr = s.toUpperCase().includes('SEM') ? s : `Sem ${s}`;
-                          return (
-                            <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground bg-muted px-2.5 py-0.5 rounded-md border border-border">
-                              {displayStr}
-                            </span>
-                          );
-                        })()}
+                        <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground bg-muted px-2.5 py-0.5 rounded-md border border-border">
+                          Sem {student.semester} ({student.section})
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 align-top text-right text-xs text-muted-foreground font-fira-code">

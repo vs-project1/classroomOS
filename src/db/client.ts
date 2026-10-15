@@ -14,5 +14,8 @@ const client = createClient({
 client.execute("PRAGMA foreign_keys = ON;").catch((error) => {
   console.error("Failed to enable PRAGMA foreign_keys:", error);
 });
+client.execute("PRAGMA journal_mode = WAL;").catch(() => {});
+client.execute("PRAGMA busy_timeout = 5000;").catch(() => {});
+
 
 export const db = drizzle(client, { schema });

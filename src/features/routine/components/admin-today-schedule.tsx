@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Clock, ArrowRight, CalendarDays } from "lucide-react";
 import { formatTime12h } from "@/lib/timezone";
-import { areSemestersEqual } from "@/lib/utils/roman";
+import { toSemesterNumber } from "@/lib/semester";
 
 export const SEMESTERS = ["All", "I", "II", "III", "IV", "V", "VI", "VII", "VIII"] as const;
 export type SemesterType = (typeof SEMESTERS)[number];
@@ -14,15 +14,20 @@ export interface RoutineClassItem {
   startTime: string;
   endTime: string;
   room: string | null;
-  subject: {
+  slotType?: string;
+  customTitle?: string | null;
+  teacher?: {
+    name: string;
+  } | null;
+  subject?: {
     id: string;
     name: string;
     code: string;
-    semester: string | null;
+    semester: string | number | null;
     teacher?: {
       name: string;
     } | null;
-  };
+  } | null;
 }
 
 export interface AdminTodayScheduleProps {
@@ -36,7 +41,7 @@ export function matchSemester(
   targetSem: string | null
 ): boolean {
   if (!targetSem || targetSem === "All") return true;
-  return areSemestersEqual(subSem, targetSem);
+  return toSemesterNumber(subSem) === toSemesterNumber(targetSem);
 }
 
 export function AdminTodaySchedule({
@@ -45,8 +50,9 @@ export function AdminTodaySchedule({
   initialSemester,
 }: AdminTodayScheduleProps) {
   const [selectedSemester, setSelectedSemester] = useState<string>(() => {
-    if (initialSemester && SEMESTERS.includes(initialSemester as SemesterType)) {
-      return initialSemester;
+    if (initialSemester) {
+      const match = SEMESTERS.find((s) => s !== "All" && toSemesterNumber(s) === toSemesterNumber(initialSemester));
+      if (match) return match;
     }
     return "All";
   });
@@ -106,7 +112,7 @@ export function AdminTodaySchedule({
       {/* 2. Horizontal Semester Filter Tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-5 scrollbar-thin scrollbar-thumb-border/40">
         {SEMESTERS.map((sem) => {
-          const isSelected = selectedSemester === sem;
+          const isSelected = sem === "All" ? selectedSemester === "All" : toSemesterNumber(selectedSemester) === toSemesterNumber(sem);
           const count = semesterCounts[sem] || 0;
           const hasClasses = count > 0;
 
@@ -163,10 +169,10 @@ export function AdminTodaySchedule({
               >
                 <div>
                   <div className="font-semibold text-foreground flex items-center flex-wrap gap-2">
-                    <span>{c.subject.name}</span>
+                    <span>{c.subject?.name || c.customTitle || "Scheduled Slot"}</span>
 
                     {/* Semester Pill */}
-                    {c.subject.semester && (
+                    {c.subject?.semester && (
                       <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border/60">
                         Sem {c.subject.semester}
                       </span>
@@ -196,7 +202,7 @@ export function AdminTodaySchedule({
                   </div>
 
                   <div className="text-sm text-muted-foreground mt-1">
-                    {c.subject.teacher?.name || "TBA"}{" "}
+                    {c.teacher?.name || c.subject?.teacher?.name || "TBA"}{" "}
                     {c.room
                       ? `• ${c.room.startsWith("Room") || c.room.startsWith("Lab") ? c.room : `Room ${c.room}`}`
                       : ""}

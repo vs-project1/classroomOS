@@ -80,9 +80,9 @@ export default async function NoticesPage() {
                 {notice.content}
               </p>
 
-              {(notice as any).attachments && Array.isArray((notice as any).attachments) && (notice as any).attachments.length > 0 && (
+              {notice.attachments && notice.attachments.length > 0 && (
                 <div className="mt-4 space-y-3">
-                  {(notice as any).attachments.map((url: string) => (
+                  {notice.attachments.map((url: string) => (
                     <FilePreview key={url} fileUrl={url} fileType={inferFileType(url)} fileName={url.split("/").pop()} />
                   ))}
                 </div>

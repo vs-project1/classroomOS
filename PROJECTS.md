@@ -84,6 +84,10 @@ This file is the single source of truth for project planning, architectural mile
 | **M4** | Central Telegram Bot & Routine Broadcasts | `src/lib/telegram/**`, `semester_telegram_configs`, daily briefings | M2 | Infra / Backend | `COMPLETED` |
 | **M5** | Responsive UI/UX & Dual-Theme Contrast | `src/components/student/**`, `src/app/(admin)/**`, `StatusChip`, high contrast badges | M1, M2 | Frontend / UX | `COMPLETED` |
 | **M6** | Multi-Role Cross-Verification & E2E Hardening | `tests/e2e/**`, role verifiers, security ownership, auth flows | M1-M5 | QA / Verifiers | `IN_PROGRESS` |
+| **M7** | Database Schema Unification & Referential Integrity | `src/db/schema.ts`, `students`, `weeklyRoutine.teacherId`, `resources`, notices/events authors & indexes | M1-M6 | Architect / Backend | `COMPLETED` |
+| **M7.2** | P0 Existing Features Hardening | `src/db/schema.ts`, `src/features/attendance/**`, `src/features/routine/**`, `src/features/assignments/**` | M7 | Fullstack / Architecture | `COMPLETED` |
+| **M7.3** | P1 Database Standardization & Subject Safety | `src/lib/semester.ts`, `src/db/schema.ts`, `drizzle/0019_*.sql`, `src/features/subjects/**`, `src/features/telegram/**` | M7.2 | Database / Backend | `COMPLETED` |
+| **M7.4** | P2 Telegram Transactional Outbox | `src/db/schema.ts`, `src/features/telegram/services/telegram-outbox-service.ts`, `telegram_outbox`, `telegram-actions.ts` | M7.3 | Backend / Architecture | `COMPLETED` |
 
 *Status options: `BACKLOG`, `PLANNED`, `IN_PROGRESS`, `VERIFYING`, `COMPLETED`, `ARCHIVED`*
 
@@ -99,6 +103,13 @@ This file is the single source of truth for project planning, architectural mile
 | **M3** | Handwritten Notebook Homework Workflow | 2026-09-06 | Eliminated digital PDF uploads & grading rubrics; implemented physical notebook diary tracker (`Completed in Notebook`). |
 | **M4** | Central Telegram Bot & Routine Publishing | 2026-09-06 | Single bot token with semester-to-chat mapping; change detection banner (`[ Publish Changes to Telegram ]`); Sunday 8 PM kickoff. |
 | **M5** | Responsive UI/UX & Dual-Theme Contrast | 2026-09-01 | Rigid desktop sidebar + dual-tier sticky mobile topbar & hamburger drawer; WCAG 4.5:1 contrast hardening on status badges. |
+| **M7** | Database Schema Unification & Referential Integrity | 2026-10-14 | Merged `student_profiles` into `students` (1:1 with `users`), dropped `course_materials` into unified `resources` (3-tier scope), normalized `weekly_routine.teacher_id`, added CASCADE/RESTRICT/SET NULL constraints, verified with 25/25 test suite. |
+| **M7.1** | Attendance, Uploads & Timetable UX Hardening | 2026-10-15 | Fixed `resources.uploaded_by` foreign key to `users(id)`, responsive mobile Take Attendance cards with 4-way segmented buttons & floating action bar clearance over bottom nav, chronological vertical `TimelineRiver` with 50m durations, and 260px weekly routine cards without ellipsis truncation. |
+| **M7.2** | P0 Existing Features Hardening | 2026-10-15 | Hardened attendance resubmission via conflict upsert preserving dispute requests, added `semester` and `section` to routine and schedule generation with atomic transactions, eliminated collision blindspot on non-subject slots, canonicalized user-student joins in assignments/notifications, added Google Drive URL validation & SpeedGrader-style embedded preview iframe. |
+| **M7.3** | P1 Database Standardization & Subject Safety | 2026-10-16 | Standardized semester representation to integer (`1..8`) with check constraints across 5 tables; protected `subjects` with `onDelete: "restrict"` across 7 dependent tables; implemented `isActive` soft delete and query filtering; pushed Telegram routine query down to SQL; verified with 60/60 test suite. |
+| **M7.4** | P2 Telegram Transactional Outbox | 2026-10-16 | Decoupled synchronous Telegram API calls from Next.js server actions using `telegram_outbox` table, non-blocking single & batch enqueue, resilient background drain worker with inter-request pacing (50ms), exponential backoff $\min(300000, 1000 \times 2^n)$, HTTP 429 `retry_after` handling, 60s instrumentation scheduler polling, and 8/8 automated verification suite. |
+
+
 
 ---
 

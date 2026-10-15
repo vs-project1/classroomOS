@@ -10,8 +10,10 @@ export const saveTelegramSettingsSchema = z.object({
 
 export type SaveTelegramSettingsInput = z.infer<typeof saveTelegramSettingsSchema>;
 
+import { zSemester, toSemesterNumber } from "@/lib/semester";
+
 export const saveSemesterTelegramConfigSchema = z.object({
-  semester: z.enum(["I", "II", "III", "IV", "V", "VI", "VII", "VIII"]),
+  semester: z.union([zSemester, z.string()]),
   chatId: z.string().min(1, "Chat / Channel ID is required").trim(),
   messageThreadId: z.coerce.number().optional().nullable(),
   chatTitle: z.string().optional().nullable(),
@@ -23,7 +25,7 @@ export const saveSemesterTelegramConfigSchema = z.object({
 export type SaveSemesterTelegramConfigInput = z.infer<typeof saveSemesterTelegramConfigSchema>;
 
 export const broadcastRoutineSchema = z.object({
-  semester: z.enum(["I", "II", "III", "IV", "V", "VI", "VII", "VIII"]),
+  semester: z.union([zSemester, z.string()]),
   targetDayOfWeek: z.coerce.number().min(0).max(6).optional(), // Defaults to tomorrow or today based on context
   customNote: z.string().max(500).optional(),
   pinMessage: z.boolean().default(false),
@@ -34,7 +36,7 @@ export type BroadcastRoutineInput = z.infer<typeof broadcastRoutineSchema>;
 
 export const broadcastNoticeSchema = z.object({
   noticeId: z.string().min(1, "Notice ID is required"),
-  semesters: z.array(z.string()).min(1, "Select at least one semester"),
+  semesters: z.array(z.union([zSemester, z.string()])).min(1, "Select at least one semester"),
   pinMessage: z.boolean().default(false),
 });
 

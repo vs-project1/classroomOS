@@ -8,8 +8,9 @@ export async function register() {
     const { db } = await import("@/db");
     const { telegramSettings } = await import("@/db/schema");
     const { executeTelegramBrief } = await import("@/features/telegram/services/telegram-brief-service");
+    const { drainTelegramOutbox } = await import("@/features/telegram/services/telegram-outbox-service");
 
-    console.log("[ClassroomOS:Scheduler] Initializing in-process Telegram routine briefing poller...");
+    console.log("[ClassroomOS:Scheduler] Initializing in-process Telegram routine briefing and outbox poller...");
 
     // Check every 60 seconds
     const interval = setInterval(async () => {
@@ -19,7 +20,13 @@ export async function register() {
           return;
         }
 
+        // Drain pending / retrying outbox messages
+        await drainTelegramOutbox().catch((err) => {
+          console.error("[ClassroomOS:Scheduler] Outbox drain error:", err);
+        });
+
         const now = new Date();
+
         const nptTime = new Intl.DateTimeFormat("en-GB", {
           timeZone: "Asia/Kathmandu",
           hour: "2-digit",

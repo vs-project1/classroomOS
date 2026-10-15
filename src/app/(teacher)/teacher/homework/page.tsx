@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { homework, subjects } from "@/db/schema";
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray, and } from "drizzle-orm";
 import Link from "next/link";
 import { Plus, CheckCircle2, CheckSquare, Code } from "lucide-react";
 import { HomeworkStatusActions } from "@/features/assignments/components/homework-status-actions";
@@ -27,7 +27,7 @@ export default async function TeacherHomeworkPage() {
   }
 
   const teacherSubjects = await db.query.subjects.findMany({
-    where: eq(subjects.teacherId, user.teacherId),
+    where: and(eq(subjects.teacherId, user.teacherId), eq(subjects.isActive, true)),
     columns: { id: true, name: true, code: true, semester: true },
   });
 

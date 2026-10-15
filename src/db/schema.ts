@@ -19,45 +19,69 @@ export const teachers = sqliteTable("teachers", {
   updatedAt: integer("updated_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-});
+}, (table) => [
+  index("idx_teachers_user_id").on(table.userId),
+]);
 
 export const subjects = sqliteTable("subjects", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   code: text("code").notNull().unique(),
-  semester: text("semester").notNull().default("I"), // Added semester field for filtering
+  semester: integer("semester").notNull().default(1),
   teacherId: text("teacher_id")
     .references(() => teachers.id, { onDelete: "set null" }),
+  isActive: integer("is_active", { mode: "boolean" })
+    .notNull()
+    .default(true),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-});
+}, (table) => [
+  index("idx_subjects_semester").on(table.semester),
+  index("idx_subjects_teacher_id").on(table.teacherId),
+  index("idx_subjects_is_active").on(table.isActive),
+  check("chk_subjects_semester", sql`${table.semester} BETWEEN 1 AND 8`),
+]);
 
 export const students = sqliteTable("students", {
   id: text("id").primaryKey(),
   userId: text("user_id")
-    .references(() => users.id, { onDelete: "cascade" }),
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "restrict" }),
   name: text("name").notNull(),
   rollNumber: text("roll_number").notNull().unique(),
   email: text("email").unique(),
   phone: text("phone"),
-  faculty: text("faculty"),
-  semester: text("semester"),
+  faculty: text("faculty").notNull().default("BCA"),
+  semester: integer("semester").notNull(),
+  section: text("section").notNull().default("A"),
+  batchYear: integer("batch_year").notNull().default(2025),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-});
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+}, (table) => [
+  index("idx_students_cohort").on(table.faculty, table.semester, table.section),
+  check("chk_students_semester", sql`${table.semester} BETWEEN 1 AND 8`),
+]);
 
 export const weeklyRoutine = sqliteTable("weekly_routine", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id")
-    .notNull()
-    .references(() => subjects.id, { onDelete: "cascade" }),
+    .references(() => subjects.id, { onDelete: "restrict" }),
+  semester: integer("semester").notNull().default(1),
+  slotType: text("slot_type").notNull().default("LECTURE"),
+  customTitle: text("custom_title"),
+  section: text("section").notNull().default("A"),
   dayOfWeek: integer("day_of_week").notNull(),
   startTime: text("start_time").notNull(),
   endTime: text("end_time").notNull(),
-  teacherName: text("teacher_name"),
+  teacherId: text("teacher_id")
+    .references(() => teachers.id, { onDelete: "set null" }),
   room: text("room"),
   notes: text("notes"),
   createdAt: integer("created_at", { mode: "timestamp" })
@@ -69,18 +93,25 @@ export const weeklyRoutine = sqliteTable("weekly_routine", {
 }, (table) => [
   index("idx_weekly_routine_day_time").on(table.dayOfWeek, table.startTime),
   index("idx_weekly_routine_subject").on(table.subjectId),
+  index("idx_weekly_routine_teacher").on(table.teacherId),
+  index("idx_weekly_routine_section").on(table.section),
+  index("idx_weekly_routine_semester").on(table.semester),
+  index("idx_weekly_routine_sem_sec").on(table.semester, table.section),
   check("chk_weekly_routine_day", sql`${table.dayOfWeek} BETWEEN 0 AND 6`),
   check("chk_weekly_routine_time", sql`${table.startTime} < ${table.endTime}`),
+  check("chk_weekly_routine_type", sql`${table.slotType} IN ('LECTURE', 'LAB', 'BREAK', 'ECA', 'LIBRARY')`),
+  check("chk_weekly_routine_semester", sql`${table.semester} BETWEEN 1 AND 8`),
 ]);
 
 export const classSessions = sqliteTable("class_sessions", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id")
     .notNull()
-    .references(() => subjects.id, { onDelete: "cascade" }),
+    .references(() => subjects.id, { onDelete: "restrict" }),
   routineId: text("routine_id")
     .references(() => weeklyRoutine.id, { onDelete: "set null" }),
   sessionDate: integer("session_date", { mode: "timestamp" }).notNull(),
+  section: text("section").notNull().default("A"),
   startTime: text("start_time").notNull(),
   endTime: text("end_time").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" })
@@ -89,7 +120,14 @@ export const classSessions = sqliteTable("class_sessions", {
 }, (table) => [
   index("idx_class_sessions_subject_id").on(table.subjectId),
   index("idx_class_sessions_session_date").on(table.sessionDate),
-  unique("unq_class_session_subject_date").on(table.subjectId, table.sessionDate),
+  index("idx_class_sessions_routine_id").on(table.routineId),
+  index("idx_class_sessions_sec_date").on(table.section, table.sessionDate),
+  unique("unq_class_session_slot").on(
+    table.subjectId,
+    table.sessionDate,
+    table.section,
+    table.startTime
+  ),
 ]);
 
 export const lectureLogs = sqliteTable("lecture_logs", {
@@ -106,29 +144,11 @@ export const lectureLogs = sqliteTable("lecture_logs", {
     .default(sql`(unixepoch())`),
 });
 
-export const attendance = sqliteTable("attendance", {
-  id: text("id").primaryKey(),
-  classSessionId: text("class_session_id")
-    .notNull()
-    .references(() => classSessions.id, { onDelete: "cascade" }),
-  studentId: text("student_id")
-    .notNull()
-    .references(() => students.id, { onDelete: "cascade" }),
-  status: text("status").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-}, (table) => [
-  unique("unq_attendance_session_student").on(table.classSessionId, table.studentId),
-  index("idx_attendance_student_id").on(table.studentId),
-  check("chk_attendance_status", sql`${table.status} IN ('present', 'absent', 'late', 'excused')`),
-]);
-
 export const homework = sqliteTable("homework", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id")
     .notNull()
-    .references(() => subjects.id, { onDelete: "cascade" }),
+    .references(() => subjects.id, { onDelete: "restrict" }),
   title: text("title").notNull(),
   description: text("description").notNull(),
   assignedDate: integer("assigned_date", { mode: "timestamp" }).notNull(),
@@ -156,6 +176,8 @@ export const notices = sqliteTable("notices", {
   expiresAt: integer("expires_at", { mode: "timestamp" }),
   isPinned: integer("is_pinned", { mode: "boolean" }).notNull().default(false),
   attachments: text("attachments", { mode: "json" }).$type<string[]>(),
+  createdById: text("created_by_id")
+    .references(() => users.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -164,6 +186,8 @@ export const notices = sqliteTable("notices", {
     .default(sql`(unixepoch())`),
 }, (table) => [
   index("idx_notices_pinned_created").on(table.isPinned, table.createdAt),
+  index("idx_notices_expires_at").on(table.expiresAt),
+  index("idx_notices_created_by").on(table.createdById),
 ]);
 
 export const events = sqliteTable("events", {
@@ -175,6 +199,8 @@ export const events = sqliteTable("events", {
   endTime: text("end_time"),
   eventType: text("event_type").notNull(),
   location: text("location"),
+  createdById: text("created_by_id")
+    .references(() => users.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -183,6 +209,8 @@ export const events = sqliteTable("events", {
     .default(sql`(unixepoch())`),
 }, (table) => [
   index("idx_events_date_time").on(table.eventDate, table.startTime),
+  index("idx_events_type_date").on(table.eventType, table.eventDate),
+  index("idx_events_created_by").on(table.createdById),
   check("chk_events_time", sql`(${table.startTime} IS NULL AND ${table.endTime} IS NULL) OR (${table.startTime} IS NOT NULL AND ${table.endTime} IS NOT NULL AND ${table.endTime} > ${table.startTime})`),
 ]);
 
@@ -192,7 +220,7 @@ export const courseUnits = sqliteTable("course_units", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id")
     .notNull()
-    .references(() => subjects.id, { onDelete: "cascade" }),
+    .references(() => subjects.id, { onDelete: "restrict" }),
   title: text("title").notNull(),
   order: integer("order").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" })
@@ -223,19 +251,6 @@ export const courseChapters = sqliteTable("course_chapters", {
   index("idx_course_chapters_unit_order").on(table.unitId, table.order),
 ]);
 
-export const courseMaterials = sqliteTable("course_materials", {
-  id: text("id").primaryKey(),
-  chapterId: text("chapter_id")
-    .notNull()
-    .references(() => courseChapters.id, { onDelete: "cascade" }),
-  title: text("title").notNull(),
-  fileUrl: text("file_url").notNull(),
-  fileType: text("file_type").notNull(), // e.g., 'pdf', 'pptx', 'link'
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
-
 // --- Milestone 1: 10 New Tables ---
 
 // 1. Users (Auth identity & credentials)
@@ -261,31 +276,7 @@ export const users = sqliteTable("users", {
   check("chk_users_role", sql`${table.role} IN ('ADMIN', 'TEACHER', 'CR', 'STUDENT')`),
 ]);
 
-// 2. Student Profiles (Academic student identity linked 1:1 to User)
-export const studentProfiles = sqliteTable("student_profiles", {
-  id: text("id").primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  rollNumber: text("roll_number").notNull().unique(),
-  faculty: text("faculty").notNull(),
-  semester: integer("semester").notNull(),
-  section: text("section").notNull(),
-  batchYear: integer("batch_year").notNull(),
-  phone: text("phone"),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-}, (table) => [
-  unique("unq_student_profiles_user_id").on(table.userId),
-  index("idx_student_profiles_faculty_semester").on(table.faculty, table.semester),
-  check("chk_student_profiles_semester", sql`${table.semester} BETWEEN 1 AND 8`),
-]);
-
-// 3. Enrollments (Student-Subject mapping)
+// 2. Enrollments (Student-Subject mapping)
 export const enrollments = sqliteTable("enrollments", {
   id: text("id").primaryKey(),
   studentId: text("student_id")
@@ -293,7 +284,7 @@ export const enrollments = sqliteTable("enrollments", {
     .references(() => students.id, { onDelete: "cascade" }),
   subjectId: text("subject_id")
     .notNull()
-    .references(() => subjects.id, { onDelete: "cascade" }),
+    .references(() => subjects.id, { onDelete: "restrict" }),
   semester: integer("semester").notNull(),
   enrolledAt: integer("enrolled_at", { mode: "timestamp" })
     .notNull()
@@ -337,6 +328,7 @@ export const assignmentSubmissions = sqliteTable("assignment_submissions", {
   index("idx_assignment_submissions_student").on(table.studentId),
   index("idx_assignment_submissions_homework").on(table.homeworkId),
   index("idx_assignment_submissions_status").on(table.status),
+  index("idx_assignment_submissions_graded_by").on(table.gradedBy),
   check("chk_assignment_submissions_status", sql`${table.status} IN ('draft', 'submitted', 'graded', 'late')`),
   check("chk_assignment_submissions_score", sql`${table.score} IS NULL OR ${table.score} >= 0`),
 ]);
@@ -346,7 +338,7 @@ export const exams = sqliteTable("exams", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id")
     .notNull()
-    .references(() => subjects.id, { onDelete: "cascade" }),
+    .references(() => subjects.id, { onDelete: "restrict" }),
   title: text("title").notNull(),
   examType: text("exam_type").notNull(), // 'unit_test' | 'midterm' | 'pre_board' | 'practical' | 'final'
   totalMarks: integer("total_marks").notNull(),
@@ -395,7 +387,6 @@ export const examResults = sqliteTable("exam_results", {
   check("chk_exam_results_marks", sql`${table.obtainedMarks} IS NULL OR ${table.obtainedMarks} >= 0`),
 ]);
 
-// 7. Resources (Downloadable study materials & slides)
 export const resources = sqliteTable("resources", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id")
@@ -411,7 +402,7 @@ export const resources = sqliteTable("resources", {
   fileType: text("file_type").notNull(), // 'pdf' | 'slides' | 'link' | 'zip' | 'code' | 'doc'
   fileSize: integer("file_size"),
   uploadedBy: text("uploaded_by")
-    .references(() => teachers.id, { onDelete: "set null" }),
+    .references(() => users.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -422,7 +413,6 @@ export const resources = sqliteTable("resources", {
   index("idx_resources_subject").on(table.subjectId),
   index("idx_resources_unit").on(table.unitId),
   index("idx_resources_chapter").on(table.chapterId),
-  index("idx_resources_chapter_created").on(table.chapterId, table.createdAt),
   index("idx_resources_uploaded_by").on(table.uploadedBy),
 ]);
 
@@ -448,6 +438,7 @@ export const studyTasks = sqliteTable("study_tasks", {
 }, (table) => [
   index("idx_study_tasks_student_status").on(table.studentId, table.status),
   index("idx_study_tasks_student_due").on(table.studentId, table.dueDate),
+  index("idx_study_tasks_subject").on(table.subjectId),
   check("chk_study_tasks_status", sql`${table.status} IN ('pending', 'in_progress', 'completed')`),
   check("chk_study_tasks_priority", sql`${table.priority} IN ('low', 'medium', 'high')`),
 ]);
@@ -500,6 +491,8 @@ export const attendanceCorrectionRequests = sqliteTable("attendance_correction_r
   index("idx_attendance_correction_student").on(table.studentId),
   index("idx_attendance_correction_attendance").on(table.attendanceId),
   index("idx_attendance_correction_status").on(table.status),
+  index("idx_attendance_correction_status_created").on(table.status, table.createdAt),
+  index("idx_attendance_correction_reviewed_by").on(table.reviewedBy),
   check("chk_attendance_correction_requested_status", sql`${table.requestedStatus} IN ('present', 'excused')`),
   check("chk_attendance_correction_status", sql`${table.status} IN ('pending', 'approved', 'rejected')`),
 ]);
@@ -552,7 +545,7 @@ export const subjectGradeWeights = sqliteTable("subject_grade_weights", {
   id: text("id").primaryKey(),
   subjectId: text("subject_id")
     .notNull()
-    .references(() => subjects.id, { onDelete: "cascade" }),
+    .references(() => subjects.id, { onDelete: "restrict" }),
   category: text("category").notNull(), // reuses exams.examType values
   weightPct: integer("weight_pct").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" })
@@ -563,7 +556,6 @@ export const subjectGradeWeights = sqliteTable("subject_grade_weights", {
     .default(sql`(unixepoch())`),
 }, (table) => [
   unique("unq_subject_grade_weights_subject_category").on(table.subjectId, table.category),
-  index("idx_subject_grade_weights_subject").on(table.subjectId),
   check("chk_subject_grade_weights_category", sql`${table.category} IN ('unit_test', 'midterm', 'pre_board', 'practical', 'final')`),
   check("chk_subject_grade_weights_weight", sql`${table.weightPct} BETWEEN 0 AND 100`),
 ]);
@@ -579,6 +571,7 @@ export const teachersRelations = relations(teachers, ({ one, many }) => ({
   assignmentSubmissionsGraded: many(assignmentSubmissions),
   resources: many(resources),
   attendanceCorrectionsReviewed: many(attendanceCorrectionRequests),
+  routineSlots: many(weeklyRoutine),
 }));
 
 export const subjectsRelations = relations(subjects, ({ one, many }) => ({
@@ -593,6 +586,8 @@ export const subjectsRelations = relations(subjects, ({ one, many }) => ({
   enrollments: many(enrollments),
   resources: many(resources),
   studyTasks: many(studyTasks),
+  subjectGradeWeights: many(subjectGradeWeights),
+  exams: many(exams),
 }));
 
 export const subjectGradeWeightsRelations = relations(subjectGradeWeights, ({ one }) => ({
@@ -607,9 +602,10 @@ export const studentsRelations = relations(students, ({ one, many }) => ({
     fields: [students.userId],
     references: [users.id],
   }),
-  attendance: many(attendance),
+  dailyAttendance: many(dailyAttendance),
   enrollments: many(enrollments),
   assignmentSubmissions: many(assignmentSubmissions),
+  examResults: many(examResults),
   studyTasks: many(studyTasks),
   attendanceCorrectionRequests: many(attendanceCorrectionRequests),
 }));
@@ -618,6 +614,10 @@ export const weeklyRoutineRelations = relations(weeklyRoutine, ({ one, many }) =
   subject: one(subjects, {
     fields: [weeklyRoutine.subjectId],
     references: [subjects.id],
+  }),
+  teacher: one(teachers, {
+    fields: [weeklyRoutine.teacherId],
+    references: [teachers.id],
   }),
   classSessions: many(classSessions),
 }));
@@ -635,7 +635,6 @@ export const classSessionsRelations = relations(classSessions, ({ one, many }) =
     fields: [classSessions.id],
     references: [lectureLogs.classSessionId],
   }),
-  attendance: many(attendance),
   homework: many(homework),
 }));
 
@@ -644,18 +643,6 @@ export const lectureLogsRelations = relations(lectureLogs, ({ one }) => ({
     fields: [lectureLogs.classSessionId],
     references: [classSessions.id],
   }),
-}));
-
-export const attendanceRelations = relations(attendance, ({ one, many }) => ({
-  classSession: one(classSessions, {
-    fields: [attendance.classSessionId],
-    references: [classSessions.id],
-  }),
-  student: one(students, {
-    fields: [attendance.studentId],
-    references: [students.id],
-  }),
-  correctionRequests: many(attendanceCorrectionRequests),
 }));
 
 export const homeworkRelations = relations(homework, ({ one, many }) => ({
@@ -684,22 +671,10 @@ export const courseChaptersRelations = relations(courseChapters, ({ one, many })
     fields: [courseChapters.unitId],
     references: [courseUnits.id],
   }),
-  courseMaterials: many(courseMaterials),
   resources: many(resources),
 }));
 
-export const courseMaterialsRelations = relations(courseMaterials, ({ one }) => ({
-  chapter: one(courseChapters, {
-    fields: [courseMaterials.chapterId],
-    references: [courseChapters.id],
-  }),
-}));
-
 export const usersRelations = relations(users, ({ one, many }) => ({
-  studentProfile: one(studentProfiles, {
-    fields: [users.id],
-    references: [studentProfiles.userId],
-  }),
   student: one(students, {
     fields: [users.id],
     references: [students.userId],
@@ -710,18 +685,16 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
   notifications: many(notifications),
   sessions: many(sessions),
+  markedDailySessions: many(dailySessions),
+  broadcastLogs: many(telegramBroadcastLogs),
+  createdNotices: many(notices),
+  createdEvents: many(events),
+  uploadedResources: many(resources),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
   user: one(users, {
     fields: [sessions.userId],
-    references: [users.id],
-  }),
-}));
-
-export const studentProfilesRelations = relations(studentProfiles, ({ one }) => ({
-  user: one(users, {
-    fields: [studentProfiles.userId],
     references: [users.id],
   }),
 }));
@@ -784,9 +757,23 @@ export const resourcesRelations = relations(resources, ({ one }) => ({
     fields: [resources.chapterId],
     references: [courseChapters.id],
   }),
-  uploadedByTeacher: one(teachers, {
+  uploadedByUser: one(users, {
     fields: [resources.uploadedBy],
-    references: [teachers.id],
+    references: [users.id],
+  }),
+}));
+
+export const noticesRelations = relations(notices, ({ one }) => ({
+  createdBy: one(users, {
+    fields: [notices.createdById],
+    references: [users.id],
+  }),
+}));
+
+export const eventsRelations = relations(events, ({ one }) => ({
+  createdBy: one(users, {
+    fields: [events.createdById],
+    references: [users.id],
   }),
 }));
 
@@ -809,9 +796,9 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
 }));
 
 export const attendanceCorrectionRequestsRelations = relations(attendanceCorrectionRequests, ({ one }) => ({
-  attendance: one(attendance, {
+  attendance: one(dailyAttendance, {
     fields: [attendanceCorrectionRequests.attendanceId],
-    references: [attendance.id],
+    references: [dailyAttendance.id],
   }),
   student: one(students, {
     fields: [attendanceCorrectionRequests.studentId],
@@ -863,16 +850,13 @@ export type NewStudent = typeof students.$inferInsert;
 
 export type WeeklyRoutine = typeof weeklyRoutine.$inferSelect;
 export type NewWeeklyRoutine = typeof weeklyRoutine.$inferInsert;
+export type RoutineSlotType = "LECTURE" | "LAB" | "BREAK" | "ECA" | "LIBRARY";
 
 export type ClassSession = typeof classSessions.$inferSelect;
 export type NewClassSession = typeof classSessions.$inferInsert;
 
 export type LectureLog = typeof lectureLogs.$inferSelect;
 export type NewLectureLog = typeof lectureLogs.$inferInsert;
-
-export type Attendance = typeof attendance.$inferSelect;
-export type NewAttendance = typeof attendance.$inferInsert;
-export type AttendanceStatus = "present" | "absent" | "late" | "excused";
 
 export type Homework = typeof homework.$inferSelect;
 export type NewHomework = typeof homework.$inferInsert;
@@ -890,18 +874,12 @@ export type NewCourseUnit = typeof courseUnits.$inferInsert;
 export type CourseChapter = typeof courseChapters.$inferSelect;
 export type NewCourseChapter = typeof courseChapters.$inferInsert;
 
-export type CourseMaterial = typeof courseMaterials.$inferSelect;
-export type NewCourseMaterial = typeof courseMaterials.$inferInsert;
-
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type UserRole = "ADMIN" | "TEACHER" | "CR" | "STUDENT";
 
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
-
-export type StudentProfile = typeof studentProfiles.$inferSelect;
-export type NewStudentProfile = typeof studentProfiles.$inferInsert;
 
 export type Enrollment = typeof enrollments.$inferSelect;
 export type NewEnrollment = typeof enrollments.$inferInsert;
@@ -943,11 +921,15 @@ export type NewSubjectGradeWeight = typeof subjectGradeWeights.$inferInsert;
 export const dailySessions = sqliteTable("daily_sessions", {
   id: text("id").primaryKey(),
   date: integer("date", { mode: "timestamp" }).notNull(),
-  semester: text("semester").notNull(),
+  semester: integer("semester").notNull().default(1),
+  section: text("section").notNull().default("A"),
   markedBy: text("marked_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
-  unique("unq_daily_session_date_sem").on(table.date, table.semester),
+  unique("unq_daily_session_date_sem_sec").on(table.date, table.semester, table.section),
+  index("idx_daily_sessions_semester_date").on(table.semester, table.date),
+  index("idx_daily_sessions_marked_by").on(table.markedBy),
+  check("chk_daily_sessions_semester", sql`${table.semester} BETWEEN 1 AND 8`),
 ]);
 
 export const dailyAttendance = sqliteTable("daily_attendance", {
@@ -958,6 +940,8 @@ export const dailyAttendance = sqliteTable("daily_attendance", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
 }, (table) => [
   unique("unq_daily_attendance_session_student").on(table.dailySessionId, table.studentId),
+  index("idx_daily_attendance_student_id").on(table.studentId),
+  index("idx_daily_attendance_student_status").on(table.studentId, table.status),
   check("chk_daily_attendance_status", sql`${table.status} IN ('present', 'absent', 'late', 'excused')`),
 ]);
 
@@ -969,7 +953,7 @@ export const dailySessionsRelations = relations(dailySessions, ({ many, one }) =
   }),
 }));
 
-export const dailyAttendanceRelations = relations(dailyAttendance, ({ one }) => ({
+export const dailyAttendanceRelations = relations(dailyAttendance, ({ one, many }) => ({
   dailySession: one(dailySessions, {
     fields: [dailyAttendance.dailySessionId],
     references: [dailySessions.id],
@@ -978,6 +962,7 @@ export const dailyAttendanceRelations = relations(dailyAttendance, ({ one }) => 
     fields: [dailyAttendance.studentId],
     references: [students.id],
   }),
+  correctionRequests: many(attendanceCorrectionRequests),
 }));
 
 // --- 14. Telegram Bot Integration & Semester Routing ---
@@ -997,7 +982,8 @@ export const telegramSettings = sqliteTable("telegram_settings", {
 
 export const semesterTelegramConfigs = sqliteTable("semester_telegram_configs", {
   id: text("id").primaryKey(),
-  semester: text("semester").notNull().unique(), // Roman numeral: "I" through "VIII"
+  semester: integer("semester").notNull().default(1),
+  section: text("section").notNull().default("A"),
   chatId: text("chat_id").notNull(),
   messageThreadId: integer("message_thread_id"), // Optional forum topic thread ID
   chatTitle: text("chat_title"),
@@ -1008,11 +994,14 @@ export const semesterTelegramConfigs = sqliteTable("semester_telegram_configs", 
   lastRoutinePublishedAt: integer("last_routine_published_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
-});
+}, (table) => [
+  unique("unq_semester_telegram_configs_sem_sec").on(table.semester, table.section),
+  check("chk_semester_telegram_configs_semester", sql`${table.semester} BETWEEN 1 AND 8`),
+]);
 
 export const telegramBroadcastLogs = sqliteTable("telegram_broadcast_logs", {
   id: text("id").primaryKey(),
-  semester: text("semester").notNull(),
+  semester: integer("semester").notNull().default(1),
   type: text("type").notNull(), // 'routine_broadcast' | 'notice_broadcast' | 'morning_brief' | 'evening_brief' | 'test_message'
   date: text("date"), // ISO date string "YYYY-MM-DD" for daily briefs, null for ad-hoc broadcasts
   messageText: text("message_text").notNull(),
@@ -1023,7 +1012,9 @@ export const telegramBroadcastLogs = sqliteTable("telegram_broadcast_logs", {
 }, (table) => [
   index("idx_telegram_broadcast_logs_created").on(table.createdAt),
   index("idx_telegram_broadcast_logs_semester").on(table.semester),
+  index("idx_telegram_broadcast_logs_sent_by").on(table.sentByUserId),
   uniqueIndex("idx_telegram_broadcast_logs_dedup").on(table.semester, table.type, table.date),
+  check("chk_telegram_broadcast_logs_semester", sql`${table.semester} BETWEEN 1 AND 8`),
 ]);
 
 export const telegramBroadcastLogsRelations = relations(telegramBroadcastLogs, ({ one }) => ({
@@ -1033,6 +1024,39 @@ export const telegramBroadcastLogsRelations = relations(telegramBroadcastLogs, (
   }),
 }));
 
+export const telegramOutbox = sqliteTable("telegram_outbox", {
+  id: text("id").primaryKey(),
+  chatId: text("chat_id").notNull(),
+  messageThreadId: integer("message_thread_id"),
+  text: text("text").notNull(),
+  pinMessage: integer("pin_message", { mode: "boolean" }).notNull().default(false),
+  status: text("status").notNull().default("pending"),
+  retryCount: integer("retry_count").notNull().default(0),
+  maxRetries: integer("max_retries").notNull().default(5),
+  nextAttemptAt: integer("next_attempt_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  lastError: text("last_error"),
+  metadata: text("metadata", { mode: "json" }).$type<{
+    semester?: number;
+    type?: string;
+    noticeId?: string;
+    sentByUserId?: string | null;
+    [key: string]: any;
+  }>(),
+  processedAt: integer("processed_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+}, (table) => [
+  index("idx_telegram_outbox_queue").on(table.status, table.nextAttemptAt),
+  index("idx_telegram_outbox_chat").on(table.chatId),
+  check("chk_telegram_outbox_status", sql`${table.status} IN ('pending', 'processing', 'completed', 'failed')`),
+]);
+
 export type TelegramSettings = typeof telegramSettings.$inferSelect;
 export type NewTelegramSettings = typeof telegramSettings.$inferInsert;
 
@@ -1041,4 +1065,8 @@ export type NewSemesterTelegramConfig = typeof semesterTelegramConfigs.$inferIns
 
 export type TelegramBroadcastLog = typeof telegramBroadcastLogs.$inferSelect;
 export type NewTelegramBroadcastLog = typeof telegramBroadcastLogs.$inferInsert;
+
+export type TelegramOutboxItem = typeof telegramOutbox.$inferSelect;
+export type NewTelegramOutboxItem = typeof telegramOutbox.$inferInsert;
+
 
