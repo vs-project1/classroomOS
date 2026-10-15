@@ -1024,6 +1024,39 @@ export const telegramBroadcastLogsRelations = relations(telegramBroadcastLogs, (
   }),
 }));
 
+export const telegramOutbox = sqliteTable("telegram_outbox", {
+  id: text("id").primaryKey(),
+  chatId: text("chat_id").notNull(),
+  messageThreadId: integer("message_thread_id"),
+  text: text("text").notNull(),
+  pinMessage: integer("pin_message", { mode: "boolean" }).notNull().default(false),
+  status: text("status").notNull().default("pending"),
+  retryCount: integer("retry_count").notNull().default(0),
+  maxRetries: integer("max_retries").notNull().default(5),
+  nextAttemptAt: integer("next_attempt_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  lastError: text("last_error"),
+  metadata: text("metadata", { mode: "json" }).$type<{
+    semester?: number;
+    type?: string;
+    noticeId?: string;
+    sentByUserId?: string | null;
+    [key: string]: any;
+  }>(),
+  processedAt: integer("processed_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+}, (table) => [
+  index("idx_telegram_outbox_queue").on(table.status, table.nextAttemptAt),
+  index("idx_telegram_outbox_chat").on(table.chatId),
+  check("chk_telegram_outbox_status", sql`${table.status} IN ('pending', 'processing', 'completed', 'failed')`),
+]);
+
 export type TelegramSettings = typeof telegramSettings.$inferSelect;
 export type NewTelegramSettings = typeof telegramSettings.$inferInsert;
 
@@ -1032,4 +1065,8 @@ export type NewSemesterTelegramConfig = typeof semesterTelegramConfigs.$inferIns
 
 export type TelegramBroadcastLog = typeof telegramBroadcastLogs.$inferSelect;
 export type NewTelegramBroadcastLog = typeof telegramBroadcastLogs.$inferInsert;
+
+export type TelegramOutboxItem = typeof telegramOutbox.$inferSelect;
+export type NewTelegramOutboxItem = typeof telegramOutbox.$inferInsert;
+
 

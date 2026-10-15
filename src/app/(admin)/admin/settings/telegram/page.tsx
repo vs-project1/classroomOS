@@ -8,6 +8,8 @@ import { BotSettingsCard } from "@/features/telegram/components/bot-settings-car
 import { CronAutomationCard } from "@/features/telegram/components/cron-automation-card";
 import { SemesterConfigsTable } from "@/features/telegram/components/semester-configs-table";
 import { BroadcastLogsTable } from "@/features/telegram/components/broadcast-logs-table";
+import { OutboxQueueCard } from "@/features/telegram/components/outbox-queue-card";
+import { getTelegramOutboxStats } from "@/features/telegram/services/telegram-outbox-service";
 import Link from "next/link";
 import { ArrowLeft, Bot, MessageCircle } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -21,10 +23,11 @@ export const metadata = {
 export default async function AdminTelegramSettingsPage() {
   await requireAuth(["ADMIN"]);
 
-  const [settings, configs, logs] = await Promise.all([
+  const [settings, configs, logs, outboxStats] = await Promise.all([
     getTelegramSettings(),
     getSemesterTelegramConfigs(),
     getTelegramBroadcastLogs(20),
+    getTelegramOutboxStats(),
   ]);
 
   const hasBotConfigured = Boolean(settings?.botToken && settings?.botUsername);
@@ -67,6 +70,9 @@ export default async function AdminTelegramSettingsPage() {
 
       {/* Semester Channels Binding Table */}
       <SemesterConfigsTable configs={configs} hasBotConfigured={hasBotConfigured} />
+
+      {/* Outbox Queue Monitoring */}
+      <OutboxQueueCard stats={outboxStats} />
 
       {/* Broadcast History & Logs */}
       <BroadcastLogsTable logs={logs} />

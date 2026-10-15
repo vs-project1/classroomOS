@@ -10,12 +10,25 @@ import {
   teachers,
 } from "@/db/schema";
 import { sendTelegramMessage } from "./telegram-client";
+import { drainTelegramOutbox } from "./telegram-outbox-service";
 import {
   formatRoutineBriefMessage,
   formatWeekendGreetingMessage,
   type RoutineSlotInfo,
 } from "./formatters";
 import { toSemesterNumber, toSemesterRoman } from "@/lib/semester";
+
+/**
+ * Poller hook to periodically drain pending/retrying jobs in the background.
+ */
+export async function pollTelegramOutboxWorker(): Promise<void> {
+  try {
+    await drainTelegramOutbox();
+  } catch (err) {
+    console.error("[telegram-brief-service] Outbox background poll error:", err);
+  }
+}
+
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -71,6 +84,11 @@ export async function executeTelegramBrief(
       ],
     };
   }
+
+  // Proactively drain outbox jobs alongside routine briefings
+  void drainTelegramOutbox().catch((err) => {
+    console.error("[telegram-brief-service] Outbox drain during briefing error:", err);
+  });
 
   // 1. Determine Nepal (Asia/Kathmandu) Time
   const now = new Date();

@@ -87,6 +87,7 @@ This file is the single source of truth for project planning, architectural mile
 | **M7** | Database Schema Unification & Referential Integrity | `src/db/schema.ts`, `students`, `weeklyRoutine.teacherId`, `resources`, notices/events authors & indexes | M1-M6 | Architect / Backend | `COMPLETED` |
 | **M7.2** | P0 Existing Features Hardening | `src/db/schema.ts`, `src/features/attendance/**`, `src/features/routine/**`, `src/features/assignments/**` | M7 | Fullstack / Architecture | `COMPLETED` |
 | **M7.3** | P1 Database Standardization & Subject Safety | `src/lib/semester.ts`, `src/db/schema.ts`, `drizzle/0019_*.sql`, `src/features/subjects/**`, `src/features/telegram/**` | M7.2 | Database / Backend | `COMPLETED` |
+| **M7.4** | P2 Telegram Transactional Outbox | `src/db/schema.ts`, `src/features/telegram/services/telegram-outbox-service.ts`, `telegram_outbox`, `telegram-actions.ts` | M7.3 | Backend / Architecture | `COMPLETED` |
 
 *Status options: `BACKLOG`, `PLANNED`, `IN_PROGRESS`, `VERIFYING`, `COMPLETED`, `ARCHIVED`*
 
@@ -106,6 +107,8 @@ This file is the single source of truth for project planning, architectural mile
 | **M7.1** | Attendance, Uploads & Timetable UX Hardening | 2026-10-15 | Fixed `resources.uploaded_by` foreign key to `users(id)`, responsive mobile Take Attendance cards with 4-way segmented buttons & floating action bar clearance over bottom nav, chronological vertical `TimelineRiver` with 50m durations, and 260px weekly routine cards without ellipsis truncation. |
 | **M7.2** | P0 Existing Features Hardening | 2026-10-15 | Hardened attendance resubmission via conflict upsert preserving dispute requests, added `semester` and `section` to routine and schedule generation with atomic transactions, eliminated collision blindspot on non-subject slots, canonicalized user-student joins in assignments/notifications, added Google Drive URL validation & SpeedGrader-style embedded preview iframe. |
 | **M7.3** | P1 Database Standardization & Subject Safety | 2026-10-16 | Standardized semester representation to integer (`1..8`) with check constraints across 5 tables; protected `subjects` with `onDelete: "restrict"` across 7 dependent tables; implemented `isActive` soft delete and query filtering; pushed Telegram routine query down to SQL; verified with 60/60 test suite. |
+| **M7.4** | P2 Telegram Transactional Outbox | 2026-10-16 | Decoupled synchronous Telegram API calls from Next.js server actions using `telegram_outbox` table, non-blocking single & batch enqueue, resilient background drain worker with inter-request pacing (50ms), exponential backoff $\min(300000, 1000 \times 2^n)$, HTTP 429 `retry_after` handling, 60s instrumentation scheduler polling, and 8/8 automated verification suite. |
+
 
 
 ---

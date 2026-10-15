@@ -141,6 +141,14 @@ async function runStudentVerification() {
     const testHw = (await db.query.homework.findFirst())!;
     const testStudentId = studentA!.id;
 
+    // Ensure clean state before testing toggle
+    await db.delete(assignmentSubmissions).where(
+      and(
+        eq(assignmentSubmissions.homeworkId, testHw.id),
+        eq(assignmentSubmissions.studentId, testStudentId)
+      )
+    );
+
     // Toggle ON: Insert notebook submission
     const subId = `sub_${testId}`;
     await db.insert(assignmentSubmissions).values({

@@ -141,6 +141,13 @@
       "when": 1792097037195,
       "tag": "0019_p1_semester_standardization",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1792103272176,
+      "tag": "0020_p2_telegram_outbox",
+      "breakpoints": true
     }
   ]
 }

@@ -84,6 +84,31 @@ async function main() {
   await client.execute(`CREATE UNIQUE INDEX IF NOT EXISTS idx_telegram_broadcast_logs_dedup ON telegram_broadcast_logs (semester, type, date);`);
   console.log("✅ telegram_broadcast_logs ready.");
 
+  // 3b. Create telegram_outbox table
+  console.log("📦 Creating telegram_outbox table if not exists...");
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS telegram_outbox (
+      id text PRIMARY KEY NOT NULL,
+      chat_id text NOT NULL,
+      message_thread_id integer,
+      text text NOT NULL,
+      pin_message integer DEFAULT 0 NOT NULL,
+      status text DEFAULT 'pending' NOT NULL,
+      retry_count integer DEFAULT 0 NOT NULL,
+      max_retries integer DEFAULT 5 NOT NULL,
+      next_attempt_at integer DEFAULT (unixepoch()) NOT NULL,
+      last_error text,
+      metadata text,
+      processed_at integer,
+      created_at integer DEFAULT (unixepoch()) NOT NULL,
+      updated_at integer DEFAULT (unixepoch()) NOT NULL,
+      CONSTRAINT chk_telegram_outbox_status CHECK(status IN ('pending', 'processing', 'completed', 'failed'))
+    );
+  `);
+  await client.execute(`CREATE INDEX IF NOT EXISTS idx_telegram_outbox_queue ON telegram_outbox (status, next_attempt_at);`);
+  await client.execute(`CREATE INDEX IF NOT EXISTS idx_telegram_outbox_chat ON telegram_outbox (chat_id);`);
+  console.log("✅ telegram_outbox ready.");
+
   // 4. Check students columns
   const studentsInfo = await client.execute("PRAGMA table_info(students)");
   const studentCols = studentsInfo.rows.map((r) => r.name as string);
