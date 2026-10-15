@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { weeklyRoutine, classSessions, attendance, enrollments, students, users, subjects } from "@/db/schema";
+import { weeklyRoutine, classSessions, enrollments, students, users, subjects } from "@/db/schema";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -15,25 +15,39 @@ import { markSemesterRoutineModified } from "@/features/telegram/actions/telegra
 import type { ActionResult } from "@/lib/types/action-result";
 
 const routineSchema = z.object({
-  subjectId: z.string().min(1, "Subject is required"),
+  subjectId: z.string().optional().nullable(),
+  teacherId: z.string().optional().nullable(),
+  semester: z.string().default("I"),
+  section: z.string().default("A"),
+  slotType: z.enum(["LECTURE", "LAB", "BREAK", "ECA", "LIBRARY"]).default("LECTURE"),
+  customTitle: z.string().optional().nullable(),
   dayOfWeek: z.coerce.number().min(0).max(6, "Invalid day of week"),
   startTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid start time"),
   endTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid end time"),
-  teacherName: z.string().optional(),
   room: z.string().optional(),
   notes: z.string().optional(),
 }).refine(data => data.startTime < data.endTime, {
   message: "End time must be after start time",
   path: ["endTime"]
+}).refine(data => {
+  if (data.slotType === "LECTURE" || data.slotType === "LAB") {
+    return Boolean(data.subjectId || data.customTitle);
+  }
+  return true;
+}, {
+  message: "Subject or custom title is required for lecture/lab slots",
+  path: ["subjectId"]
 });
 
-async function checkOverlap(
+export async function checkOverlap(
   dayOfWeek: number, 
   startTime: string, 
   endTime: string, 
-  subjectId: string,
+  semester: string,
+  section: string = "A",
+  subjectId?: string | null,
   room?: string,
-  teacherName?: string,
+  teacherId?: string | null,
   excludeId?: string
 ) {
   const existingRoutines = await db.query.weeklyRoutine.findMany({
@@ -45,24 +59,30 @@ async function checkOverlap(
     }
   });
 
-  const newSubject = await db.query.subjects.findFirst({ where: eq(subjects.id, subjectId) });
+  const newSubject = subjectId ? await db.query.subjects.findFirst({ where: eq(subjects.id, subjectId) }) : null;
+  const effectiveTeacherId = teacherId || newSubject?.teacherId || null;
 
   for (const r of existingRoutines) {
     if (startTime < r.endTime && endTime > r.startTime) {
       // 1. Room overlap
       if (room && r.room && room.trim().toLowerCase() === r.room.trim().toLowerCase()) {
-         return { reason: `Room ${room} is already booked for ${r.subject.name}` };
+         return { reason: `Room ${room} is already booked for ${r.subject?.name ?? r.customTitle ?? "another class"}` };
       }
       // 2. Teacher overlap
-      if (teacherName && r.teacherName && teacherName.trim().toLowerCase() === r.teacherName.trim().toLowerCase()) {
-         return { reason: `Teacher ${teacherName} is already teaching ${r.subject.name}` };
+      const existingTeacherId = r.teacherId || r.subject?.teacherId || null;
+      if (effectiveTeacherId && existingTeacherId && effectiveTeacherId === existingTeacherId) {
+         return { reason: `The assigned teacher is already teaching ${r.subject?.name ?? r.customTitle ?? "another slot"} at this time` };
       }
-      if (newSubject?.teacherId && r.subject?.teacherId && newSubject.teacherId === r.subject.teacherId) {
-         return { reason: `The assigned teacher is already teaching ${r.subject.name}` };
-      }
-      // 3. Semester overlap
-      if (newSubject?.semester && r.subject?.semester && areSemestersEqual(newSubject.semester, r.subject.semester)) {
-         return { reason: `Semester ${newSubject.semester} already has ${r.subject.name} scheduled at this time` };
+      // 3. Semester + section overlap:
+      // Validates across ALL slot types (including BREAK, LAB, ECA with customTitle)
+      const existingSemester = r.semester || r.subject?.semester;
+      if (
+        existingSemester &&
+        areSemestersEqual(semester, existingSemester) &&
+        (r.section?.trim().toUpperCase() === section?.trim().toUpperCase())
+      ) {
+         const slotName = r.subject?.name ?? r.customTitle ?? r.slotType ?? "another slot";
+         return { reason: `Semester ${semester} (Section ${section}) already has ${slotName} scheduled at this time` };
       }
     }
   }
@@ -91,12 +111,12 @@ async function notifyEnrolledStudents(subjectId: string, title: string, link: st
     const subject = await db.query.subjects.findFirst({ where: eq(subjects.id, subjectId) });
     const subjectLabel = subject?.name ?? "a subject";
     const finalTitle = title.replace("{subject}", subjectLabel);
-    // enrollments.studentId is legacy students.id — map via students.email = users.email
+    // Canonical foreign key join: students.userId = users.id
     const enrolledUsers = await db
       .selectDistinct({ userId: users.id })
       .from(enrollments)
       .innerJoin(students, eq(students.id, enrollments.studentId))
-      .innerJoin(users, eq(users.email, students.email))
+      .innerJoin(users, eq(users.id, students.userId))
       .where(eq(enrollments.subjectId, subjectId));
 
     if (enrolledUsers.length === 0) return;
@@ -120,8 +140,9 @@ async function syncSessionsForRoutine(params: {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+  section?: string;
 }) {
-  const { routineId, subjectId, dayOfWeek, startTime, endTime } = params;
+  const { routineId, subjectId, dayOfWeek, startTime, endTime, section = "A" } = params;
   const { y, m, d } = getNptYmd();
 
   // 14-day window: today inclusive
@@ -141,23 +162,7 @@ async function syncSessionsForRoutine(params: {
   const windowStart = new Date(`${startDateStr}T00:00:00.000Z`);
   const windowEnd = new Date(`${endDateStr}T23:59:59.999Z`);
 
-  // 1) Delete attendance for sessions that will be replaced (explicit, even though cascade would handle)
-  const existing = await db.query.classSessions.findMany({
-    where: and(eq(classSessions.routineId, routineId), gte(classSessions.sessionDate, windowStart), lte(classSessions.sessionDate, windowEnd)),
-  });
-
-  if (existing.length > 0) {
-    const ids = existing.map((s) => s.id);
-    // explicit attendance cleanup
-    try {
-      await db.delete(attendance).where(inArray(attendance.classSessionId, ids));
-    } catch (e) {
-      console.error("[routine] failed to delete attendance for regen", e);
-    }
-    await db.delete(classSessions).where(inArray(classSessions.id, ids));
-  }
-
-  // 2) Insert new sessions for each matching weekday in the 14-day window
+  // Insert new sessions for each matching weekday in the 14-day window
   const toInsert: typeof classSessions.$inferInsert[] = [];
   for (let i = 0; i < 14; i++) {
     const cur = new Date(y, m, d);
@@ -173,24 +178,37 @@ async function syncSessionsForRoutine(params: {
       subjectId,
       routineId,
       sessionDate,
+      section,
       startTime,
       endTime,
     });
   }
 
-  for (const row of toInsert) {
-    try {
-      await db.insert(classSessions).values(row);
-    } catch (e: any) {
-      // unique on (subjectId, sessionDate) — another routine may have created same slot; skip
-      if (String(e?.message ?? "").includes("UNIQUE") || String(e?.cause ?? "").includes("UNIQUE")) {
-        continue;
-      }
-      console.error("[routine] failed to insert classSession", row, e);
-    }
-  }
+  // Wrap entire 14-day session wipe & rebuild in an atomic transaction:
+  await db.transaction(async (tx) => {
+    const existing = await tx.query.classSessions.findMany({
+      where: and(
+        eq(classSessions.routineId, routineId),
+        gte(classSessions.sessionDate, windowStart),
+        lte(classSessions.sessionDate, windowEnd)
+      ),
+      with: {
+        lectureLog: true,
+      },
+    });
 
-  // 3) Notify enrolled students (best-effort, never throws)
+    // Protect historical lecture logs: only purge sessions that don't have recorded lecture logs
+    const sessionsToDelete = existing.filter((s) => !s.lectureLog).map((s) => s.id);
+    if (sessionsToDelete.length > 0) {
+      await tx.delete(classSessions).where(inArray(classSessions.id, sessionsToDelete));
+    }
+
+    if (toInsert.length > 0) {
+      await tx.insert(classSessions).values(toInsert).onConflictDoNothing();
+    }
+  });
+
+  // Notify enrolled students (best-effort, never throws)
   const subject = await db.query.subjects.findFirst({ where: eq(subjects.id, subjectId) });
   const dayName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][dayOfWeek] ?? `${dayOfWeek}`;
   await notifyEnrolledStudents(subjectId, `Timetable updated: ${subject?.name ?? "A class"} on ${dayName} ${startTime}–${endTime}`, "/routine");
@@ -209,13 +227,17 @@ export async function saveRoutine(
   const normalizedEndTime = parseAndNormalizeTime(rawEndTime) || rawEndTime;
 
   const rawData = {
-    subjectId: formData.get("subjectId"),
+    subjectId: formData.get("subjectId") ? formData.get("subjectId")?.toString() : null,
+    teacherId: formData.get("teacherId") ? formData.get("teacherId")?.toString() : null,
+    semester: formData.get("semester")?.toString() || "I",
+    section: formData.get("section")?.toString() || "A",
+    slotType: (formData.get("slotType")?.toString() || "LECTURE") as any,
+    customTitle: formData.get("customTitle") ? formData.get("customTitle")?.toString() : null,
     dayOfWeek: formData.get("dayOfWeek"),
     startTime: normalizedStartTime,
     endTime: normalizedEndTime,
-    teacherName: formData.get("teacherName") || undefined,
-    room: formData.get("room") || undefined,
-    notes: formData.get("notes") || undefined,
+    room: formData.get("room")?.toString() || undefined,
+    notes: formData.get("notes")?.toString() || undefined,
   };
 
   const validatedFields = routineSchema.safeParse(rawData);
@@ -229,8 +251,27 @@ export async function saveRoutine(
 
   const data = validatedFields.data;
 
+  // Resolve effective semester: if subject is selected, match subject's semester
+  let effectiveSemester = data.semester;
+  if (data.subjectId) {
+    const subject = await db.query.subjects.findFirst({ where: eq(subjects.id, data.subjectId) });
+    if (subject?.semester) {
+      effectiveSemester = subject.semester;
+    }
+  }
+
   // Check overlap
-  const overlap = await checkOverlap(data.dayOfWeek, data.startTime, data.endTime, data.subjectId, data.room, data.teacherName, id);
+  const overlap = await checkOverlap(
+    data.dayOfWeek,
+    data.startTime,
+    data.endTime,
+    effectiveSemester,
+    data.section,
+    data.subjectId,
+    data.room,
+    data.teacherId,
+    id
+  );
   if (overlap) {
     return {
       success: false,
@@ -246,9 +287,7 @@ export async function saveRoutine(
         where: eq(weeklyRoutine.id, id),
         with: { subject: true },
       });
-      if (existingRoutine?.subject?.semester) {
-        previousSemester = existingRoutine.subject.semester;
-      }
+      previousSemester = existingRoutine?.semester || existingRoutine?.subject?.semester || null;
     } catch {}
   }
 
@@ -260,6 +299,7 @@ export async function saveRoutine(
       await db.update(weeklyRoutine)
         .set({
           ...data,
+          semester: effectiveSemester,
           updatedAt: new Date(),
         })
         .where(eq(weeklyRoutine.id, id));
@@ -267,6 +307,7 @@ export async function saveRoutine(
       await db.insert(weeklyRoutine).values({
         id: routineId,
         ...data,
+        semester: effectiveSemester,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -281,29 +322,31 @@ export async function saveRoutine(
   }
 
   // Routine Intelligence: regen classSessions for next 14 days + notify
-  try {
-    await syncSessionsForRoutine({
-      routineId,
-      subjectId: data.subjectId,
-      dayOfWeek: data.dayOfWeek,
-      startTime: data.startTime,
-      endTime: data.endTime,
-    });
-  } catch (e) {
-    console.error("[routine] syncSessionsForRoutine failed", e);
-  }
+  if (data.subjectId) {
+    try {
+      await syncSessionsForRoutine({
+        routineId,
+        subjectId: data.subjectId,
+        dayOfWeek: data.dayOfWeek,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        section: data.section,
+      });
+    } catch (e) {
+      console.error("[routine] syncSessionsForRoutine failed", e);
+    }
 
-  // Routine Intelligence: mark routine modified for Telegram change detection
-  try {
-    const subject = await db.query.subjects.findFirst({ where: eq(subjects.id, data.subjectId) });
-    if (subject?.semester) {
-      await markSemesterRoutineModified(subject.semester);
+    // Routine Intelligence: mark routine modified for Telegram change detection
+    try {
+      if (effectiveSemester) {
+        await markSemesterRoutineModified(effectiveSemester);
+      }
+      if (previousSemester && previousSemester !== effectiveSemester) {
+        await markSemesterRoutineModified(previousSemester);
+      }
+    } catch (e) {
+      console.error("[routine] markSemesterRoutineModified failed", e);
     }
-    if (previousSemester && previousSemester !== subject?.semester) {
-      await markSemesterRoutineModified(previousSemester);
-    }
-  } catch (e) {
-    console.error("[routine] markSemesterRoutineModified failed", e);
   }
 
   revalidatePath("/routine");
@@ -320,7 +363,7 @@ export async function deleteRoutine(id: string) {
   const user = await requireAuth(["TEACHER", "ADMIN"]);
 
   // Capture routine for notification + session cleanup before delete
-  let routineForNotify: { subjectId: string; dayOfWeek: number; semester?: string | null } | null = null;
+  let routineForNotify: { subjectId: string | null; dayOfWeek: number; semester?: string | null } | null = null;
   try {
     const found = await db.query.weeklyRoutine.findFirst({
       where: eq(weeklyRoutine.id, id),
@@ -330,13 +373,13 @@ export async function deleteRoutine(id: string) {
       routineForNotify = {
         subjectId: found.subjectId,
         dayOfWeek: found.dayOfWeek,
-        semester: found.subject?.semester ?? null,
+        semester: found.semester || found.subject?.semester || null,
       };
     }
   } catch {}
 
   try {
-    // Delete future classSessions for this routine (next 14 days window) + attendance
+    // Delete future classSessions for this routine (next 14 days window)
     try {
       const { y, m, d } = getNptYmd();
       const startDateStr = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -347,13 +390,13 @@ export async function deleteRoutine(id: string) {
       const windowEnd = new Date(`${endDateStr}T23:59:59.999Z`);
       const sessions = await db.query.classSessions.findMany({
         where: and(eq(classSessions.routineId, id), gte(classSessions.sessionDate, windowStart), lte(classSessions.sessionDate, windowEnd)),
+        with: {
+          lectureLog: true,
+        },
       });
-      if (sessions.length > 0) {
-        const ids = sessions.map((s) => s.id);
-        try {
-          await db.delete(attendance).where(inArray(attendance.classSessionId, ids));
-        } catch {}
-        await db.delete(classSessions).where(inArray(classSessions.id, ids));
+      const unloggedSessions = sessions.filter((s) => !s.lectureLog).map((s) => s.id);
+      if (unloggedSessions.length > 0) {
+        await db.delete(classSessions).where(inArray(classSessions.id, unloggedSessions));
       }
     } catch (e) {
       console.error("[routine] failed to clean sessions on delete", e);
@@ -361,7 +404,7 @@ export async function deleteRoutine(id: string) {
 
     await db.delete(weeklyRoutine).where(eq(weeklyRoutine.id, id));
 
-    if (routineForNotify) {
+    if (routineForNotify && routineForNotify.subjectId) {
       const dayName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][routineForNotify.dayOfWeek] ?? "";
       await notifyEnrolledStudents(
         routineForNotify.subjectId,

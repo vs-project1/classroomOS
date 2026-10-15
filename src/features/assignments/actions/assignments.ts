@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { homework, assignmentSubmissions, studentProfiles, students, enrollments, subjects, users } from "@/db/schema";
+import { homework, assignmentSubmissions, students, enrollments, subjects, users } from "@/db/schema";
 import { getCurrentUser, requireAuth } from "@/lib/auth";
 import { notifyMany } from "@/lib/notifications";
 import { eq, and, ne } from "drizzle-orm";
@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import crypto from "node:crypto";
+import { validateGoogleDriveUrl } from "@/features/assignments/utils/drive";
 
 const submissionSchema = z.object({
   homeworkId: z.string().min(1, "Homework ID is required"),
@@ -42,20 +43,18 @@ export interface SubmissionActionResult {
 async function resolveCurrentStudentId(): Promise<string> {
   const user = await requireAuth(["STUDENT", "CR", "ADMIN", "TEACHER"]);
 
-  // 1. If studentProfileId exists, resolve rollNumber -> students.id
-  if (user.studentProfileId) {
-    const profile = await db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.id, user.studentProfileId),
-    });
-    if (profile) {
-      const student = await db.query.students.findFirst({
-        where: eq(students.rollNumber, profile.rollNumber),
-      });
-      if (student) return student.id;
-    }
+  // 1. Direct studentId on session
+  if (user.studentId) {
+    return user.studentId;
   }
 
-  // 2. Direct lookup by user email in students table
+  // 2. Direct lookup by userId in students table
+  const studentByUserId = await db.query.students.findFirst({
+    where: eq(students.userId, user.id),
+  });
+  if (studentByUserId) return studentByUserId.id;
+
+  // 3. Direct lookup by user email in students table
   if (user.email) {
     const studentByEmail = await db.query.students.findFirst({
       where: eq(students.email, user.email),
@@ -63,7 +62,7 @@ async function resolveCurrentStudentId(): Promise<string> {
     if (studentByEmail) return studentByEmail.id;
   }
 
-  // 3. Fallback to user ID if student ID matches
+  // 4. Fallback to user ID if student ID matches
   const directStudent = await db.query.students.findFirst({
     where: eq(students.id, user.id),
   });
@@ -174,6 +173,21 @@ export async function submitAssignmentAction(
         success: false,
         message: "Please provide either a written solution or an attached file.",
       };
+    }
+
+    if (fileUrl) {
+      const isDriveDomain = /drive\.google\.com|docs\.google\.com|sheets\.google\.com|slides\.google\.com/i.test(fileUrl);
+      if (isDriveDomain) {
+        const driveValidation = validateGoogleDriveUrl(fileUrl);
+        if (!driveValidation.isValid) {
+          return {
+            success: false,
+            fieldErrors: {
+              fileUrl: [driveValidation.error || "Invalid Google Drive link format."],
+            },
+          };
+        }
+      }
     }
 
     const hw = await db.query.homework.findFirst({
@@ -336,13 +350,12 @@ export async function createHomework(prevState: any, formData: FormData) {
 
     // Notify enrolled students (best-effort — notifyMany never throws).
     try {
-      // notifications.userId references users.id, but enrollments.studentId is a
-      // legacy students-table id — map via students.email = users.email.
+      // notifications.userId references users.id — canonical join via students.userId = users.id.
       const enrolledUsers = await db
         .selectDistinct({ userId: users.id })
         .from(enrollments)
         .innerJoin(students, eq(students.id, enrollments.studentId))
-        .innerJoin(users, eq(users.email, students.email))
+        .innerJoin(users, eq(users.id, students.userId))
         .where(eq(enrollments.subjectId, data.subjectId));
 
       if (enrolledUsers.length > 0) {
@@ -414,30 +427,40 @@ export async function toggleHomeworkCompletionAction(
   await requireAuth(["STUDENT", "CR"]);
   const studentId = await resolveCurrentStudentId();
 
-  const existing = await db.query.assignmentSubmissions.findFirst({
-    where: and(
-      eq(assignmentSubmissions.homeworkId, homeworkId),
-      eq(assignmentSubmissions.studentId, studentId)
-    ),
-  });
-
-  if (existing) {
-    await db.delete(assignmentSubmissions).where(eq(assignmentSubmissions.id, existing.id));
-    revalidatePath("/homework");
-    revalidatePath("/");
-    return { success: true, completed: false, message: "Marked as pending." };
-  } else {
-    await db.insert(assignmentSubmissions).values({
-      id: `sub_${crypto.randomUUID()}`,
-      homeworkId,
-      studentId,
-      status: "submitted",
-      content: "Completed in notebook",
-      createdAt: new Date(),
-      updatedAt: new Date(),
+  return await db.transaction(async (tx) => {
+    const existing = await tx.query.assignmentSubmissions.findFirst({
+      where: and(
+        eq(assignmentSubmissions.homeworkId, homeworkId),
+        eq(assignmentSubmissions.studentId, studentId)
+      ),
     });
-    revalidatePath("/homework");
-    revalidatePath("/");
-    return { success: true, completed: true, message: "Marked as completed in notebook." };
-  }
+
+    if (existing) {
+      if (existing.status === "graded") {
+        return {
+          success: false,
+          completed: true,
+          message: "This assignment has already been graded and cannot be changed.",
+        };
+      }
+      await tx.delete(assignmentSubmissions).where(eq(assignmentSubmissions.id, existing.id));
+      revalidatePath("/homework");
+      revalidatePath("/");
+      return { success: true, completed: false, message: "Marked as pending." };
+    } else {
+      await tx.insert(assignmentSubmissions).values({
+        id: `sub_${crypto.randomUUID()}`,
+        homeworkId,
+        studentId,
+        status: "submitted",
+        content: "Completed in notebook",
+        submittedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      revalidatePath("/homework");
+      revalidatePath("/");
+      return { success: true, completed: true, message: "Marked as completed in notebook." };
+    }
+  });
 }

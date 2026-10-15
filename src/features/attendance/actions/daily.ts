@@ -1,16 +1,16 @@
 "use server";
 import { db } from "@/db";
-import { dailySessions, dailyAttendance, students, users, studentProfiles } from "@/db/schema";
+import { dailySessions, dailyAttendance, students, teachers, users } from "@/db/schema";
 import { requireAuth } from "@/lib/auth/session";
 import { resolveCurrentStudent } from "@/lib/auth";
 import crypto from "node:crypto";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { toOrdinalSemester, getSemesterVariants } from "@/lib/utils/roman";
 
 /**
  * Coerce a Date to start-of-day in NPT (Asia/Kathmandu). The `daily_sessions`
- * unique constraint is on (date, semester), and the date column should mean
+ * unique constraint is on (date, semester, section), and the date column should mean
  * "this calendar day", not "this moment in time".
  */
 function nptStartOfDay(d: Date): Date {
@@ -23,16 +23,22 @@ function nptStartOfDay(d: Date): Date {
   return new Date(`${ymd}T00:00:00Z`);
 }
 
-export async function getDailyAttendanceForDateAction(semester: string, date: Date | string) {
+export async function getDailyAttendanceForDateAction(semester: string, date: Date | string, section?: string) {
   const user = await requireAuth(["CR", "ADMIN", "TEACHER"]);
   let activeSemester = semester;
+  let activeSection = section || "A";
+
   if (user.role === "CR") {
-    const crProfile = await db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.userId, user.id),
+    const student = await db.query.students.findFirst({
+      where: eq(students.userId, user.id),
     });
-    const student = !crProfile ? await resolveCurrentStudent() : null;
-    const crSem = crProfile?.semester ?? student?.semester ?? 1;
-    activeSemester = toOrdinalSemester(crSem);
+    const crStudent = student || (await resolveCurrentStudent());
+    if (crStudent) {
+      activeSemester = toOrdinalSemester(crStudent.semester);
+      if (!section && crStudent.section) {
+        activeSection = crStudent.section;
+      }
+    }
   }
   const targetDate = nptStartOfDay(typeof date === "string" ? new Date(date) : date);
 
@@ -40,6 +46,7 @@ export async function getDailyAttendanceForDateAction(semester: string, date: Da
   const session = await db.query.dailySessions.findFirst({
     where: and(
       inArray(dailySessions.semester, semVariants),
+      eq(dailySessions.section, activeSection),
       eq(dailySessions.date, targetDate)
     ),
   });
@@ -49,11 +56,31 @@ export async function getDailyAttendanceForDateAction(semester: string, date: Da
   const records = await db.select().from(dailyAttendance)
     .where(eq(dailyAttendance.dailySessionId, session.id));
 
+  let markerName = "CR";
+  if (session.markedBy) {
+    const markerUser = await db.query.users.findFirst({
+      where: eq(users.id, session.markedBy),
+    });
+    if (markerUser?.role === "CR") {
+      const student = await db.query.students.findFirst({
+        where: eq(students.userId, markerUser.id),
+      });
+      markerName = student?.name || "CR";
+    } else if (markerUser?.role === "TEACHER") {
+      const teacher = await db.query.teachers.findFirst({
+        where: eq(teachers.userId, markerUser.id),
+      });
+      markerName = teacher?.name || "Teacher";
+    } else if (markerUser?.role === "ADMIN") {
+      markerName = "Admin";
+    }
+  }
+
   return {
     id: session.id,
     date: session.date,
     semester: session.semester,
-    markedByName: "CR",
+    markedByName: markerName,
     records: records.map((a) => ({
       studentId: a.studentId,
       status: a.status as "present" | "absent" | "late" | "excused",
@@ -64,29 +91,47 @@ export async function getDailyAttendanceForDateAction(semester: string, date: Da
 export async function submitDailyAttendanceAction(
   semester: string,
   date: Date,
-  records: { studentId: string; status: "present" | "absent" | "late" | "excused" }[]
+  records: { studentId: string; status: "present" | "absent" | "late" | "excused" }[],
+  section?: string
 ) {
   const user = await requireAuth(["CR", "ADMIN", "TEACHER"]);
   let targetSemester = toOrdinalSemester(semester);
+  let targetSection = section || "A";
+
   if (user.role === "CR") {
-    const crProfile = await db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.userId, user.id),
+    const student = await db.query.students.findFirst({
+      where: eq(students.userId, user.id),
     });
-    const student = !crProfile ? await resolveCurrentStudent() : null;
-    const crSem = crProfile?.semester ?? student?.semester ?? 1;
-    targetSemester = toOrdinalSemester(crSem);
+    const crStudent = student || (await resolveCurrentStudent());
+    if (crStudent) {
+      targetSemester = toOrdinalSemester(crStudent.semester);
+      if (!section && crStudent.section) {
+        targetSection = crStudent.section;
+      }
+    }
   }
   const normalizedDate = nptStartOfDay(date);
+  const todayNpt = nptStartOfDay(new Date());
+
+  // Strict Academic Domain Invariant: Cannot record attendance for future dates
+  if (normalizedDate.getTime() > todayNpt.getTime()) {
+    return {
+      success: false,
+      message: "Cannot record attendance for future dates. Please select today or a past date.",
+    };
+  }
+
   const semVariants = getSemesterVariants(targetSemester);
 
   try {
     let isUpdate = false;
 
     await db.transaction(async (tx) => {
-      // Check if session already exists for this date + semester (matching across variants)
+      // Check if session already exists for this date + semester + section
       const existingSession = await tx.query.dailySessions.findFirst({
         where: and(
           inArray(dailySessions.semester, semVariants),
+          eq(dailySessions.section, targetSection),
           eq(dailySessions.date, normalizedDate)
         ),
       });
@@ -96,27 +141,35 @@ export async function submitDailyAttendanceAction(
       if (existingSession) {
         isUpdate = true;
         sessionId = existingSession.id;
-        // Delete previous records for clean update
-        await tx.delete(dailyAttendance).where(eq(dailyAttendance.dailySessionId, sessionId));
+        // Update markedBy to reflect current editor
+        await tx.update(dailySessions).set({
+          markedBy: user.id,
+        }).where(eq(dailySessions.id, sessionId));
       } else {
         sessionId = `ds_${crypto.randomUUID()}`;
         await tx.insert(dailySessions).values({
           id: sessionId,
           date: normalizedDate,
           semester: targetSemester,
+          section: targetSection,
           markedBy: user.id,
         });
       }
 
-      const attRecords = records.map((r) => ({
-        id: `da_${crypto.randomUUID()}`,
-        dailySessionId: sessionId,
-        studentId: r.studentId,
-        status: r.status,
-      }));
-
-      if (attRecords.length > 0) {
-        await tx.insert(dailyAttendance).values(attRecords);
+      // Atomic Upsert on unq_daily_attendance_session_student:
+      // Preserves dailyAttendance.id so cascading attendanceCorrectionRequests remain intact.
+      for (const record of records) {
+        await tx.insert(dailyAttendance).values({
+          id: `da_${crypto.randomUUID()}`,
+          dailySessionId: sessionId,
+          studentId: record.studentId,
+          status: record.status,
+        }).onConflictDoUpdate({
+          target: [dailyAttendance.dailySessionId, dailyAttendance.studentId],
+          set: {
+            status: sql`excluded.status`,
+          },
+        });
       }
     });
 

@@ -127,6 +127,13 @@
       "when": 1791618525567,
       "tag": "0017_late_maggott",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1792093505143,
+      "tag": "0018_p0_hardening",
+      "breakpoints": true
     }
   ]
 }
